@@ -156,7 +156,11 @@ function stylesheetsFor(a: PagedAssembly): PagedStylesheet[] {
     if (c.baseCss) sheets.push({ 'orz-base.css': c.baseCss });
     if (theme !== 'none' && c.themes && c.themes[theme]) sheets.push({ 'orz-theme.css': c.themes[theme] });
   }
-  if (c.katexCss) sheets.push(c.katexCss);
+  // NOTE: do NOT push KaTeX (a URL) here — paged.js' polisher would XHR-fetch it,
+  // which file:// blocks (cross-origin from an opaque origin), breaking pagination
+  // offline. KaTeX is loaded as a <head> <link> in render(), which styles the
+  // .pagedjs_page math globally — no fetch needed. (In --inline mode every entry
+  // below is inline CSS, so pagination needs no network at all.)
   sheets.push({ 'orz-page.css': a.css }); // @page rules + element CSS — last so it wins
   return sheets;
 }

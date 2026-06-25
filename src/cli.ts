@@ -33,12 +33,18 @@ function findAsset(rel: string): string {
   return p;
 }
 
+/** Drop a theme's `@import url("./base.css")` — base is inlined separately, so the
+ *  relative import points nowhere (404 on http; a fetch hazard on file://). */
+function stripBaseImport(css: string): string {
+  return css.replace(/@import\s+url\(\s*['"]?\.\/base\.css['"]?\s*\)\s*;?/gi, '');
+}
+
 function loadThemes(): { baseCss: string; themes: ThemeAsset[] } {
   const dir = findAsset('assets/themes');
   const baseCss = readFileSync(join(dir, 'base.css'), 'utf8');
   const themes = readdirSync(dir)
     .filter((f) => f.endsWith('.css') && f !== 'base.css')
-    .map((f) => ({ id: f.replace(/\.css$/, ''), css: readFileSync(join(dir, f), 'utf8') }));
+    .map((f) => ({ id: f.replace(/\.css$/, ''), css: stripBaseImport(readFileSync(join(dir, f), 'utf8')) }));
   return { baseCss, themes };
 }
 
