@@ -129,6 +129,17 @@ const CHROME_CSS = `
     z-index: 70; background: #111; color: #fff; padding: 9px 16px; border-radius: 8px;
     font: 13px system-ui, sans-serif; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
   #orz-toast.show { opacity: .95; transform: translateX(-50%) translateY(0); }
+
+  /* update banner — shown only in edit view (the editor triggers the check) */
+  .orz-banner { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 80;
+    display: none; align-items: center; gap: 10px; background: #2b2f36; color: #eee;
+    border: 1px solid #444; border-radius: 9px; padding: 9px 14px;
+    font: 13px/1.3 system-ui, sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+  .orz-banner.show { display: flex; }
+  .orz-banner button { font: 500 12.5px system-ui, sans-serif; color: #e6e8ec; background: #3a3f48;
+    border: 1px solid #4a505a; border-radius: 6px; padding: 5px 11px; cursor: pointer; }
+  .orz-banner button.upd-primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+  .orz-banner button:hover { filter: brightness(1.1); }
 `;
 
 export function buildHtml(o: BuildOptions): string {
@@ -140,13 +151,20 @@ export function buildHtml(o: BuildOptions): string {
       : undefined,
     katexCss: o.cdn.katexCss,
     enhancers: { mermaidJs: o.cdn.mermaidJs, smilesJs: o.cdn.smilesJs, chartJs: o.cdn.chartJs },
+    // self-update: the editor checks this manifest and can re-fetch the engine +
+    // app.js from the lockstep packages at the latest version.
+    version: o.rendererVersion,
+    versionManifest: 'https://data.jsdelivr.com/v1/packages/npm/orz-paged-browser/resolved',
+    enginePkg: 'orz-paged-browser',
+    engineFile: 'orz-paged.browser.js',
+    appPkg: 'orz-paged',
   };
   const themeOptions = o.themes
     .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.id)}</option>`)
     .join('');
   const engineTag = o.renderer.mode === 'inline'
-    ? `<script>${escapeForScript(o.renderer.js)}</script>`
-    : `<script src="${escapeHtml(o.renderer.src)}"></script>`;
+    ? `<script data-orz-asset="engine">${escapeForScript(o.renderer.js)}</script>`
+    : `<script data-orz-asset="engine" src="${escapeHtml(o.renderer.src)}"></script>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -178,6 +196,12 @@ export function buildHtml(o: BuildOptions): string {
   <div id="orz-editor-host"><textarea id="orz-ta" spellcheck="false"></textarea></div>
 </div>
 
+<div id="orz-update" class="orz-banner">
+  <span class="upd-text"></span>
+  <button id="orz-upd-apply" class="upd-primary">Update</button>
+  <button id="orz-upd-dismiss">Dismiss</button>
+</div>
+
 <div id="orz-toast"></div>
 
 <script type="text/markdown" id="orz-src">
@@ -186,8 +210,8 @@ ${escapeForScript(o.source)}
 
 ${engineTag}
 <script>${escapeForScript(o.runtime)}</script>
-<script>window.__ORZ_PAGED__ = ${JSON.stringify(config)};</script>
-<script>${escapeForScript(o.appJs)}</script>
+<script data-orz-asset="config">window.__ORZ_PAGED__ = ${JSON.stringify(config)};</script>
+<script data-orz-asset="app">${escapeForScript(o.appJs)}</script>
 </body>
 </html>`;
 }

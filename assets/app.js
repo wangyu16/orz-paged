@@ -111,6 +111,7 @@
   /* ---- edit mode ---- */
   function enterEdit() {
     document.documentElement.setAttribute('data-mode', 'edit');
+    checkVersion(); // edit view only — broad viewers never see the update banner
     wireDivider();
     ensureCodeMirror().then(function () {
       if (!cm) {
@@ -154,6 +155,8 @@
     for (var i = 0; i < rt.length; i++) rt[i].parentNode.removeChild(rt[i]);
     // clear the rendered pages (the engine re-renders on load)
     var pages = clone.querySelector('#orz-pages'); if (pages) pages.innerHTML = '';
+    // never bake in the (edit-only) update banner so a viewer can't see it
+    var ub = clone.querySelector('#orz-update'); if (ub) { ub.classList.remove('show'); ub.removeAttribute('data-latest'); }
     // reset the editor host to a bare textarea (drop CodeMirror DOM)
     var host = clone.querySelector('#orz-editor-host');
     if (host) host.innerHTML = '<textarea id="orz-ta" spellcheck="false"></textarea>';
@@ -168,21 +171,24 @@
     return t.replace(/\.paged$/, '') + '.paged.html';
   }
 
-  function save() {
-    var html = serialize();
+  /** Write `html` to disk; resolves true if saved in place (FS-Access), false if downloaded. */
+  function persist(html) {
     if (window.showSaveFilePicker) {
-      window.showSaveFilePicker({
+      return window.showSaveFilePicker({
         suggestedName: suggestedName(),
         types: [{ description: 'paged HTML', accept: { 'text/html': ['.paged.html', '.html'] } }],
       }).then(function (handle) {
         return handle.createWritable().then(function (w) {
           return w.write(html).then(function () { return w.close(); });
         });
-      }).then(function () { toast('Saved'); })
-        .catch(function (e) { if (e && e.name !== 'AbortError') downloadFile(html); });
-    } else {
-      downloadFile(html);
+      }).then(function () { return true; });
     }
+    downloadFile(html);
+    return Promise.resolve(false);
+  }
+  function save() {
+    persist(serialize()).then(function (inPlace) { if (inPlace) toast('Saved'); })
+      .catch(function (e) { if (e && e.name !== 'AbortError') downloadFile(serialize()); });
   }
   function downloadFile(html) {
     var blob = new Blob([html], { type: 'text/html' });
@@ -191,6 +197,57 @@
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
     toast('Downloaded a copy');
+  }
+
+  /* ---- framework self-update (checked only in edit view) ---- */
+  function CFG() { return window.__ORZ_PAGED__ || {}; }
+  function isNewer(a, b) {
+    var pa = String(a).split('.'), pb = String(b).split('.');
+    for (var i = 0; i < 3; i++) { var x = parseInt(pa[i], 10) || 0, y = parseInt(pb[i], 10) || 0; if (x > y) return true; if (x < y) return false; }
+    return false;
+  }
+  var versionChecked = false;
+  function checkVersion() {
+    if (versionChecked) return; versionChecked = true;
+    var c = CFG(); if (!c.versionManifest || !c.version) return;
+    fetch(c.versionManifest).then(function (r) { return r.json(); }).then(function (j) {
+      var latest = j && j.version;
+      if (latest && isNewer(latest, c.version)) showUpdate(latest);
+    }).catch(function () {});
+  }
+  function showUpdate(latest) {
+    var bar = $('orz-update'); if (!bar) return;
+    bar.querySelector('.upd-text').textContent =
+      'Framework ' + latest + ' available (this file uses ' + CFG().version + ').';
+    bar.setAttribute('data-latest', latest);
+    bar.classList.add('show');
+  }
+  /** One-click update: re-fetch the engine bundle + app.js from the lockstep CDN
+   *  at the latest version, re-inline them, bump the version, save, and reload. */
+  function applyUpdate() {
+    var bar = $('orz-update'); var latest = bar && bar.getAttribute('data-latest'); if (!latest) return;
+    var c = CFG();
+    var base = 'https://cdn.jsdelivr.net/npm/';
+    var engineUrl = base + c.enginePkg + '@' + latest + '/' + c.engineFile;
+    var appUrl = base + c.appPkg + '@' + latest + '/assets/app.js';
+    toast('Downloading framework ' + latest + '…');
+    Promise.all([
+      fetch(engineUrl).then(function (r) { if (!r.ok) throw new Error('engine'); return r.text(); }),
+      fetch(appUrl).then(function (r) { if (!r.ok) throw new Error('app'); return r.text(); }),
+    ]).then(function (res) {
+      var es = document.querySelector('script[data-orz-asset="engine"]');
+      if (es) { if (es.getAttribute('src')) es.setAttribute('src', engineUrl); else es.textContent = res[0]; }
+      var as = document.querySelector('script[data-orz-asset="app"]');
+      if (as) as.textContent = res[1];
+      var cs = document.querySelector('script[data-orz-asset="config"]');
+      if (cs) { c.version = latest; cs.textContent = 'window.__ORZ_PAGED__ = ' + JSON.stringify(c) + ';'; }
+      bar.classList.remove('show');
+      return persist(serialize());
+    }).then(function (inPlace) {
+      if (inPlace === undefined) return;
+      if (inPlace) { toast('Updated to ' + latest + ' — reloading…'); setTimeout(function () { location.reload(); }, 700); }
+      else { toast('Updated copy downloaded — reopen it to use the new framework.'); }
+    }).catch(function () { toast('Update failed — check your connection.'); });
   }
 
   /* ---- wire up ---- */
@@ -203,6 +260,9 @@
     if (theme) theme.addEventListener('change', function () { if (api() && api().setTheme) api().setTheme(theme.value); });
     var sync = $('orz-sync');
     if (sync) { setSync(syncEnabled); sync.addEventListener('click', function () { setSync(!syncEnabled); }); }
+    var updApply = $('orz-upd-apply'); if (updApply) updApply.addEventListener('click', applyUpdate);
+    var updDismiss = $('orz-upd-dismiss');
+    if (updDismiss) updDismiss.addEventListener('click', function () { var u = $('orz-update'); if (u) u.classList.remove('show'); });
     var rz; window.addEventListener('resize', function () {
       if (!isEdit()) return; clearTimeout(rz);
       rz = setTimeout(function () { if (cm) cm.refresh(); fitPreview(); }, 120);
