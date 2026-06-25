@@ -79,12 +79,19 @@
     });
   }
 
-  /* ---- proportional editor <-> preview scroll sync ---- */
+  /* ---- proportional editor <-> preview scroll sync (toggleable) ---- */
   var syncLock = false;
+  var syncEnabled = true;
+  try { syncEnabled = localStorage.getItem('orz-paged-sync') !== '0'; } catch (e) {}
+  function setSync(on) {
+    syncEnabled = !!on;
+    try { localStorage.setItem('orz-paged-sync', syncEnabled ? '1' : '0'); } catch (e) {}
+    var b = $('orz-sync'); if (b) b.setAttribute('aria-pressed', syncEnabled ? 'true' : 'false');
+  }
   function wireSync() {
     if (!cm || cm.__sync) return; cm.__sync = true;
     cm.on('scroll', function () {
-      if (syncLock || !isEdit()) return;
+      if (!syncEnabled || syncLock || !isEdit()) return;
       var info = cm.getScrollInfo(); var max = info.height - info.clientHeight;
       if (max <= 0) return;
       var pages = pagesEl(); var pmax = pages.scrollHeight - pages.clientHeight;
@@ -92,7 +99,7 @@
       setTimeout(function () { syncLock = false; }, 24);
     });
     pagesEl().addEventListener('scroll', function () {
-      if (syncLock || !isEdit()) return;
+      if (!syncEnabled || syncLock || !isEdit()) return;
       var pages = pagesEl(); var pmax = pages.scrollHeight - pages.clientHeight;
       if (pmax <= 0) return;
       var info = cm.getScrollInfo(); var max = info.height - info.clientHeight;
@@ -194,6 +201,8 @@
     var sav = $('orz-save'); if (sav) sav.addEventListener('click', save);
     var theme = $('orz-theme');
     if (theme) theme.addEventListener('change', function () { if (api() && api().setTheme) api().setTheme(theme.value); });
+    var sync = $('orz-sync');
+    if (sync) { setSync(syncEnabled); sync.addEventListener('click', function () { setSync(!syncEnabled); }); }
     var rz; window.addEventListener('resize', function () {
       if (!isEdit()) return; clearTimeout(rz);
       rz = setTimeout(function () { if (cm) cm.refresh(); fitPreview(); }, 120);

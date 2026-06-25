@@ -107,6 +107,8 @@ const CHROME_CSS = `
   #orz-toolbar .ic { width: 32px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
     background: transparent; border: 0; border-radius: 7px; color: #c2c8d0; cursor: pointer; font-size: 16px; }
   #orz-toolbar .ic:hover { background: #383d45; color: #fff; }
+  #orz-toolbar .ic[aria-pressed="true"] { color: #3b82f6; }
+  #orz-toolbar .ic[aria-pressed="false"] { opacity: .5; }
   #orz-toolbar .ic.primary { background: #3b82f6; color: #fff; }
   #orz-toolbar select { font: 500 12.5px/1 system-ui, sans-serif; color: #e6e8ec; background: #34383f;
     border: 1px solid #454b55; border-radius: 7px; padding: 6px 8px; cursor: pointer; margin: 0 2px; }
@@ -167,6 +169,7 @@ export function buildHtml(o: BuildOptions): string {
     ${BRAND}
     <span class="orz-sep"></span>
     <button id="orz-done" class="ic" title="Done">&#10003;</button>
+    <button id="orz-sync" class="ic" title="Sync scrolling on/off" aria-pressed="true">&#8645;</button>
     <span class="orz-spacer"></span>
     <select id="orz-theme" title="Theme"><option value="">(document theme)</option>${themeOptions}</select>
     <button id="orz-export" class="ic" title="Export PDF (print)">&#8681;</button>
