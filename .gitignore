@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+browser/orz-paged.browser.js
+examples/*.paged.html
+tests/*.paged.html
+*.tgz
+.DS_Store
+.claude/
+ideas/

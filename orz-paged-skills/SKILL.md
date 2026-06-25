@@ -1,0 +1,369 @@
+---
+name: orz-paged
+description: Author and edit self-contained .paged.html print documents (orz-paged). Use when a user wants to turn Markdown into a paginated, printable document — one portable HTML file that, in any browser, shows the text as real print pages on light paper (paged.js), is edited in-browser, and exports to PDF by printing (Ctrl/Cmd+P → Save as PDF). Covers the document settings block, templates, the curated document elements (title sections, abstract, toc, letter and CV parts, exam questions), page breaks, and print-first content guidance.
+---
+
+# orz-paged — author a `.paged.html` document
+
+`orz-paged` turns a **Markdown source** into **one `.paged.html` file** that:
+
+- shows the document as a sequence of **print pages on light-colored paper**
+  (real page size, margins, running headers/footers, page numbers) in any modern
+  browser, via [paged.js](https://pagedjs.org),
+- is authored entirely in **orz-markdown** (math, mermaid, smiles, qr, charts,
+  tables, admonitions, columns) plus a small **document layer**,
+- can be **edited in the browser** (CodeMirror source + live paged preview) and
+  **saves itself** back into the file,
+- **exports to PDF by printing** — the on-screen pages are the printed pages
+  (Ctrl/Cmd+P → Save as PDF, or the ↓ button), so there is no rendering surprise.
+
+The Markdown source is the single source of truth, embedded in the file:
+
+```html
+<script type="text/markdown" id="orz-src">
+  ...your Markdown (this is what you write)...
+</script>
+```
+
+You write only the **Markdown source**. Never hand-write the surrounding HTML
+(the paged.js shell, runtime, CDN links) — saving regenerates it. To change a
+document, edit the source (in a `.md` file fed to the CLI, or in-browser) and let
+the tool re-render.
+
+## When to use it
+
+- A user wants a **single shareable file** that looks like a printed document —
+  an article, report, letter, CV, note, or exam — and can be turned into a PDF by
+  printing, with no install.
+- The content is **markdown-native** (prose, tables, math, diagrams) and the
+  author wants a paginated document, not a slide deck or a continuous web page.
+- Prefer `.paged.html` (orz-paged) when the output is a **paginated document to
+  print or hand in**; prefer `.md.html` (orz-mdhtml) for a continuous document to
+  read/annotate on screen; prefer `.slides.html` (orz-slides) for a deck to
+  present.
+
+> It mimics **ink on paper**: light backgrounds only, no dark mode, no
+> interactive constructs. Author for print (see [Print-first content](#print-first-content)).
+
+---
+
+## Workflow
+
+Generate from a Markdown file:
+
+```bash
+orz-paged document.md                  # → document.paged.html
+orz-paged document.md -o out.paged.html # choose the output name
+orz-paged document.md --inline         # (default) embed engine + active theme
+orz-paged document.md --cdn            # reference engine + theme from jsDelivr
+```
+
+`--inline` (default) embeds the `orz-paged` engine + paged.js + the active theme,
+so the document **paginates offline**. Either way, **fonts, web images, and the
+math/diagram/chart libraries load from a CDN at view time** (so a document that
+uses those, or in-browser editing, needs internet).
+
+Then **open the `.paged.html` in any modern browser** — it paginates into pages.
+
+- Click the **✎** button to open the editor (source + live paged preview).
+- **Ctrl/Cmd+S** saves the file in place (needs a Chromium-based browser, File
+  System Access API; falls back to download elsewhere).
+- **Export PDF** = the **↓** button, or the browser's **Print → Save as PDF**.
+  The pages you see are exactly what prints.
+
+---
+
+## The Markdown source: settings, then content
+
+A source is a **document-settings block** at the top, then normal Markdown body
+(with elements and page breaks placed wherever you need them):
+
+```
+{{nyml
+kind: document
+template: article
+theme: light-academic-1
+}}
+
+{{nyml
+kind: article-title
+title: A Practical Comparison of RAFT and ATRP
+subtitle: Controlled radical polymerization in the teaching lab
+author: Dr. Yu Wang
+date: March 2026
+}}
+
+{{nyml
+kind: abstract
+text: We compare two controlled-radical methods on accessible monomers...
+keywords: RAFT, ATRP, controlled polymerization
+}}
+
+## Introduction
+
+Body text in normal Markdown. Math like $E = mc^2$, tables, lists, and
+diagrams all print.
+```
+
+---
+
+## 1 · Document settings (`{{nyml kind: document}}`)
+
+One block at the top configures the whole document. **Template-first:** most
+documents set only `template:` (and maybe `theme:` and `decoration_color:`) — the
+template sets every other default. The rest are **optional overrides** for power
+users and agents.
+
+```
+{{nyml
+kind: document
+template: article
+}}
+```
+
+### Templates (set one — it picks the defaults)
+
+| `template` | For | Sets up |
+|---|---|---|
+| `article` | academic paper / short report | serif, title section + `abstract` |
+| `report` | business / technical report | sans, header/footer + optional `toc` |
+| `letter` | formal letter | serif, `letterhead` + inside-address + signature |
+| `cv` | résumé | sans, `cv-header` |
+| `note` | clean readable notes | A4 serif, minimal furniture |
+| `exam` | exam / assessment | serif, title + `question-*`, answer-key toggle |
+
+### Overrides (all optional — the template supplies defaults)
+
+| Key | Values / unit | Notes |
+|---|---|---|
+| `page_size` | `A3` `A4` `A5` `Letter` `Legal`, or custom `"210mm 297mm"` | |
+| `margin_top` / `margin_bottom` / `margin_left` / `margin_right` | number (mm) | |
+| `font_preset` | see [Font presets](#font-presets) | body font |
+| `font_size` | number (pt) | |
+| `line_height` | number (ratio, e.g. `1.5`) | |
+| `decoration_color` | CSS color, e.g. `"#2962a4"` | accent used by theme + elements |
+| `header_left` / `header_center` / `header_right` | text | running header margin boxes |
+| `footer_left` / `footer_center` / `footer_right` | text | running footer margin boxes |
+| `page_number_position` | `header-left\|center\|right`, `footer-left\|center\|right`, `none` | where the page number sits |
+| `page_number_style` | see [Page-number styles](#page-number-styles) | how it reads |
+| `theme` | `none` `light-academic-1` `light-neat-1` `beige-decent-1` | **light only** |
+
+#### Font presets
+
+Serif: `system-serif` `source-serif-4` `lora` `crimson-pro` `noto-serif` ·
+Sans: `inter` `ibm-plex-sans` `roboto` `raleway` `noto-sans` ·
+Mono: `courier-prime`.
+
+#### Page-number styles
+
+`simple` (just the number) · `page-n` (`Page 3`) · `page-n-of-N` (`Page 3 of 12`) ·
+`n-of-N` (`3 of 12`) · `n-slash-N` (`3 / 12`) · `dash-n-dash` (`— 3 —`) ·
+`brackets` (`[3]`) · `parentheses` (`(3)`).
+
+#### Themes (light only — by design)
+
+`none` (plain), `light-academic-1` (Tufte-ish serif), `light-neat-1` (modern
+sans, blue accent), `beige-decent-1` (warm editorial). There are **no dark
+themes** — the document mimics ink on paper.
+
+---
+
+## 2 · Elements (`{{nyml kind: <element-kind> ...}}`)
+
+An element is a `{{nyml}}` block whose `kind:` **is** the element type. Place it
+in the body where you want it to appear. Curated elements:
+
+| `kind:` | What | Key fields |
+|---|---|---|
+| `article-title` | article title block | `title`, `subtitle`, `author`, `date`, `placement` |
+| `report-title` | report title block | `title`, `subtitle`, `author`, `date`, `placement` |
+| `exam-title` | exam title / cover | `title`, `subtitle`, `author`, `date`, `placement` |
+| `abstract` | abstract block | `text`, `keywords` |
+| `toc` | table of contents | `title`, `max_level`, `placement` |
+| `letterhead` | letter letterhead bar | `organization`, `address`, `email`, `phone` |
+| `letter-inside-address` | recipient address block | `to`, `organization`, `address` |
+| `letter-signature` | closing + signature | `from`, `closing`, `title` |
+| `cv-header` | CV name/contact header | `full_name`, `title`, `contacts` |
+| `question-mc` | multiple-choice question | `n`, `pts`, `body`, `options`, `answer` |
+| `question-open` | open-ended question | `n`, `pts`, `body`, `space`, `answer` |
+| `timestamp` | "last updated" line | `label`, `date` |
+
+### Title elements & `placement`
+
+`article-title`, `report-title`, and `exam-title` each take a **`placement`**:
+
+- `placement: section` *(default)* — an **inline title section**: the title block
+  sits at the top of the page and the body content flows on the **same page**
+  below it.
+- `placement: page` — a **dedicated title / cover page** (a page break follows;
+  body page numbering starts at 1 on the next page).
+
+```
+{{nyml
+kind: report-title
+title: Q3 Reliability Review
+subtitle: Incident trends and remediation
+author: Platform Team
+date: October 2026
+placement: page
+}}
+```
+
+### `toc` & `placement`
+
+`toc` builds a table of contents (with live page numbers) from your headings.
+`max_level` is the deepest heading included (1–6, default 3). `placement: page`
+puts it on its own page.
+
+```
+{{nyml
+kind: toc
+title: Contents
+max_level: 2
+placement: page
+}}
+```
+
+### Exam questions
+
+```
+{{nyml
+kind: question-mc
+n: 1
+pts: 5 pts
+body: What is the SI unit of force?
+options: |
+  A. Joule
+  B. Newton
+  C. Pascal
+  D. Watt
+answer: B
+}}
+
+{{nyml
+kind: question-open
+n: 2
+pts: 10 pts
+body: Derive the work-energy theorem from Newton's second law.
+space: 4cm
+answer: Starting from F = ma and integrating over distance...
+}}
+```
+
+The `answer:` (and the ✓ on the correct `question-mc` option) only shows in the
+**answer-key** version — the `exam` template's answer-key toggle controls it, so
+one source makes both the student copy and the instructor key.
+
+---
+
+## 3 · Page breaks
+
+Force a new page with the orz-markdown arbitrary-class container `page-break`
+(no plugin, no extra syntax):
+
+```
+::: page-break
+:::
+```
+
+Everything after it starts on a fresh page.
+
+---
+
+## 4 · Body content (print-first orz-markdown)
+
+The body is full orz-markdown. Everything below **prints well** and is encouraged:
+
+- **Headings, lists, tables, blockquotes, code blocks.**
+- **Math** — inline `$E=mc^2$` and display `$$ ... $$` (KaTeX).
+- **Mermaid** diagrams (```` ```mermaid ````), **smiles** chemistry
+  (`{{smiles ...}}`), **`{{chart}}`** (bar/line/pie), **`{{qr}}`** (a printed QR
+  is genuinely useful), images, and footnotes.
+- **`{{toc}}`** inline anchors, **admonitions** (`::: info` / `::: success` /
+  `::: warning` / `::: danger`), and **columns** (`:::: cols`).
+
+For the full orz-markdown syntax (containers, `{{name body}}` plugins,
+`{{attrs[#id .class]}}`), read the orz-markdown skill at
+`node_modules/orz-markdown/orz-markdown-skills/SKILL.md`.
+
+### Print-first content
+
+A `.paged.html` mimics paper, so author for print:
+
+- **Avoid screen-only / dynamic constructs** — **tabs**, **spoilers**
+  (`::: spoil`), and **youtube**. They hide content or are video, which is
+  meaningless on paper.
+- **Light backgrounds only** — there are no dark themes by design.
+- These are guidance, not hard blocks — orz-markdown still renders them — but the
+  templates and themes won't use them.
+
+---
+
+## Do / don't
+
+**Do**
+- Start with one `{{nyml kind: document}}` block; in the common case set only
+  `template:` (plus maybe `theme:` / `decoration_color:`).
+- Use a title element (`article-title` / `report-title` / `exam-title`) and pick
+  `placement: section` (inline) or `placement: page` (cover page).
+- Force pages with `::: page-break` / `:::`.
+- Keep content static and printable — tables, math, diagrams, charts, QR codes.
+
+**Don't**
+- Don't hand-edit the generated `.paged.html`; edit the Markdown source.
+- Don't use tabs, `::: spoil`, or youtube — they don't print.
+- Don't ask for a dark theme; the document is always light (ink on paper).
+- Don't expect a PDF binary from the CLI — the PDF comes from the browser's
+  Print → Save as PDF on the open file.
+
+---
+
+## Examples
+
+### An article with an inline title section and abstract
+
+```
+{{nyml
+kind: document
+template: article
+theme: light-academic-1
+decoration_color: "#2962a4"
+}}
+
+{{nyml
+kind: article-title
+title: A Practical Comparison of RAFT and ATRP
+subtitle: Controlled radical polymerization in the teaching lab
+author: Dr. Yu Wang
+date: March 2026
+}}
+
+{{nyml
+kind: abstract
+text: We compare two controlled-radical methods on accessible monomers, with
+  emphasis on dispersity and reproducibility in an undergraduate setting.
+keywords: RAFT, ATRP, controlled polymerization, dispersity
+}}
+
+## Introduction
+
+Controlled radical polymerization gives narrow dispersity ($\PDI < 1.2$)...
+
+## Methods
+
+| Method | Mediator | Typical PDI |
+|---|---|---|
+| RAFT | thiocarbonylthio | 1.05–1.15 |
+| ATRP | Cu/ligand | 1.05–1.20 |
+```
+
+### A one-line note
+
+```
+{{nyml
+kind: document
+template: note
+}}
+
+Pick up dry cleaning, email the draft to the committee, and water the plants.
+```

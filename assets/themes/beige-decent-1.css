@@ -1,0 +1,138 @@
+/* ==========================================================================
+   orz-paged · beige-decent-1.css
+   Warm editorial serif on beige paper, fully justified. Display headings,
+   rule-bracketed h1, centered pull-quotes, hairline tables. Light / print.
+
+   Adapted from orz-markdown's beige-decent-1 (screen) for paper:
+   - warm beige page via --page-bg, terracotta accent via --accent
+   - serif body with a heavier display feel for headings
+   - consumes the dom-contract :root tokens with sensible fallbacks
+   ========================================================================== */
+
+@import url("./base.css");
+
+.orz-doc.markdown-body {
+  --page-bg: var(--page-bg, #f6efe2);
+  --accent: var(--accent, #944238);
+
+  --text-main: #4d4036;
+  --text-muted: #7d7066;
+  --heading-color: #1a1614;
+  --border-soft: #d8cdbb;
+  --code-bg: #efe7d7;
+  --table-head-bg: #ece2d0;
+  --toc-leader: #c5b9a3;
+  --mark-bg: #f0e2a8;
+
+  font-family: var(--font-body, "Iowan Old Style", Palatino, Georgia, "Times New Roman", serif);
+}
+/* Justify prose only — not list items, table cells, or short blocks. */
+.orz-doc p {
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* Headings — editorial, warm-black, generous. */
+.orz-doc.markdown-body h1,
+.orz-doc.markdown-body h2,
+.orz-doc.markdown-body h3,
+.orz-doc.markdown-body h4,
+.orz-doc.markdown-body h5,
+.orz-doc.markdown-body h6 {
+  font-family: var(--font-heading, var(--font-body, Georgia, serif));
+  color: var(--heading-color);
+  font-weight: 700;
+}
+
+/* Display h1 — centered, bracketed by a rule. */
+.orz-doc.markdown-body h1 {
+  font-size: 2.3em;
+  font-weight: 400;
+  text-align: center;
+  letter-spacing: -0.02em;
+  padding-bottom: 0.3em;
+  margin-bottom: 1.2em;
+  border-bottom: 2px solid var(--text-main);
+}
+
+.orz-doc.markdown-body h2 {
+  font-size: 1.6em;
+  padding-bottom: 0.15em;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.orz-doc.markdown-body h3 {
+  font-size: 1.3em;
+}
+
+/* Links — terracotta, soft underline. */
+.orz-doc.markdown-body a {
+  color: var(--accent);
+  text-decoration-color: var(--border-soft);
+}
+
+.orz-doc.markdown-body strong {
+  color: var(--heading-color);
+}
+
+/* Pull-quote — centered, rule-bracketed top and bottom. */
+.orz-doc.markdown-body blockquote {
+  border-left: none;
+  border-top: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  margin: 1.6em 1.5em;
+  padding: 1em 1.4em;
+  font-style: italic;
+  font-size: 1.1em;
+  text-align: center;
+  color: #4a3e38;
+  background: #ece2d2;
+}
+
+/* Tables — hairline rows, heavier head underline. */
+.orz-doc.markdown-body table {
+  border: 0;
+  border-top: 2px solid var(--text-main);
+  font-size: 0.93em;
+}
+
+.orz-doc.markdown-body th,
+.orz-doc.markdown-body td {
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0.5em 0.9em;
+}
+
+.orz-doc.markdown-body th {
+  background: transparent;
+  border-bottom: 2px solid var(--text-main);
+  color: var(--heading-color);
+}
+
+/* Gradient hairline divider. */
+.orz-doc.markdown-body hr {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border-soft), transparent);
+  margin: 2.6em 0;
+}
+
+/* List markers in the warm accent. */
+.orz-doc.markdown-body ul > li::marker {
+  color: var(--accent);
+}
+
+/* Code — warm tinted block. */
+.orz-doc.markdown-body pre,
+.orz-doc.markdown-body :not(pre) > code {
+  background: var(--code-bg);
+  border-color: var(--border-soft);
+  color: #5a4a3a;
+}
+
+/* Letterhead element — centered editorial masthead. */
+.orz-element.orz-el-letterhead {
+  text-align: center;
+  padding-bottom: 0.8em;
+  margin-bottom: 1.8em;
+  border-bottom: 2px solid var(--text-main);
+}

@@ -1,0 +1,460 @@
+/* ==========================================================================
+   orz-paged · base.css
+   Structural, theme-agnostic print foundation for the paged document body.
+
+   - Consumes ONLY the :root CSS variables defined in docs/dom-contract.md
+     (--page-bg, --accent, --font-body, --font-heading, --font-size,
+      --line-height, --margin-*, --header-rule, --footer-rule), each with a
+     sensible fallback so the file works standalone.
+   - Light / print-first only. No dark rules, no prefers-color-scheme.
+   - Styles via the dom-contract classes: .orz-doc.markdown-body,
+     .orz-element.orz-el-<kind>, .page-break, .orz-toc.
+   - Theme files @import this, then layer accent/visual styling on top.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Page surface
+   The visible "paper". paged.js realizes @page boxes; here we set their
+   background to the light page color so screen and print match.
+   -------------------------------------------------------------------------- */
+.pagedjs_page,
+.pagedjs_pagebox,
+.orz-doc.markdown-body {
+  background: var(--page-bg, #ffffff);
+}
+
+/* --------------------------------------------------------------------------
+   2. Document body typography (driven by the contract tokens)
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body {
+  font-family: var(--font-body, Georgia, "Times New Roman", serif);
+  font-size: var(--font-size, 12pt);
+  line-height: var(--line-height, 1.5);
+  color: var(--text-main, #1a1a1a);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  /* No outer margin/padding: paged.js margin boxes own the page geometry. */
+  margin: 0;
+  padding: 0;
+}
+
+.orz-doc.markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.orz-doc.markdown-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   3. Headings
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body h1,
+.orz-doc.markdown-body h2,
+.orz-doc.markdown-body h3,
+.orz-doc.markdown-body h4,
+.orz-doc.markdown-body h5,
+.orz-doc.markdown-body h6 {
+  font-family: var(--font-heading, var(--font-body, Georgia, serif));
+  color: var(--heading-color, var(--text-main, #1a1a1a));
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 1.6em 0 0.5em;
+  /* Print: keep headings with the text that follows; never orphan them. */
+  break-after: avoid;
+  page-break-after: avoid;
+  break-inside: avoid;
+}
+
+.orz-doc.markdown-body h1 { font-size: 1.9em; margin-top: 0.4em; }
+.orz-doc.markdown-body h2 { font-size: 1.5em; }
+.orz-doc.markdown-body h3 { font-size: 1.25em; }
+.orz-doc.markdown-body h4 { font-size: 1.08em; }
+.orz-doc.markdown-body h5 { font-size: 1em; }
+.orz-doc.markdown-body h6 { font-size: 0.9em; color: var(--text-muted, #555); }
+
+/* --------------------------------------------------------------------------
+   4. Body copy, inline
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body p {
+  margin: 0 0 0.85em;
+  orphans: 2;
+  widows: 2;
+}
+
+.orz-doc.markdown-body a {
+  color: var(--accent, #1a4f8b);
+  text-decoration: underline;
+  text-decoration-thickness: 0.5px;
+  text-underline-offset: 2px;
+}
+
+.orz-doc.markdown-body strong { font-weight: 700; }
+.orz-doc.markdown-body em { font-style: italic; }
+
+.orz-doc.markdown-body sub,
+.orz-doc.markdown-body sup { font-size: 0.75em; line-height: 0; }
+
+.orz-doc.markdown-body mark {
+  background: var(--mark-bg, #fff3a3);
+  color: inherit;
+  padding: 0 0.15em;
+}
+
+/* --------------------------------------------------------------------------
+   5. Lists
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body ul,
+.orz-doc.markdown-body ol {
+  margin: 0 0 0.85em;
+  padding-left: 1.6em;
+}
+
+.orz-doc.markdown-body li {
+  margin-bottom: 0.25em;
+}
+
+.orz-doc.markdown-body li > ul,
+.orz-doc.markdown-body li > ol {
+  margin-top: 0.25em;
+  margin-bottom: 0;
+}
+
+.orz-doc.markdown-body .task-list-item {
+  list-style: none;
+}
+
+.orz-doc.markdown-body .task-list-item input[type="checkbox"],
+.orz-doc.markdown-body .task-list-item-checkbox {
+  margin: 0 0.5em 0 -1.4em;
+  vertical-align: middle;
+}
+
+/* --------------------------------------------------------------------------
+   6. Blockquote
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body blockquote {
+  margin: 1.2em 0;
+  padding: 0.2em 1.1em;
+  color: var(--text-muted, #555);
+  border-left: 3px solid var(--border-soft, #d6d6d6);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.orz-doc.markdown-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   7. Code
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body code,
+.orz-doc.markdown-body kbd,
+.orz-doc.markdown-body samp {
+  font-family: var(--font-code, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace);
+  font-size: 0.86em;
+}
+
+.orz-doc.markdown-body :not(pre) > code {
+  background: var(--code-bg, #f4f4f2);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+
+.orz-doc.markdown-body pre {
+  margin: 1.1em 0;
+  padding: 0.85em 1em;
+  background: var(--code-bg, #f4f4f2);
+  border: 1px solid var(--border-soft, #e0e0dc);
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.86em;
+  line-height: 1.45;
+  /* Print: a code block should avoid splitting where it reasonably can. */
+  break-inside: avoid;
+  page-break-inside: avoid;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.orz-doc.markdown-body pre code {
+  background: none;
+  padding: 0;
+  border: 0;
+  font-size: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   8. Tables  (print-friendly: real table layout, repeat header on break)
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body table {
+  width: 100%;
+  margin: 1.2em 0;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.orz-doc.markdown-body thead {
+  display: table-header-group; /* repeat header row across page breaks */
+}
+
+.orz-doc.markdown-body th,
+.orz-doc.markdown-body td {
+  padding: 0.4em 0.7em;
+  border: 1px solid var(--border-soft, #d6d6d6);
+  text-align: left;
+  vertical-align: top;
+}
+
+.orz-doc.markdown-body th {
+  font-weight: 600;
+  background: var(--table-head-bg, #f3f3f0);
+}
+
+.orz-doc.markdown-body tr,
+.orz-doc.markdown-body img,
+.orz-doc.markdown-body svg,
+.orz-doc.markdown-body canvas,
+.orz-doc.markdown-body figure {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* --------------------------------------------------------------------------
+   9. Images / figures / media
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1em auto;
+}
+
+.orz-doc.markdown-body p > img {
+  display: inline;
+  margin: 0;
+}
+
+.orz-doc.markdown-body figure {
+  margin: 1.2em 0;
+  text-align: center;
+}
+
+.orz-doc.markdown-body figcaption {
+  margin-top: 0.4em;
+  font-size: 0.85em;
+  color: var(--text-muted, #555);
+  text-align: center;
+}
+
+.orz-doc.markdown-body .mermaid,
+.orz-doc.markdown-body .smiles-render {
+  margin: 1.2em 0;
+  text-align: center;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.orz-doc.markdown-body .mermaid svg,
+.orz-doc.markdown-body .smiles-render canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* --------------------------------------------------------------------------
+   10. Horizontal rule
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body hr {
+  border: 0;
+  height: 1px;
+  margin: 2em 0;
+  background: var(--border-soft, #d6d6d6);
+}
+
+/* --------------------------------------------------------------------------
+   11. Math (KaTeX)
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body .katex-display {
+  margin: 1.1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* --------------------------------------------------------------------------
+   12. Footnotes
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body .footnotes {
+  margin-top: 2em;
+  padding-top: 0.6em;
+  border-top: 1px solid var(--border-soft, #d6d6d6);
+  font-size: 0.88em;
+  color: var(--text-muted, #555);
+}
+
+.orz-doc.markdown-body .footnote-ref a,
+.orz-doc.markdown-body .footnote-backref {
+  text-decoration: none;
+  color: var(--accent, #1a4f8b);
+}
+
+/* --------------------------------------------------------------------------
+   13. Admonitions / containers (print-recommended subset, §9)
+   Light, neutral defaults; themes may recolor.
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body .info,
+.orz-doc.markdown-body .success,
+.orz-doc.markdown-body .warning,
+.orz-doc.markdown-body .danger {
+  margin: 1.2em 0;
+  padding: 0.8em 1.1em;
+  border: 1px solid var(--border-soft, #d6d6d6);
+  border-left-width: 4px;
+  border-radius: 3px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.orz-doc.markdown-body .info    { border-left-color: #2b5585; }
+.orz-doc.markdown-body .success { border-left-color: #2e8540; }
+.orz-doc.markdown-body .warning { border-left-color: #a37213; }
+.orz-doc.markdown-body .danger  { border-left-color: #a32a2a; }
+
+.orz-doc.markdown-body .info > :last-child,
+.orz-doc.markdown-body .success > :last-child,
+.orz-doc.markdown-body .warning > :last-child,
+.orz-doc.markdown-body .danger > :last-child {
+  margin-bottom: 0;
+}
+
+/* Columns (:::: cols) — print-friendly multi-column */
+.orz-doc.markdown-body .cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5em;
+  margin: 1.2em 0;
+}
+
+.orz-doc.markdown-body .col > :last-child {
+  margin-bottom: 0;
+}
+
+/* Inline alignment helpers */
+.orz-doc.markdown-body .center { text-align: center; }
+.orz-doc.markdown-body .right  { text-align: right; }
+
+/* --------------------------------------------------------------------------
+   14. Page break ( ::: page-break  →  <div class="page-break"> )
+   -------------------------------------------------------------------------- */
+.page-break {
+  break-before: page;
+  page-break-before: always;
+}
+
+/* --------------------------------------------------------------------------
+   15. Document elements (.orz-element.orz-el-<kind>)
+   Base spacing only; specific element kinds get their look from the
+   element-scoped CSS injected by the engine and from theme layers.
+   -------------------------------------------------------------------------- */
+.orz-element {
+  margin: 0 0 1.4em;
+}
+
+.orz-element:last-child {
+  margin-bottom: 0;
+}
+
+/* A title/cover element placed on its own page (placement: page).
+   The engine/elements emit the `.orz-place-page` class (see elements.ts +
+   docs/dom-contract.md); this mirrors its break for theme-level consistency. */
+.orz-element.orz-place-page {
+  break-after: page;
+  page-break-after: always;
+}
+
+/* --------------------------------------------------------------------------
+   16. Table of contents (.orz-toc)
+   Dotted leaders + right-aligned page numbers. The runtime fills the page
+   number text into the [data-page] / .orz-toc-page slots after pagination.
+   The leader is drawn between the title and the number using a flexible
+   dotted span so it stretches to fill the row.
+   -------------------------------------------------------------------------- */
+.orz-toc {
+  margin: 1.4em 0;
+}
+
+.orz-toc ul,
+.orz-toc ol {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.orz-toc ul ul,
+.orz-toc ol ol {
+  padding-left: 1.4em;
+}
+
+.orz-toc li {
+  margin: 0.25em 0;
+}
+
+/* Each entry is a row: link/title on the left, page number on the right,
+   with a dotted leader filling the gap. Works whether the entry markup is
+   <a> + page slot or a flC container. */
+.orz-toc a,
+.orz-toc .orz-toc-entry {
+  display: flex;
+  align-items: baseline;
+  text-decoration: none;
+  color: var(--text-main, #1a1a1a);
+  gap: 0.4em;
+}
+
+/* The dotted leader: a flexible element between title and page number. */
+.orz-toc a::after,
+.orz-toc .orz-toc-entry .orz-toc-leader {
+  content: "";
+  flex: 1 1 auto;
+  align-self: stretch;
+  margin: 0 0.25em;
+  border-bottom: 1px dotted var(--toc-leader, #999);
+  transform: translateY(-0.25em);
+}
+
+/* Right-aligned page number slot (runtime fills the text). */
+.orz-toc a > .orz-toc-page,
+.orz-toc .orz-toc-page,
+.orz-toc [data-page]::after {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted, #555);
+}
+
+/* When the page number is supplied via a data attribute, render it. */
+.orz-toc [data-page]::after {
+  content: attr(data-page);
+}
+
+/* --------------------------------------------------------------------------
+   17. Print hardening — hide screen-only constructs the skill discourages
+   (§9). Guidance, not a hard block, but a printed page should never show
+   video embeds or interactive chrome.
+   -------------------------------------------------------------------------- */
+@media print {
+  .orz-doc.markdown-body .youtube-embed,
+  .orz-doc.markdown-body .tabs-bar {
+    display: none !important;
+  }
+
+  /* Reveal spoiler content on paper (it can't be toggled in print). */
+  .orz-doc.markdown-body details.spoil {
+    break-inside: avoid;
+  }
+  .orz-doc.markdown-body details.spoil > :not(summary) {
+    display: block !important;
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "orz-paged-browser",
+  "version": "0.0.0",
+  "description": "Prebuilt in-browser paged-document engine for orz-paged .paged.html files (paged.js + orz-markdown + the orz-paged document layer/assembler)",
+  "main": "orz-paged.browser.js",
+  "files": [
+    "orz-paged.browser.js",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wangyu16/orz-paged"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

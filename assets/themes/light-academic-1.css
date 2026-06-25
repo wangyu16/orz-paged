@@ -1,0 +1,132 @@
+/* ==========================================================================
+   orz-paged · light-academic-1.css
+   Tufte-ish serif on warm white paper. Restrained, scholarly, justified prose
+   with small-caps section heads and rule-bounded tables. Light / print only.
+
+   Adapted from orz-markdown's light-academic-1 (screen) for paper:
+   - paper background via --page-bg (warm white default)
+   - serif body/heading, accent for links + section rules
+   - consumes the dom-contract :root tokens with sensible fallbacks
+   ========================================================================== */
+
+@import url("./base.css");
+
+/* Theme palette — provides fallbacks the document layer may override via the
+   contract tokens (--page-bg, --accent, --font-body, --font-heading). */
+.orz-doc.markdown-body {
+  /* Local theme defaults; the engine's :root vars win when present. */
+  --page-bg: var(--page-bg, #fffff8);
+  --accent: var(--accent, #7a1f1f);
+
+  --text-main: #111111;
+  --text-muted: #555555;
+  --border-soft: #cfcabc;
+  --code-bg: #f4f2ea;
+  --table-head-bg: #f1efe6;
+  --toc-leader: #b6b09c;
+  --mark-bg: #f6efb0;
+
+  /* Tufte-ish defaults if the contract fonts are unset. */
+  font-family: var(--font-body, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif);
+}
+/* Justify prose only — not list items, table cells, or short blocks. */
+.orz-doc p {
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* Headings — light weight, generous air, italic h2, small-caps h3. */
+.orz-doc.markdown-body h1,
+.orz-doc.markdown-body h2,
+.orz-doc.markdown-body h3,
+.orz-doc.markdown-body h4,
+.orz-doc.markdown-body h5,
+.orz-doc.markdown-body h6 {
+  font-family: var(--font-heading, var(--font-body, Georgia, serif));
+  font-weight: 400;
+  color: var(--text-main);
+}
+
+.orz-doc.markdown-body h1 {
+  font-size: 2em;
+  font-weight: 400;
+  line-height: 1.15;
+  margin-bottom: 0.8em;
+}
+
+.orz-doc.markdown-body h2 {
+  font-size: 1.5em;
+  font-style: italic;
+}
+
+.orz-doc.markdown-body h3 {
+  font-size: 1.15em;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+/* Links — accent, thin underline. */
+.orz-doc.markdown-body a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* Blockquote — quiet warm panel, no heavy bar. */
+.orz-doc.markdown-body blockquote {
+  font-style: italic;
+  color: var(--text-muted);
+  border-left: none;
+  margin: 1.4em 2em;
+  padding: 0.5em 1em;
+  background: #f3f1e6;
+}
+
+/* Tables — rule-bounded (top/bottom heavy, header underline) like a journal. */
+.orz-doc.markdown-body table {
+  border: 0;
+  border-top: 2px solid var(--text-main);
+  border-bottom: 2px solid var(--text-main);
+  font-size: 0.92em;
+}
+
+.orz-doc.markdown-body th,
+.orz-doc.markdown-body td {
+  border: 0;
+  padding: 0.45em 0.9em;
+}
+
+.orz-doc.markdown-body th {
+  background: transparent;
+  border-bottom: 1px solid var(--text-main);
+  vertical-align: bottom;
+}
+
+/* Centered asterism rule, classic print divider. */
+.orz-doc.markdown-body hr {
+  height: auto;
+  background: none;
+  text-align: center;
+  margin: 2.2em 0;
+}
+
+.orz-doc.markdown-body hr::before {
+  content: "\002A \0020 \002A \0020 \002A";
+  letter-spacing: 0.5em;
+  color: var(--text-muted);
+}
+
+/* List markers in the accent for a touch of editorial color. */
+.orz-doc.markdown-body ul > li::marker {
+  color: var(--accent);
+}
+
+/* Abstract element — indented, slightly smaller, hallmark of a paper. */
+.orz-element.orz-el-abstract {
+  margin: 1.6em 2.5em;
+  font-size: 0.95em;
+  color: var(--text-muted);
+}
+
+.orz-element.orz-el-abstract > :first-child {
+  font-style: italic;
+}
