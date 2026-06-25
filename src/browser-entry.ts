@@ -180,13 +180,29 @@ async function render(source: string): Promise<void> {
   stage.style.cssText = 'position:absolute;left:-99999px;top:0;width:680px;';
   stage.innerHTML = a.bodyHtml;
   document.body.appendChild(stage);
+
+  // Double-buffer: paginate into an off-screen container, then swap it in. The old
+  // pages stay visible until the swap, so a re-render never flashes to the top —
+  // and we restore the scroll position across the swap.
+  const out = document.createElement('div');
+  out.style.cssText = 'position:absolute;left:-99999px;top:0;width:900px;';
+  document.body.appendChild(out);
   try {
-    await renderEnhancers(stage.querySelector('.orz-doc') as HTMLElement || stage);
+    await renderEnhancers((stage.querySelector('.orz-doc') as HTMLElement) || stage);
     if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch { /* ignore */ } }
-    await paginate(stage.innerHTML, stylesheetsFor(a), pagesContainer());
+    await paginate(stage.innerHTML, stylesheetsFor(a), out);
+
+    const pages = pagesContainer();
+    const prevScroll = pages.scrollTop;
+    pages.replaceChildren(...Array.prototype.slice.call(out.childNodes));
+    pages.scrollTop = prevScroll;
     fillToc();
+    // let the editor re-fit the preview zoom to the pane (it owns the layout)
+    const hook = (window as unknown as { __orzPagedAfterRender?: () => void }).__orzPagedAfterRender;
+    if (hook) { try { hook(); } catch { /* ignore */ } }
   } finally {
     stage.remove();
+    out.remove();
   }
 }
 

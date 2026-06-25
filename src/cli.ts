@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, join, basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getBrowserRuntimeScript } from 'orz-markdown/runtime';
 import { buildHtml, type ThemeAsset, type RendererSpec } from './template.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -75,6 +76,7 @@ function main(): void {
 
   const { baseCss, themes } = loadThemes();
   const appJs = readFileSync(findAsset('assets/app.js'), 'utf8');
+  const runtime = getBrowserRuntimeScript(); // copy-as-Markdown (+ qr) from orz-markdown
 
   let renderer: RendererSpec;
   if (args.mode === 'cdn') {
@@ -93,6 +95,7 @@ function main(): void {
     defaultTheme: themes[0] ? themes[0].id : 'none',
     cdn: CDN,
     appJs,
+    runtime,
   });
 
   writeFileSync(outPath, html, 'utf8');

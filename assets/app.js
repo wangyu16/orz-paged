@@ -43,9 +43,68 @@
       .then(function () { return loadJs(CM_BASE + '/mode/markdown/markdown.min.js'); });
   }
 
+  function pagesEl() { return $('orz-pages'); }
+  function isEdit() { return document.documentElement.getAttribute('data-mode') === 'edit'; }
+
+  /* ---- preview zoom-to-fit (side-by-side pane is narrower than an A4 page) ---- */
+  function fitPreview() {
+    var pages = pagesEl(); if (!pages) return;
+    var wrap = pages.querySelector('.pagedjs_pages'); if (!wrap) return;
+    if (!isEdit()) { wrap.style.zoom = ''; return; }
+    wrap.style.zoom = '';                       // measure natural page width
+    var page = pages.querySelector('.pagedjs_page');
+    var pageW = page ? page.getBoundingClientRect().width : 0;
+    if (!pageW) return;
+    wrap.style.zoom = Math.min(1, (pages.clientWidth - 28) / pageW);
+  }
+  window.__orzPagedAfterRender = fitPreview;     // engine calls this after every render
+
+  /* ---- draggable divider (relative width) ---- */
+  function wireDivider() {
+    var d = $('orz-divider'); if (!d || d.__wired) return; d.__wired = true;
+    var dragging = false;
+    d.addEventListener('mousedown', function (e) {
+      dragging = true; d.classList.add('dragging'); e.preventDefault();
+      document.body.style.userSelect = 'none';
+    });
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      var pct = Math.max(20, Math.min(78, (e.clientX / window.innerWidth) * 100));
+      document.documentElement.style.setProperty('--orz-split', pct + '%');
+    });
+    document.addEventListener('mouseup', function () {
+      if (!dragging) return;
+      dragging = false; d.classList.remove('dragging'); document.body.style.userSelect = '';
+      if (cm) cm.refresh(); fitPreview();
+    });
+  }
+
+  /* ---- proportional editor <-> preview scroll sync ---- */
+  var syncLock = false;
+  function wireSync() {
+    if (!cm || cm.__sync) return; cm.__sync = true;
+    cm.on('scroll', function () {
+      if (syncLock || !isEdit()) return;
+      var info = cm.getScrollInfo(); var max = info.height - info.clientHeight;
+      if (max <= 0) return;
+      var pages = pagesEl(); var pmax = pages.scrollHeight - pages.clientHeight;
+      syncLock = true; pages.scrollTop = (info.top / max) * pmax;
+      setTimeout(function () { syncLock = false; }, 24);
+    });
+    pagesEl().addEventListener('scroll', function () {
+      if (syncLock || !isEdit()) return;
+      var pages = pagesEl(); var pmax = pages.scrollHeight - pages.clientHeight;
+      if (pmax <= 0) return;
+      var info = cm.getScrollInfo(); var max = info.height - info.clientHeight;
+      syncLock = true; cm.scrollTo(null, (pages.scrollTop / pmax) * max);
+      setTimeout(function () { syncLock = false; }, 24);
+    });
+  }
+
   /* ---- edit mode ---- */
   function enterEdit() {
     document.documentElement.setAttribute('data-mode', 'edit');
+    wireDivider();
     ensureCodeMirror().then(function () {
       if (!cm) {
         var ta = $('orz-ta');
@@ -55,10 +114,14 @@
         });
         cm.on('change', scheduleRerender);
       }
-      setTimeout(function () { if (cm) { cm.refresh(); cm.focus(); } }, 30);
+      wireSync();
+      setTimeout(function () { if (cm) { cm.refresh(); cm.focus(); } fitPreview(); }, 30);
     }).catch(function () { toast('Could not load the editor (offline?)'); });
   }
-  function exitEdit() { document.documentElement.removeAttribute('data-mode'); }
+  function exitEdit() {
+    document.documentElement.removeAttribute('data-mode');
+    fitPreview(); // reset zoom for full-window view
+  }
 
   function scheduleRerender() {
     if (rerenderTimer) clearTimeout(rerenderTimer);
@@ -131,6 +194,10 @@
     var sav = $('orz-save'); if (sav) sav.addEventListener('click', save);
     var theme = $('orz-theme');
     if (theme) theme.addEventListener('change', function () { if (api() && api().setTheme) api().setTheme(theme.value); });
+    var rz; window.addEventListener('resize', function () {
+      if (!isEdit()) return; clearTimeout(rz);
+      rz = setTimeout(function () { if (cm) cm.refresh(); fitPreview(); }, 120);
+    });
     document.addEventListener('keydown', function (e) {
       if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); save(); }
     });

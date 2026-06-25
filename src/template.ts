@@ -31,6 +31,8 @@ export interface BuildOptions {
   cdn: { katexCss: string; mermaidJs: string; smilesJs: string; chartJs: string };
   /** the in-file editor app (assets/app.js text). */
   appJs: string;
+  /** orz-markdown browser runtime (copy-as-Markdown + qr). */
+  runtime: string;
 }
 
 function escapeHtml(s: string): string {
@@ -60,15 +62,21 @@ const BRAND =
 
 const CHROME_CSS = `
   html, body { margin: 0; height: 100%; background: #f0f0f2; }
+  :root { --orz-split: 44%; }
   #orz-pages { box-sizing: border-box; }
-  [data-mode="edit"] #orz-pages { height: 58%; overflow: auto; }
+  /* edit mode = side-by-side: editor (left) | divider | preview (right) */
+  [data-mode="edit"] #orz-pages {
+    position: fixed; top: 0; bottom: 0; right: 0; left: calc(var(--orz-split) + 6px);
+    overflow: auto; background: #f0f0f2;
+  }
   /* paged.js page boxes get a subtle drop shadow + centered layout */
   .pagedjs_pages { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 0; }
   .pagedjs_page { background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
   @media print {
     body { background: #fff; }
-    #orz-bar, #orz-panel, #orz-edit-fab, .orz-banner, #orz-toast { display: none !important; }
-    .pagedjs_pages { gap: 0; padding: 0; }
+    #orz-bar, #orz-panel, #orz-edit-fab, #orz-divider, .orz-banner, #orz-toast { display: none !important; }
+    [data-mode="edit"] #orz-pages { position: static; }
+    .pagedjs_pages { gap: 0; padding: 0; zoom: 1 !important; }
     .pagedjs_page { box-shadow: none; }
   }
 
@@ -81,11 +89,18 @@ const CHROME_CSS = `
   #orz-edit-fab:hover { opacity: 1; transform: scale(1.06); }
   [data-mode="edit"] #orz-edit-fab { display: none; }
 
+  #orz-divider { display: none; }
+  [data-mode="edit"] #orz-divider {
+    display: block; position: fixed; top: 0; bottom: 0; left: var(--orz-split);
+    width: 6px; z-index: 45; cursor: col-resize; background: #34383f;
+  }
+  #orz-divider:hover, #orz-divider.dragging { background: #3b82f6; }
+
   #orz-panel { display: none; }
   [data-mode="edit"] #orz-panel {
     display: flex; flex-direction: column;
-    position: fixed; left: 0; right: 0; bottom: 0; height: 42%; z-index: 40;
-    background: #1f2228; border-top: 1px solid #333; box-shadow: 0 -2px 16px rgba(0,0,0,.3);
+    position: fixed; left: 0; top: 0; bottom: 0; width: var(--orz-split); z-index: 40;
+    background: #1f2228; border-right: 1px solid #333; box-shadow: 2px 0 16px rgba(0,0,0,.25);
   }
   #orz-toolbar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
     padding: 7px 10px; background: #23262c; border-bottom: 1px solid #34383f; }
@@ -142,7 +157,8 @@ export function buildHtml(o: BuildOptions): string {
 </head>
 <body>
 
-<div id="orz-pages"></div>
+<div id="orz-pages" data-orz-copy></div>
+<div id="orz-divider" title="Drag to resize"></div>
 
 <button id="orz-edit-fab" title="Edit">&#9998;</button>
 
@@ -166,6 +182,7 @@ ${escapeForScript(o.source)}
 </script>
 
 ${engineTag}
+<script>${escapeForScript(o.runtime)}</script>
 <script>window.__ORZ_PAGED__ = ${JSON.stringify(config)};</script>
 <script>${escapeForScript(o.appJs)}</script>
 </body>
