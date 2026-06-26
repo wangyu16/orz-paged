@@ -200,6 +200,19 @@
   }
 
   /* ---- framework self-update (checked only in edit view) ---- */
+  // SECURITY: the update source is HARDCODED here, never read from the file's
+  // config — so a tampered/forged file cannot redirect "Update" to fetch
+  // attacker-controlled code. The host is fixed to jsDelivr over HTTPS, and the
+  // exact URLs are shown to the user for confirmation before anything is fetched.
+  // (This protects genuine files; a wholly-malicious file controls this code too —
+  // see the security note in the README. Clicking Update trusts npm + jsDelivr.)
+  var UPD = {
+    host: 'https://cdn.jsdelivr.net/npm/',
+    manifest: 'https://data.jsdelivr.com/v1/packages/npm/orz-paged-browser/resolved',
+    enginePkg: 'orz-paged-browser',
+    engineFile: 'orz-paged.browser.js',
+    appPkg: 'orz-paged'
+  };
   function CFG() { return window.__ORZ_PAGED__ || {}; }
   function isNewer(a, b) {
     var pa = String(a).split('.'), pb = String(b).split('.');
@@ -209,8 +222,8 @@
   var versionChecked = false;
   function checkVersion() {
     if (versionChecked) return; versionChecked = true;
-    var c = CFG(); if (!c.versionManifest || !c.version) return;
-    fetch(c.versionManifest).then(function (r) { return r.json(); }).then(function (j) {
+    var c = CFG(); if (!c.version) return;
+    fetch(UPD.manifest).then(function (r) { return r.json(); }).then(function (j) {
       var latest = j && j.version;
       if (latest && isNewer(latest, c.version)) showUpdate(latest);
     }).catch(function () {});
@@ -226,10 +239,9 @@
    *  at the latest version, re-inline them, bump the version, save, and reload. */
   function applyUpdate() {
     var bar = $('orz-update'); var latest = bar && bar.getAttribute('data-latest'); if (!latest) return;
-    var c = CFG();
-    var base = 'https://cdn.jsdelivr.net/npm/';
-    var engineUrl = base + c.enginePkg + '@' + latest + '/' + c.engineFile;
-    var appUrl = base + c.appPkg + '@' + latest + '/assets/app.js';
+    var engineUrl = UPD.host + UPD.enginePkg + '@' + latest + '/' + UPD.engineFile;
+    var appUrl = UPD.host + UPD.appPkg + '@' + latest + '/assets/app.js';
+    if (!window.confirm('Update the framework to ' + latest + '?\n\nThis downloads and runs code from:\n  ' + engineUrl + '\n  ' + appUrl + '\n\nOnly proceed if you trust this document and its publisher.')) return;
     toast('Downloading framework ' + latest + '…');
     Promise.all([
       fetch(engineUrl).then(function (r) { if (!r.ok) throw new Error('engine'); return r.text(); }),

@@ -151,13 +151,10 @@ export function buildHtml(o: BuildOptions): string {
       : undefined,
     katexCss: o.cdn.katexCss,
     enhancers: { mermaidJs: o.cdn.mermaidJs, smilesJs: o.cdn.smilesJs, chartJs: o.cdn.chartJs },
-    // self-update: the editor checks this manifest and can re-fetch the engine +
-    // app.js from the lockstep packages at the latest version.
+    // self-update: only the file's OWN version lives here (for the "is there a
+    // newer one?" comparison). The update SOURCE (packages, manifest, host) is
+    // hardcoded in app.js — never config-driven — so it can't be redirected.
     version: o.rendererVersion,
-    versionManifest: 'https://data.jsdelivr.com/v1/packages/npm/orz-paged-browser/resolved',
-    enginePkg: 'orz-paged-browser',
-    engineFile: 'orz-paged.browser.js',
-    appPkg: 'orz-paged',
   };
   const themeOptions = o.themes
     .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.id)}</option>`)
