@@ -30,8 +30,10 @@ interface OrzPagedConfig {
   themeUrls?: Record<string, string>;
   /** KaTeX stylesheet URL (math is pre-rendered; this styles it). */
   katexCss?: string;
+  /** highlight.js stylesheet URL (light/github — paged is light-only). */
+  hljsCss?: string;
   /** CDN URLs for the client-rendered enhancers, loaded only if used. */
-  enhancers?: { mermaidJs?: string; smilesJs?: string; chartJs?: string };
+  enhancers?: { mermaidJs?: string; smilesJs?: string; chartJs?: string; hljsJs?: string };
 }
 
 function cfg(): OrzPagedConfig {
@@ -50,6 +52,10 @@ function pagesContainer(): HTMLElement {
   if (!el) {
     el = document.createElement('div');
     el.id = 'orz-pages';
+    // paged.js reflows the .markdown-body content into page boxes, dropping that
+    // wrapper; mark the container so the orz runtime's copy-as-Markdown handler
+    // still fires for a selection in the rendered pages.
+    el.setAttribute('data-orz-copy', '');
     document.body.appendChild(el);
   }
   return el;
@@ -100,6 +106,17 @@ async function renderEnhancers(root: HTMLElement): Promise<void> {
   const e = cfg().enhancers || {};
   const w = window as Record<string, any>;
   const jobs: Promise<unknown>[] = [];
+
+  // Syntax-highlight code on the stage before pagination, so the highlighted
+  // markup flows into the pages (and prints).
+  if (e.hljsJs && root.querySelector('pre code')) {
+    await loadScript(e.hljsJs);
+    if (w.hljs) {
+      root.querySelectorAll<HTMLElement>('pre code:not(.hljs)').forEach((b) => {
+        try { w.hljs.highlightElement(b); } catch { /* ignore */ }
+      });
+    }
+  }
 
   if (e.mermaidJs && root.querySelector('.mermaid')) {
     await loadScript(e.mermaidJs);
@@ -173,6 +190,7 @@ async function render(source: string): Promise<void> {
   // Stylesheets the document needs in <head> for fonts + math (and staging measurement).
   a.fontCssUrls.forEach((u) => ensureLink(u));
   if (cfg().katexCss) ensureLink(cfg().katexCss!, 'orz-katex');
+  if (cfg().hljsCss) ensureLink(cfg().hljsCss!, 'orz-hljs');
 
   // Stage off-screen so diagrams render (and get real sizes) before pagination.
   const stage = document.createElement('div');

@@ -28,7 +28,7 @@ export interface BuildOptions {
   /** default theme id (informational; the document's settings decide). */
   defaultTheme: string;
   /** CDN URLs needed at view time. */
-  cdn: { katexCss: string; mermaidJs: string; smilesJs: string; chartJs: string };
+  cdn: { katexCss: string; mermaidJs: string; smilesJs: string; chartJs: string; hljsJs: string; hljsCss: string };
   /** the in-file editor app (assets/app.js text). */
   appJs: string;
   /** orz-markdown browser runtime (copy-as-Markdown + qr). */
@@ -150,7 +150,8 @@ export function buildHtml(o: BuildOptions): string {
       ? Object.fromEntries(o.themes.map((t) => [t.id, t.css]))
       : undefined,
     katexCss: o.cdn.katexCss,
-    enhancers: { mermaidJs: o.cdn.mermaidJs, smilesJs: o.cdn.smilesJs, chartJs: o.cdn.chartJs },
+    hljsCss: o.cdn.hljsCss,
+    enhancers: { mermaidJs: o.cdn.mermaidJs, smilesJs: o.cdn.smilesJs, chartJs: o.cdn.chartJs, hljsJs: o.cdn.hljsJs },
     // self-update: only the file's OWN version lives here (for the "is there a
     // newer one?" comparison). The update SOURCE (packages, manifest, host) is
     // hardcoded in app.js — never config-driven — so it can't be redirected.

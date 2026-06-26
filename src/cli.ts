@@ -12,6 +12,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, join, basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getBrowserRuntimeScript } from 'orz-markdown/runtime';
+import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
 import { buildHtml, type ThemeAsset, type RendererSpec } from './template.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -20,12 +21,16 @@ const ROOT = join(HERE, '..');
 const selfVersion: string =
   JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version || '0.0.0';
 
-/** Pinned CDN assets used at view time. */
+/** Pinned CDN assets used at view time — sourced from orz-markdown's shared
+ *  preview-frame helper so every host app loads identical, tested versions.
+ *  Paged is light-only, so highlight.js uses the light (github) stylesheet. */
 const CDN = {
-  katexCss: 'https://cdn.jsdelivr.net/npm/katex@0.16.35/dist/katex.min.css',
-  mermaidJs: 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js',
-  smilesJs: 'https://unpkg.com/smiles-drawer@1.0.10/dist/smiles-drawer.min.js',
-  chartJs: 'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js',
+  katexCss: PREVIEW_CDN.katexCss,
+  mermaidJs: PREVIEW_CDN.mermaidJs,
+  smilesJs: PREVIEW_CDN.smilesJs,
+  chartJs: PREVIEW_CDN.chartJs,
+  hljsJs: PREVIEW_CDN.hljsJs,
+  hljsCss: PREVIEW_CDN.hljsLightCss,
 };
 
 function findAsset(rel: string): string {
