@@ -51,6 +51,19 @@ const ORZ_LOGO =
 const GH_ICON =
   '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
 
+/* Canonical icon set — shared, thin-stroke line icons (from the orz-markdown
+ * editor) so the same function shows the same glyph across every orz surface. */
+function ic(path: string): string {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+}
+const ICON = {
+  save: ic('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>'),
+  print: ic('<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/>'),
+  sync: ic('<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M8 12h8"/>'),
+  pencil: ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>'),
+  collapse: ic('<path d="M15 6l-6 6 6 6"/>'),
+};
+
 const BRAND =
   '<a id="orz-brand" href="https://github.com/wangyu16/orz-paged" target="_blank" rel="noopener noreferrer" title="orz-paged on GitHub">' +
   `<span class="orz-logo">${ORZ_LOGO}</span>` +
@@ -63,19 +76,18 @@ const BRAND =
 const CHROME_CSS = `
   html, body { margin: 0; height: 100%; background: #f0f0f2; }
   :root { --orz-split: 44%; }
-  #orz-pages { box-sizing: border-box; }
-  /* edit mode = side-by-side: editor (left) | divider | preview (right) */
-  [data-mode="edit"] #orz-pages {
-    position: fixed; top: 0; bottom: 0; right: 0; left: calc(var(--orz-split) + 6px);
-    overflow: auto; background: #f0f0f2;
-  }
+  /* the preview is a fixed full-window scroll container; in edit mode its left
+     edge animates inward to make room for the docked editor (side-by-side). */
+  #orz-pages { box-sizing: border-box; position: fixed; inset: 0; left: 0;
+    overflow: auto; background: #f0f0f2; transition: left .22s ease; }
+  [data-mode="edit"] #orz-pages { left: calc(var(--orz-split) + 6px); }
   /* paged.js page boxes get a subtle drop shadow + centered layout */
   .pagedjs_pages { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 0; }
   .pagedjs_page { background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
   @media print {
     body { background: #fff; }
-    #orz-bar, #orz-panel, #orz-edit-fab, #orz-divider, .orz-banner, #orz-toast { display: none !important; }
-    [data-mode="edit"] #orz-pages { position: static; }
+    #orz-bar, #orz-panel, #orz-edit-fab, #orz-divider, #orz-close, .orz-banner, #orz-toast { display: none !important; }
+    #orz-pages { position: static; overflow: visible; left: 0; }
     .pagedjs_pages { gap: 0; padding: 0; zoom: 1 !important; }
     .pagedjs_page { box-shadow: none; }
   }
@@ -83,9 +95,11 @@ const CHROME_CSS = `
   #orz-edit-fab {
     position: fixed; left: 22px; bottom: 18px; z-index: 30;
     width: 42px; height: 42px; border: 0; border-radius: 50%;
-    background: #2f6fe0; color: #fff; cursor: pointer; font-size: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #2f6fe0; color: #fff; cursor: pointer;
     box-shadow: 0 2px 10px rgba(0,0,0,.25); opacity: .9;
   }
+  #orz-edit-fab svg { width: 19px; height: 19px; display: block; }
   #orz-edit-fab:hover { opacity: 1; transform: scale(1.06); }
   [data-mode="edit"] #orz-edit-fab { display: none; }
 
@@ -96,17 +110,30 @@ const CHROME_CSS = `
   }
   #orz-divider:hover, #orz-divider.dragging { background: #3b82f6; }
 
-  #orz-panel { display: none; }
-  [data-mode="edit"] #orz-panel {
+  #orz-panel {
     display: flex; flex-direction: column;
     position: fixed; left: 0; top: 0; bottom: 0; width: var(--orz-split); z-index: 40;
     background: #1f2228; border-right: 1px solid #333; box-shadow: 2px 0 16px rgba(0,0,0,.25);
+    /* extra offset so the protruding close tab also clears the viewport */
+    transform: translateX(calc(-100% - 24px)); transition: transform .22s ease;
   }
+  [data-mode="edit"] #orz-panel { transform: translateX(0); }
+  /* close tab — a small handle on the editor's right edge that slides it away */
+  #orz-close {
+    position: absolute; top: 50%; right: -19px; transform: translateY(-50%);
+    width: 19px; height: 48px; z-index: 46; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 0 8px 8px 0; background: #23262c; color: #c2c8d0;
+    cursor: pointer; box-shadow: 2px 0 8px rgba(0,0,0,.18);
+  }
+  #orz-close:hover { background: #383d45; color: #fff; }
+  #orz-close svg { width: 15px; height: 15px; display: block; }
   #orz-toolbar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
     padding: 7px 10px; background: #23262c; border-bottom: 1px solid #34383f; }
   #orz-toolbar .ic { width: 32px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
     background: transparent; border: 0; border-radius: 7px; color: #c2c8d0; cursor: pointer; font-size: 16px; }
   #orz-toolbar .ic:hover { background: #383d45; color: #fff; }
+  #orz-toolbar .ic svg { width: 17px; height: 17px; display: block; }
   #orz-toolbar .ic[aria-pressed="true"] { color: #3b82f6; }
   #orz-toolbar .ic[aria-pressed="false"] { opacity: .5; }
   #orz-toolbar .ic.primary { background: #3b82f6; color: #fff; }
@@ -178,19 +205,19 @@ export function buildHtml(o: BuildOptions): string {
 <div id="orz-pages" data-orz-copy></div>
 <div id="orz-divider" title="Drag to resize"></div>
 
-<button id="orz-edit-fab" title="Edit">&#9998;</button>
+<button id="orz-edit-fab" title="Edit">${ICON.pencil}</button>
 
 <div id="orz-panel">
   <div id="orz-toolbar">
     ${BRAND}
     <span class="orz-sep"></span>
-    <button id="orz-done" class="ic" title="Done">&#10003;</button>
-    <button id="orz-sync" class="ic" title="Sync scrolling on/off" aria-pressed="true">&#8645;</button>
+    <button id="orz-save" class="ic primary" title="Save (Ctrl/Cmd+S)">${ICON.save}</button>
+    <button id="orz-export" class="ic" title="Export PDF (print)">${ICON.print}</button>
     <span class="orz-spacer"></span>
+    <button id="orz-sync" class="ic" title="Sync scrolling on/off" aria-pressed="true">${ICON.sync}</button>
     <select id="orz-theme" title="Theme"><option value="">(document theme)</option>${themeOptions}</select>
-    <button id="orz-export" class="ic" title="Export PDF (print)">&#8681;</button>
-    <button id="orz-save" class="ic primary" title="Save (Ctrl/Cmd+S)">&#128190;</button>
   </div>
+  <button id="orz-close" title="Close editor">${ICON.collapse}</button>
   <div id="orz-editor-host"><textarea id="orz-ta" spellcheck="false"></textarea></div>
 </div>
 

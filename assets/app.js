@@ -124,11 +124,13 @@
       }
       wireSync();
       setTimeout(function () { if (cm) { cm.refresh(); cm.focus(); } fitPreview(); }, 30);
+      setTimeout(fitPreview, 260); // re-fit once the slide-in transition settles
     }).catch(function () { toast('Could not load the editor (offline?)'); });
   }
   function exitEdit() {
     document.documentElement.removeAttribute('data-mode');
-    fitPreview(); // reset zoom for full-window view
+    fitPreview();                  // clear zoom immediately
+    setTimeout(fitPreview, 260);   // and again after the slide-out settles
   }
 
   function scheduleRerender() {
@@ -265,7 +267,7 @@
   /* ---- wire up ---- */
   function init() {
     var fab = $('orz-edit-fab'); if (fab) fab.addEventListener('click', enterEdit);
-    var done = $('orz-done'); if (done) done.addEventListener('click', exitEdit);
+    var close = $('orz-close'); if (close) close.addEventListener('click', exitEdit);
     var exp = $('orz-export'); if (exp) exp.addEventListener('click', function () { if (api()) api().exportPdf(); });
     var sav = $('orz-save'); if (sav) sav.addEventListener('click', save);
     var theme = $('orz-theme');
