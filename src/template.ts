@@ -150,6 +150,10 @@ const CHROME_CSS = `
   #orz-brand .orz-gh svg { width: 15px; height: 15px; display: block; }
   #orz-editor-host { flex: 1; min-height: 0; overflow: hidden; }
   #orz-editor-host .CodeMirror { height: 100%; font-size: 14px; }
+  #orz-foot { flex: 0 0 auto; height: 24px; display: flex; align-items: center; justify-content: center;
+    font: 11.5px/1 system-ui, sans-serif; color: #8b93a0; background: #23262c; border-top: 1px solid #34383f; gap: 4px; }
+  #orz-foot a { color: #9aa3b2; text-decoration: none; }
+  #orz-foot a:hover { color: #fff; text-decoration: underline; }
   #orz-ta { width: 100%; height: 100%; box-sizing: border-box; border: 0; padding: 10px;
     font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace; }
   #orz-toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(20px);
@@ -219,6 +223,7 @@ export function buildHtml(o: BuildOptions): string {
   </div>
   <button id="orz-close" title="Close editor">${ICON.collapse}</button>
   <div id="orz-editor-host"><textarea id="orz-ta" spellcheck="false"></textarea></div>
+  <div id="orz-foot">© <a href="https://markdown.orz.how" target="_blank" rel="noopener noreferrer">orz-markdown</a></div>
 </div>
 
 <div id="orz-update" class="orz-banner">
