@@ -3,7 +3,14 @@ kind: document
 template: exam-page
 page_number_position: footer-center
 page_number_style: page-n-of-N
+dynamic_choices: |
+  answer-key: hide
 }}
+
+<!-- One source, two printouts: this is the student copy (answer-key: hide).
+     Switch to `answer-key: show` here — or use the editor's answer-key toggle —
+     to reveal the ✓ marks and model answers for the instructor key. -->
+
 
 {{nyml
 kind: exam-title

@@ -57,7 +57,42 @@
     if (!pageW) return;
     wrap.style.zoom = Math.min(1, (pages.clientWidth - 28) / pageW);
   }
-  window.__orzPagedAfterRender = fitPreview;     // engine calls this after every render
+  window.__orzPagedAfterRender = function () { fitPreview(); buildDynControls(); }; // engine calls this after every render
+
+  /* ---- dynamic switch (live) — build a control per dynamic_choices key ---- */
+  function humanizeKey(k) { return String(k).replace(/_/g, ' '); }
+  function buildDynControls() {
+    var host = $('orz-dyn'); if (!host) return;
+    if (!api() || !api().getDynamicState) { host.innerHTML = ''; return; }
+    var st = api().getDynamicState();
+    var opts = st.options || {}, choices = st.choices || {};
+    var keys = Object.keys(opts);
+    Object.keys(choices).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });
+    keys.sort();
+    if (!keys.length) { host.innerHTML = ''; host.removeAttribute('data-keys'); return; }
+    var sig = keys.join(',');
+    if (host.getAttribute('data-keys') === sig) {            // same keys → just sync values
+      keys.forEach(function (k) {
+        var s = host.querySelector('select[data-key="' + k + '"]');
+        if (s) s.value = choices[k] || '';
+      });
+      return;
+    }
+    host.setAttribute('data-keys', sig);
+    host.innerHTML = '';
+    keys.forEach(function (k) {
+      var vals = (opts[k] || []).slice();
+      var cur = choices[k] || '';
+      if (cur && vals.indexOf(cur) < 0) vals.unshift(cur);   // keep the current value selectable
+      var ctl = document.createElement('span'); ctl.className = 'orz-dyn-ctl';
+      var lab = document.createElement('label'); lab.textContent = humanizeKey(k); lab.htmlFor = 'orz-dyn-' + k;
+      var sel = document.createElement('select'); sel.id = 'orz-dyn-' + k; sel.setAttribute('data-key', k); sel.title = humanizeKey(k);
+      vals.forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+      sel.value = cur;
+      sel.addEventListener('change', function () { if (api() && api().setDynamicChoice) api().setDynamicChoice(k, sel.value); });
+      ctl.appendChild(lab); ctl.appendChild(sel); host.appendChild(ctl);
+    });
+  }
 
   /* ---- draggable divider (relative width) ---- */
   function wireDivider() {

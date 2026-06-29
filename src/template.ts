@@ -146,6 +146,9 @@ const CHROME_CSS = `
   #orz-toolbar select { font: 500 12.5px/1 system-ui, sans-serif; color: #e6e8ec; background: #34383f;
     border: 1px solid #454b55; border-radius: 7px; padding: 6px 8px; cursor: pointer; margin: 0 2px; }
   #orz-toolbar .orz-sep { width: 1px; height: 20px; background: #3c414a; margin: 0 5px; }
+  #orz-dyn { display: inline-flex; align-items: center; gap: 4px; }
+  #orz-dyn .orz-dyn-ctl { display: inline-flex; align-items: center; gap: 4px; }
+  #orz-dyn label { font: 600 11px/1 system-ui, sans-serif; color: #9aa3b2; text-transform: capitalize; }
   #orz-toolbar .orz-spacer { flex: 1; }
   #orz-brand { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #cdd3df; padding: 2px 7px; border-radius: 7px; }
   #orz-brand:hover { color: #fff; background: #383d45; }
@@ -250,6 +253,7 @@ export function buildHtml(o: BuildOptions): string {
     <button id="orz-template" class="ic" title="Start from a template">${ICON.template}</button>
     <span class="orz-spacer"></span>
     <button id="orz-sync" class="ic" title="Sync scrolling on/off" aria-pressed="true">${ICON.sync}</button>
+    <span id="orz-dyn"></span>
     <select id="orz-theme" title="Theme">${themeOptions}</select>
   </div>
   <div id="orz-template-menu" hidden></div>

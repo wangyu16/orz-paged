@@ -14,6 +14,7 @@ import { assemble } from './render-paged.js';
 import { paginate, printDocument, type PagedStylesheet } from './paged.js';
 import { fontPreset } from './doc/fonts.js';
 import { THEME_FONTS } from './doc/theme-fonts.js';
+import { applyDynamicChoices, collectDynamicChoices } from './doc/dynamic.js';
 import type { PagedAssembly, ThemeName } from './types.js';
 
 const VERSION = typeof __ORZPAGED_VERSION__ !== 'undefined' ? __ORZPAGED_VERSION__ : '0.0.0';
@@ -163,6 +164,9 @@ async function renderEnhancers(root: HTMLElement): Promise<void> {
 
 let lastAssembly: PagedAssembly | null = null;
 let themeOverride: string | null = null; // editor theme picker; null = the document's theme
+let dynOverride: Record<string, string> = {}; // editor dynamic-switch overrides
+let lastDynChoices: Record<string, string> = {}; // effective choices last applied
+let lastDynOptions: Record<string, string[]> = {}; // key → values seen (for the switcher UI)
 
 function stylesheetsFor(a: PagedAssembly): PagedStylesheet[] {
   const c = cfg();
@@ -207,6 +211,13 @@ async function render(source: string): Promise<void> {
   stage.style.cssText = 'position:absolute;left:-99999px;top:0;width:680px;';
   stage.innerHTML = a.bodyHtml;
   document.body.appendChild(stage);
+
+  // Dynamic switch: collect the available choices (for the editor's live
+  // switcher) BEFORE resolving, then remove conditional content that doesn't
+  // match the effective choices (source `dynamic_choices` + live overrides).
+  lastDynOptions = collectDynamicChoices(stage);
+  lastDynChoices = { ...a.settings.dynamicChoices, ...dynOverride };
+  applyDynamicChoices(stage, lastDynChoices);
 
   // Double-buffer: paginate into an off-screen container, then swap it in. The old
   // pages stay visible until the swap, so a re-render never flashes to the top —
@@ -280,6 +291,18 @@ const api = {
   setTheme: (id: string) => { themeOverride = id && id !== 'none' ? id : null; return render(sourceText()); },
   /** The theme currently in effect (the override, or the document's own theme). */
   getTheme: () => themeOverride || (lastAssembly ? lastAssembly.theme : null),
+  /** Dynamic switch (live): the keys/values available + the effective choices. */
+  getDynamicState: () => ({
+    options: lastDynOptions,
+    choices: lastDynChoices,
+  }),
+  /** Override one dynamic choice live (editor switcher) and re-render. */
+  setDynamicChoice: (key: string, value: string | null) => {
+    const k = key.toLowerCase().replace(/-/g, '_');
+    if (value === null || value === '') delete dynOverride[k];
+    else dynOverride[k] = value;
+    return render(sourceText());
+  },
   /** The last assembly (resolved settings etc.) for the editor's settings panel. */
   get assembly() { return lastAssembly; },
   /** Read the embedded source. */

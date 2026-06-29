@@ -169,6 +169,7 @@ The bare names `article` / `report` / `exam` still work and resolve to the
 | `page_number_position` | `header-left\|center\|right`, `footer-left\|center\|right`, `none` | where the page number sits |
 | `page_number_style` | see [Page-number styles](#page-number-styles) | how it reads |
 | `front_matter` | `clean` (or `normal`, the default) | `clean`: strip header/footer/number from every `placement: page` front-matter page (title / abstract / toc) and restart the page count so the body begins at **1** |
+| `dynamic_choices` | a `key: value` map | conditional content — print several versions from one source (e.g. `answer-key: hide`); see [Dynamic switch](#dynamic-switch--print-several-versions-from-one-source) |
 | `theme` | `none` · `light-neat-1/2/3` · `light-academic-1/2` · `beige-decent-1/2` | **light only** |
 
 #### Font presets
@@ -370,9 +371,38 @@ answer: Starting from F = ma and integrating over distance...
 }}
 ```
 
-The `answer:` (and the ✓ on the correct `question-mc` option) only shows in the
-**answer-key** version — the `exam` template's answer-key toggle controls it, so
-one source makes both the student copy and the instructor key.
+The `answer:` (and the ✓ on the correct `question-mc` option) is shown only when
+the **`answer-key`** dynamic switch is `show` — so one source makes both the
+student copy and the instructor key (see [Dynamic switch](#dynamic-switch--print-several-versions-from-one-source)).
+
+---
+
+## Dynamic switch — print several versions from one source
+
+`dynamic_choices` is a document setting (a `key: value` map) that drives
+**conditional content**. Any element carrying `data-show-when="key=value"` is kept
+only when the choice matches; `data-hide-when="key=value"` is removed when it
+matches. The exam questions use this automatically: the answers are tagged
+`data-show-when="answer-key=show"`.
+
+```
+{{nyml
+kind: document
+template: exam-page
+dynamic_choices: |
+  answer-key: hide      ← student copy (default); set to `show` for the key
+}}
+```
+
+- **In the file**: change `answer-key: hide` → `show` and re-render to produce the
+  instructor key (✓ marks + model answers revealed).
+- **In the editor**: a live **answer key** dropdown appears in the toolbar
+  whenever a document uses `dynamic_choices` — flip it to preview/print either
+  version without editing the source.
+
+It is general-purpose: define your own keys (e.g. `audience: student`) and tag
+content with `data-show-when` / `data-hide-when` (an HTML span/div in the source,
+or a future custom element) to print tailored variants from one file.
 
 ---
 

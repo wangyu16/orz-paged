@@ -69,6 +69,9 @@ export const DEFAULTS: DocSettings = {
   // theme — the default look (font + accent + element style) when a document
   // doesn't pick one. Templates set layout only, never a theme.
   theme: 'light-academic-1',
+
+  // dynamic switch — empty by default (no conditional content removed).
+  dynamicChoices: {},
 };
 
 /* ─────────────────────────── parsing ─────────────────────────── */
@@ -398,6 +401,19 @@ export function normalizeRawToLayer(raw: RawDocSettings): DocSettingsLayer {
       case 'custom_css':
         setStr('customCss', v);
         break;
+      case 'dynamic_choices': {
+        // multiline `key: value` map → object with normalized keys
+        // (lowercase, hyphens → underscores), matching data-*-when resolution.
+        const map: Record<string, string> = {};
+        for (const line of toStr(v).split(/\r?\n/)) {
+          const idx = line.indexOf(':');
+          if (idx < 0) continue;
+          const key = line.slice(0, idx).trim().toLowerCase().replace(/-/g, '_');
+          if (key) map[key] = line.slice(idx + 1).trim();
+        }
+        (out as Record<string, unknown>).dynamicChoices = map;
+        break;
+      }
 
       default:
         // unknown key — ignore

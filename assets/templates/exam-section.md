@@ -3,6 +3,8 @@ kind: document
 template: exam-section
 page_number_position: footer-center
 page_number_style: page-n-of-N
+dynamic_choices: |
+  answer-key: hide
 }}
 
 {{nyml

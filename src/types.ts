@@ -117,6 +117,12 @@ export interface DocSettings {
   theme: ThemeName;
   template?: TemplateName;
   customCss?: string;
+
+  /** Dynamic switch — a key→value map driving conditional content. Elements
+   *  carry `data-show-when="key=value"` / `data-hide-when="key=value"`; at render
+   *  time non-matching ones are removed. Lets one source print several versions
+   *  (e.g. `answer-key: hide` for the student copy, `show` for the key). */
+  dynamicChoices: Record<string, string>;
 }
 
 /** A partial settings layer (template defaults / user overrides) for merging. */

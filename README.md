@@ -78,6 +78,16 @@ together). The **default is `light-academic-1`**. They are **light only by desig
 (ink on paper); an explicit `font_preset` / `decoration_color` / `page_background`
 still overrides a theme's font / accent / page tint.
 
+## Dynamic switch — one source, several versions
+
+A `dynamic_choices` document setting (a `key: value` map) drives conditional
+content: elements tagged `data-show-when="key=value"` / `data-hide-when="key=value"`
+are kept or dropped at render time. The headline use is **exam answer keys** — the
+question answers are tagged `answer-key=show`, so one source prints both the
+student copy (`answer-key: hide`) and the instructor key (`show`). Flip it in the
+source, or live from the editor's **answer key** dropdown. Define your own keys for
+any tailored-variant document.
+
 ## Authoring
 
 A `{{nyml kind: document}}` block sets page size/margins, font, headers/footers,

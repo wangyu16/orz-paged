@@ -208,6 +208,31 @@ describe('exam-title', () => {
   });
 });
 
+describe('question answer reveal (dynamic switch)', () => {
+  it('question-mc marks the correct option with a show-when ✓', () => {
+    const r = renderElement(
+      spec('question-mc', { n: '1', body: 'Q?', options: 'A. one\nB. two', answer: 'B' }),
+      ctx,
+    );
+    expect(r.html).toContain('data-answer="true"');
+    expect(r.html).toContain('orz-answer-mark');
+    expect(r.html).toContain('data-show-when="answer-key=show"');
+  });
+  it('question-open wraps the model answer in a show-when block', () => {
+    const r = renderElement(
+      spec('question-open', { n: '2', body: 'Explain.', answer: 'Because reasons.' }),
+      ctx,
+    );
+    expect(r.html).toContain('orz-answer-key');
+    expect(r.html).toContain('data-show-when="answer-key=show"');
+    expect(r.html).toContain('Because reasons.');
+  });
+  it('question-open without an answer emits no reveal block', () => {
+    const r = renderElement(spec('question-open', { n: '3', body: 'Q' }), ctx);
+    expect(r.html).not.toContain('orz-answer-key');
+  });
+});
+
 describe('abstract', () => {
   it('renders text via block ctx and shows keywords', () => {
     const r = renderElement(

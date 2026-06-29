@@ -718,10 +718,16 @@ function renderQuestionMc(spec: ElementSpec, ctx: ElementCtx): ElementResult {
       longest = Math.max(longest, text.length);
       const isAnswer = answer !== '' && label === answer;
       const answerAttr = isAnswer ? ' data-answer="true"' : '';
+      // The ✓ reveal is gated by the dynamic switch: it survives only when
+      // answer-key=show (instructor key), and is removed for the student copy.
+      const mark = isAnswer
+        ? ' <span class="orz-answer-mark" data-show-when="answer-key=show">✓</span>'
+        : '';
       return (
         `<li class="orz-option"${answerAttr}>` +
         `<span class="orz-option-label">${escapeHtml(label)}.</span> ` +
         `<span class="orz-option-text">${ctx.renderInline(text)}</span>` +
+        mark +
         `</li>`
       );
     })
@@ -767,8 +773,16 @@ function renderQuestionMc(spec: ElementSpec, ctx: ElementCtx): ElementResult {
 .orz-el-question-mc .orz-option-label {
   font-weight: 600;
 }
-.orz-el-question-mc .orz-option[data-answer] {
-  /* visually neutral by default; an answer-key toggle styles it elsewhere */
+/* The correct option is visually neutral on the student copy (the ✓ is removed
+   by the dynamic switch). When answer-key=show the ✓ survives and tints it. */
+.orz-el-question-mc .orz-answer-mark {
+  color: var(--success-text, #1a7f37);
+  font-weight: 700;
+  margin-left: 0.3em;
+}
+.orz-el-question-mc .orz-option:has(.orz-answer-mark) {
+  color: var(--success-text, #1a7f37);
+  font-weight: 600;
 }`;
   css += pageBreakCss('question-mc');
 
@@ -788,8 +802,14 @@ function renderQuestionOpen(spec: ElementSpec, ctx: ElementCtx): ElementResult {
   const writing = `<div class="orz-q-space" style="height:${escapeHtml(
     space,
   )}" aria-hidden="true"></div>`;
+  // Model answer — shown only on the instructor key (answer-key=show).
+  const answerKey = has(spec, 'answer')
+    ? `<div class="orz-answer-key" data-show-when="answer-key=show">`
+      + `<div class="orz-answer-label">Answer</div>`
+      + `${ctx.renderBlock(field(spec, 'answer'))}</div>`
+    : '';
 
-  const html = wrap('question-open', placement, header + body + writing);
+  const html = wrap('question-open', placement, header + body + writing + answerKey);
 
   let css = `
 .orz-el-question-open {
@@ -813,7 +833,24 @@ function renderQuestionOpen(spec: ElementSpec, ctx: ElementCtx): ElementResult {
 .orz-el-question-open .orz-q-space {
   min-height: 1cm;
   border-bottom: 1px solid #ccc;
-}`;
+}
+.orz-el-question-open .orz-answer-key {
+  margin-top: 0.5em;
+  padding: 0.5em 0.8em;
+  background: var(--success-bg, #eef7f0);
+  border-left: 3px solid var(--success-text, #1a7f37);
+  border-radius: 3px;
+  font-size: 0.95em;
+}
+.orz-el-question-open .orz-answer-label {
+  font-weight: 700;
+  color: var(--success-text, #1a7f37);
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.2em;
+}
+.orz-el-question-open .orz-answer-key > p:last-child { margin-bottom: 0; }`;
   css += pageBreakCss('question-open');
 
   return { html, css, placement };

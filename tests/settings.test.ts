@@ -199,6 +199,11 @@ describe('normalizeRawToLayer', () => {
     expect(Object.keys(layer)).toEqual(['fontSize']);
   });
 
+  it('dynamic_choices parses to a normalized key→value map', () => {
+    const layer = normalizeRawToLayer({ dynamic_choices: 'answer-key: hide\nAudience: Student' });
+    expect(layer.dynamicChoices).toEqual({ answer_key: 'hide', audience: 'Student' });
+  });
+
   it('front_matter accepts clean/plain/booleans', () => {
     expect(normalizeRawToLayer({ front_matter: 'clean' }).frontMatterClean).toBe(true);
     expect(normalizeRawToLayer({ front_matter: 'plain' }).frontMatterClean).toBe(true);
