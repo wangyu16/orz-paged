@@ -54,9 +54,18 @@ Generate from a Markdown file:
 ```bash
 orz-paged document.md                  # → document.paged.html
 orz-paged document.md -o out.paged.html # choose the output name
-orz-paged document.md --inline         # (default) embed engine + active theme
+orz-paged document.md --inline         # (default) embed engine + all themes
 orz-paged document.md --cdn            # reference engine + theme from jsDelivr
+
+orz-paged --template article-page      # scaffold + render a starter document
+orz-paged --new letter -o draft.md     # write a starter .md you then edit
+orz-paged --list-templates             # list the templates
 ```
+
+You can also start from a template **inside the editor**: open it (✎) and click
+the **template** button (📄) in the toolbar — a grouped picker of starter
+documents; choosing one drops the starter into the editor (any existing content is
+preserved in an HTML comment).
 
 `--inline` (default) embeds the `orz-paged` engine + paged.js + the active theme,
 so the document **paginates offline**. Either way, **fonts, web images, and the
@@ -121,16 +130,23 @@ template: article
 }}
 ```
 
-### Templates (set one — it picks the defaults)
+### Templates (set one — it picks the defaults + a starter skeleton)
+
+`article`, `report`, and `exam` come in **two variants** — `-page` (a dedicated
+title/cover page) and `-section` (an inline title block above the content):
 
 | `template` | For | Sets up |
 |---|---|---|
-| `article` | academic paper / short report | serif, title section + `abstract` |
-| `report` | business / technical report | sans, header/footer + optional `toc` |
-| `letter` | formal letter | serif, `letterhead` + inside-address + signature |
-| `cv` | résumé | sans, `cv-header` |
-| `note` | clean readable notes | A4 serif, minimal furniture |
-| `exam` | exam / assessment | serif, title + `question-*`, answer-key toggle |
+| `article-page` / `article-section` | academic paper | serif · light-academic-1 · title (page/inline) + `abstract` |
+| `report-page` / `report-section` | business / technical report | sans · light-neat-1 · title (page/inline) + `toc` + header/footer |
+| `exam-page` / `exam-section` | exam / assessment | serif · title (cover/inline) + `question-*`, answer-key toggle |
+| `letter` | formal letter | serif · `letterhead` + inside-address + signature |
+| `cover-letter` | job cover letter | serif · sender header + recipient + sign-off |
+| `cv` | résumé | sans · `cv-header` + sectioned body |
+| `note` | clean readable notes | A4 serif · light-academic-2 · minimal furniture |
+
+The bare names `article` / `report` / `exam` still work and resolve to the
+`-section` variant.
 
 ### Overrides (all optional — the template supplies defaults)
 
@@ -146,7 +162,7 @@ template: article
 | `footer_left` / `footer_center` / `footer_right` | text | running footer margin boxes |
 | `page_number_position` | `header-left\|center\|right`, `footer-left\|center\|right`, `none` | where the page number sits |
 | `page_number_style` | see [Page-number styles](#page-number-styles) | how it reads |
-| `theme` | `none` `light-academic-1` `light-neat-1` `beige-decent-1` | **light only** |
+| `theme` | `none` · `light-neat-1/2/3` · `light-academic-1/2` · `beige-decent-1/2` | **light only** |
 
 #### Font presets
 
@@ -162,9 +178,16 @@ Mono: `courier-prime`.
 
 #### Themes (light only — by design)
 
-`none` (plain), `light-academic-1` (Tufte-ish serif), `light-neat-1` (modern
-sans, blue accent), `beige-decent-1` (warm editorial). There are **no dark
-themes** — the document mimics ink on paper.
+Seven light themes, vendored from the orz family and print-adapted:
+
+- `light-neat-1/2/3` — modern sans (blue / teal / Orchard-green accents),
+- `light-academic-1/2` — scholarly serif (justified, ruled tables),
+- `beige-decent-1/2` — warm editorial paper,
+- `none` — plain.
+
+There are **no dark themes** — the document mimics ink on paper. A theme supplies
+the font, accent, and page tint; an explicit `font_preset` / `decoration_color` /
+`page_background` overrides them (so `defaults ← template ← theme ← your settings`).
 
 ---
 

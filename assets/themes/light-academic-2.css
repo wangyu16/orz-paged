@@ -30,9 +30,10 @@
   --warning-bg: #f9f2e1; --warning-text: #8a5a00; --warning-border: #ecddb6;
   --danger-bg: #f8ecea;  --danger-text: #8a2018;  --danger-border: #ead0cc;
 
-  text-align: justify;
-  hyphens: auto;
 }
+
+/* Justify prose only — never titles, headings, table cells, or short blocks. */
+.orz-doc.markdown-body p { text-align: justify; hyphens: auto; }
 
 /* Headings — Fira Sans, firm, with a small-caps flavour on section heads. */
 .orz-doc.markdown-body h1,

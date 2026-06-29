@@ -1,8 +1,9 @@
 # orz-paged
 
-> **Status: MVP built and browser-verified.** `npm run build` then
-> `npm run gen -- tests/sample.md` produces a working `.paged.html`. See
-> [PLAN.md](./PLAN.md) for module status, [DESIGN.md](./DESIGN.md) for the design.
+> **Status: built and browser-verified** — 10 starter templates, 7 light themes,
+> the full document-element set, and an in-file editor with a template picker.
+> `npm run build` then `npm run gen -- tests/sample.md` produces a working
+> `.paged.html`. See [DESIGN.md](./DESIGN.md) for the design.
 
 Generate a single, self-contained, **editable** `.paged.html` from Markdown — a
 document shown as **print pages** in any browser (A4/Letter, real margins,
@@ -31,8 +32,9 @@ binary, Puppeteer, or untested code.
   mode**, no screen-only constructs (avoid tabs, spoilers, embedded video).
 - **Assume internet.** Fonts, web images, and math/diagram libraries load from
   CDN at view/print time; files stay small.
-- **Curated, not sprawling.** A small set of common templates + a clear agent
-  skill, rather than every option.
+- **Curated, not sprawling.** Ten common templates + seven light themes (shared
+  with the orz family) + a clear agent skill, rather than every option — but every
+  element/theme/setting stays independently composable for power users and agents.
 
 ## Pipeline (all in the browser)
 
@@ -42,18 +44,34 @@ Markdown ──orz-markdown──► content HTML
          ──paged.js───────► .pagedjs_page boxes  (the visible pages — and what prints)
 ```
 
-## Planned commands
+## Commands
 
 ```
-orz-paged <input.md> [-o out.paged.html] [--theme … | --template …] [--inline | --cdn]
-orz-paged --new                # welcome-template .paged.html
-orz-paged --convert file.md    # convert an existing Markdown file
+orz-paged <input.md> [-o out.paged.html] [--inline | --cdn] [--title t]
+orz-paged --template <name> [-o out.paged.html]   # scaffold + render a starter document
+orz-paged --new <name> [-o out.md]                # write a starter .md you then edit
+orz-paged --list-templates                        # list the templates
 ```
 
-`--inline` (default) embeds the engine + paged.js + theme; `--cdn` references
-jsDelivr for those. **Fonts, web images, and math/diagram libraries always load
-from CDN** (internet assumed) — so files stay small. The document's
-`{{nyml kind: document}}` block overrides flags.
+`--inline` (default) embeds the engine + paged.js + every theme; `--cdn` references
+jsDelivr for the engine + theme. **Fonts, web images, and math/diagram libraries
+always load from CDN** (internet assumed) — so files stay small. The document's
+`{{nyml kind: document}}` block (`template:`, `theme:`, …) is the source of truth.
+
+## Templates & themes
+
+Ten starter **templates** scaffold a real document, not just defaults —
+`article`, `report`, and `exam` each in a **title-page** and a **title-section**
+variant, plus `letter`, `cover-letter`, `cv`, and `note`. Pick one with
+`--template <name>`, or in the in-file editor from the **template picker** (the
+📄 toolbar button); the picker drops the starter into the editor (keeping any
+existing content in a comment).
+
+Seven light **themes** are vendored from orz-markdown and print-adapted —
+`light-neat-1/2/3`, `light-academic-1/2`, `beige-decent-1/2` — selectable per
+document (`theme:`) or live in the editor. They are **light only by design**
+(ink on paper); an explicit `font_preset` / `decoration_color` / `page_background`
+overrides a theme's font / accent / page tint.
 
 ## Authoring
 

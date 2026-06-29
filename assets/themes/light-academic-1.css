@@ -37,12 +37,10 @@
   --warning-bg: #f9f3e2; --warning-text: #946612; --warning-border: #ecddb6;
   --danger-bg: #f8edeb;  --danger-text: #a32a2a;  --danger-border: #ead0cc;
 
-  text-align: justify; /* scholarly justified prose */
-  hyphens: auto;
 }
 
-/* Justify prose only — not list items, table cells, or short blocks. */
-.orz-doc p { text-align: justify; hyphens: auto; }
+/* Justify prose only — never titles, headings, table cells, or short blocks. */
+.orz-doc.markdown-body p { text-align: justify; hyphens: auto; }
 
 /* Headings — light weight, generous air, italic h2, small-caps h3. */
 .orz-doc.markdown-body h1,

@@ -35,8 +35,10 @@
   --warning-bg: #f6ecce; --warning-text: #876d29; --warning-border: #e0cd97;
   --danger-bg: #f4e0d8;  --danger-text: #9c4b3a;  --danger-border: #e0bbab;
 
-  text-align: justify; /* serif sits well justified on the page */
 }
+
+/* Justify prose only — never titles, headings, table cells, or short blocks. */
+.orz-doc.markdown-body p { text-align: justify; hyphens: auto; }
 
 /* Headings — sans display face, rust h1, terracotta accents. */
 .orz-doc.markdown-body h1,
