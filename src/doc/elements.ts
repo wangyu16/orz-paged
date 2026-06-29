@@ -67,6 +67,47 @@ function textLines(value: string): string[] {
     .filter((s) => s !== '');
 }
 
+/** ORCID iD + email icons for author entries (compact, inline, ~1em). */
+const ORCID_ICON =
+  '<svg class="orz-orcid-icon" viewBox="0 0 256 256" aria-hidden="true"><path fill="#A6CE39" d="M256 128c0 70.7-57.3 128-128 128S0 198.7 0 128 57.3 0 128 0s128 57.3 128 128z"/><g fill="#fff"><path d="M86.3 186.2H70.9V79.1h15.4v107.1z"/><path d="M108.9 79.1h41.6c39.6 0 57 28.3 57 53.6 0 27.5-21.5 53.6-56.8 53.6h-41.8V79.1zm15.4 93.3h24.5c34.9 0 42.9-26.5 42.9-39.7 0-21.5-13.7-39.7-43.7-39.7h-23.7v79.4z"/><path d="M88.7 56.8a10.1 10.1 0 1 1-20.2 0 10.1 10.1 0 0 1 20.2 0z"/></g></svg>';
+const EMAIL_ICON =
+  '<svg class="orz-email-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
+
+/** Parse one `authors:` line: `Name | marks | email | orcid`. Fields after the
+ *  name are auto-detected (`@` → email, an ORCID id / orcid.org → orcid, else
+ *  affiliation/note markers), so order is flexible and any may be omitted. */
+function parseAuthor(line: string): { name: string; marks: string; email: string; orcid: string } {
+  const parts = line.split('|').map((s) => s.trim());
+  const out = { name: parts[0] || '', marks: '', email: '', orcid: '' };
+  for (const p of parts.slice(1)) {
+    if (!p) continue;
+    if (p.includes('@')) out.email = p;
+    else if (/orcid\.org/i.test(p) || /^\d{4}-\d{4}-\d{4}-\d{3}[\dXx]$/.test(p)) out.orcid = p;
+    else out.marks = p;
+  }
+  return out;
+}
+
+/** ORCID iD link for an author entry. */
+function orcidLink(orcid: string): string {
+  const m = orcid.match(/(\d{4}-\d{4}-\d{4}-\d{3}[\dXx])/);
+  const id = m ? m[1] : orcid;
+  return `<a class="orz-author-orcid" href="https://orcid.org/${escapeHtml(id)}" title="ORCID ${escapeHtml(id)}">${ORCID_ICON}</a>`;
+}
+
+/** Email link for an author entry. */
+function emailLink(email: string): string {
+  return `<a class="orz-author-email" href="mailto:${escapeHtml(email)}" title="${escapeHtml(email)}">${EMAIL_ICON}</a>`;
+}
+
+/** Render a `key: text` reference line (affiliations / notes) with a superscript key. */
+function refLine(line: string, cls: string, ctx: ElementCtx): string {
+  const m = line.match(/^([^:]+):\s*(.*)$/);
+  const key = m ? m[1].trim() : '';
+  const text = m ? m[2].trim() : line;
+  return `<div class="${cls}">${key ? `<sup>${escapeHtml(key)}</sup> ` : ''}${ctx.renderInline(text)}</div>`;
+}
+
 /** Resolve the effective placement for a spec (`spec.placement` or fields). */
 function resolvePlacement(spec: ElementSpec): Placement {
   if (spec.placement === 'page') return 'page';
@@ -113,10 +154,31 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
     rows.push(`<p class="orz-subtitle">${ctx.renderInline(field(spec, 'subtitle'))}</p>`);
   }
 
-  // article/report use `author`; exam adds course/instructor/meta lines.
+  // Authors: rich `authors:` (multiple — each with affiliation marks / email /
+  // orcid) or the simple legacy `author:` single line. `affiliations:` and
+  // `notes:` are `key: text` lists keyed by the markers used in `authors:`.
   const meta: string[] = [];
-  if (has(spec, 'author')) {
-    meta.push(`<div class="orz-author">${ctx.renderInline(field(spec, 'author'))}</div>`);
+  if (has(spec, 'authors')) {
+    const items = textLines(field(spec, 'authors')).map(parseAuthor).map((a) => {
+      let s = `<span class="orz-author-name">${ctx.renderInline(a.name)}</span>`;
+      if (a.marks) s += `<sup class="orz-author-mark">${escapeHtml(a.marks)}</sup>`;
+      if (a.email) s += emailLink(a.email);
+      if (a.orcid) s += orcidLink(a.orcid);
+      return `<span class="orz-author">${s}</span>`;
+    });
+    if (items.length) {
+      meta.push(`<div class="orz-authors">${items.join('<span class="orz-author-sep">, </span>')}</div>`);
+    }
+  } else if (has(spec, 'author')) {
+    meta.push(`<div class="orz-author orz-authors">${ctx.renderInline(field(spec, 'author'))}</div>`);
+  }
+  if (has(spec, 'affiliations')) {
+    const lines = textLines(field(spec, 'affiliations')).map((l) => refLine(l, 'orz-affil', ctx));
+    if (lines.length) meta.push(`<div class="orz-affiliations">${lines.join('')}</div>`);
+  }
+  if (has(spec, 'notes')) {
+    const lines = textLines(field(spec, 'notes')).map((l) => refLine(l, 'orz-note', ctx));
+    if (lines.length) meta.push(`<div class="orz-notes">${lines.join('')}</div>`);
   }
   if (kind === 'exam-title') {
     if (has(spec, 'course')) {
@@ -174,9 +236,29 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
 .orz-el-${kind} .orz-title-meta > div {
   margin: 0.1em 0;
 }
-.orz-el-${kind} .orz-author {
+.orz-el-${kind} .orz-authors {
   font-weight: 600;
-}`;
+}
+.orz-el-${kind} .orz-author { white-space: nowrap; }
+.orz-el-${kind} .orz-author-mark,
+.orz-el-${kind} .orz-author-sep { font-weight: 400; }
+.orz-el-${kind} .orz-author-email,
+.orz-el-${kind} .orz-author-orcid { margin-left: 0.22em; text-decoration: none; }
+.orz-el-${kind} .orz-author-email { color: var(--accent, #555); }
+.orz-el-${kind} .orz-author-email svg,
+.orz-el-${kind} .orz-author-orcid svg {
+  width: 0.92em; height: 0.92em; vertical-align: -0.13em;
+}
+.orz-el-${kind} .orz-affiliations {
+  font-weight: 400; font-size: 0.82em; opacity: 0.85;
+  margin-top: 0.4em; line-height: 1.5;
+}
+.orz-el-${kind} .orz-notes {
+  font-weight: 400; font-size: 0.78em; opacity: 0.8;
+  margin-top: 0.25em; line-height: 1.5;
+}
+.orz-el-${kind} .orz-affil sup,
+.orz-el-${kind} .orz-note sup { margin-right: 0.12em; }`;
   css += pageBreakCss(kind);
 
   return { html, css, placement };

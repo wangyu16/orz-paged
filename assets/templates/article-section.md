@@ -7,7 +7,14 @@ template: article-section
 kind: article-title
 title: Your Article Title Goes Here
 subtitle: A short, descriptive subtitle for your paper
-author: First Author, Second Author
+authors: |
+  First Author | 1,* | first.author@example.edu | 0000-0002-1825-0097
+  Second Author | 2
+affiliations: |
+  1: Department of Example, University of Example
+  2: Institute of Example, Example City
+notes: |
+  *: Corresponding author
 date: June 2026
 placement: section
 }}

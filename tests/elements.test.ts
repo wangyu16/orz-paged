@@ -115,6 +115,42 @@ describe('article-title', () => {
     expect(r.placement).toBe('page');
     expect(r.css).toContain('break-after: page');
   });
+
+  it('rich authors: multiple authors with marks, email, orcid + affiliations/notes', () => {
+    const r = renderElement(
+      spec('article-title', {
+        title: 'Multi-author',
+        authors: [
+          'Jane Doe | 1,* | jane@uni.edu | 0000-0002-1825-0097',
+          'John Smith | 2',
+        ].join('\n'),
+        affiliations: ['1: Dept of Chemistry, Uni', '2: Example Lab'].join('\n'),
+        notes: '*: Corresponding author',
+      }),
+      ctx,
+    );
+    // two authors
+    expect(r.html).toContain('Jane Doe');
+    expect(r.html).toContain('John Smith');
+    expect((r.html.match(/orz-author-name/g) || []).length).toBe(2);
+    // affiliation marks as superscript
+    expect(r.html).toContain('<sup class="orz-author-mark">1,*</sup>');
+    // email → mailto link
+    expect(r.html).toContain('href="mailto:jane@uni.edu"');
+    // orcid → orcid.org link
+    expect(r.html).toContain('href="https://orcid.org/0000-0002-1825-0097"');
+    // affiliations + notes blocks, keyed by superscripts
+    expect(r.html).toContain('orz-affiliations');
+    expect(r.html).toContain('<sup>1</sup> Dept of Chemistry, Uni');
+    expect(r.html).toContain('orz-notes');
+    expect(r.html).toContain('<sup>*</sup> Corresponding author');
+  });
+
+  it('falls back to the legacy single `author` field', () => {
+    const r = renderElement(spec('article-title', { title: 'X', author: 'Ada Lovelace' }), ctx);
+    expect(r.html).toContain('orz-author');
+    expect(r.html).toContain('Ada Lovelace');
+  });
 });
 
 describe('exam-title', () => {

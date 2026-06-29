@@ -206,8 +206,8 @@ in the body where you want it to appear. Curated elements:
 
 | `kind:` | What | Key fields |
 |---|---|---|
-| `article-title` | article title block | `title`, `subtitle`, `author`, `date`, `placement` |
-| `report-title` | report title block | `title`, `subtitle`, `author`, `date`, `placement` |
+| `article-title` | article title block | `title`, `subtitle`, `authors` (or `author`), `affiliations`, `notes`, `date`, `placement` |
+| `report-title` | report title block | `title`, `subtitle`, `authors` (or `author`), `affiliations`, `notes`, `date`, `placement` |
 | `exam-title` | exam title / cover | `title`, `subtitle`, `author`, `date`, `placement` |
 | `abstract` | abstract block | `text`, `keywords` |
 | `toc` | table of contents | `title`, `max_level`, `placement` |
@@ -239,6 +239,37 @@ date: October 2026
 placement: page
 }}
 ```
+
+### Authors, affiliations & notes (`article-title` / `report-title`)
+
+For papers with several authors, use **`authors`** (one author per line) plus
+**`affiliations`** and **`notes`** (each a `key: text` list). `key` is the marker
+you reference from an author. Each author line is `Name | marks | email | orcid`,
+pipe-separated — the fields after the name are **auto-detected** (an `@` is the
+email, an ORCID id / `orcid.org` link is the ORCID, anything else is the
+affiliation/note markers), so order is flexible and any may be omitted. Email
+renders as a mail link and ORCID as the ORCID iD icon.
+
+```
+{{nyml
+kind: article-title
+title: A Practical Comparison of RAFT and ATRP
+subtitle: Controlled radical polymerization in the teaching lab
+authors: |
+  Jane Doe | 1,* | jane.doe@example.edu | 0000-0002-1825-0097
+  John Smith | 2 | jsmith@example.org
+  Maria Garcia | 1,2
+affiliations: |
+  1: Department of Chemistry, University of Example
+  2: Institute of Science, Example Lab
+notes: |
+  *: Corresponding author
+date: March 2026
+}}
+```
+
+The simple **`author`** single-line field still works for one author (or a plain
+comma-separated list) when you don't need affiliations.
 
 ### Clean front matter (`front_matter: clean`)
 
