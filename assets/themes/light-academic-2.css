@@ -93,7 +93,7 @@
 
 .orz-toc { --toc-leader: color-mix(in srgb, var(--accent) 35%, transparent); }
 
-/* Title-block / CV-header elements — double accent baseline rule. */
+/* Title-block elements — double accent baseline rule. (cv-header / letterhead
+   draw their own rule via the element's `border` field, so they're excluded.) */
 .orz-element.orz-el-report-title,
-.orz-element.orz-el-article-title,
-.orz-element.orz-el-cv-header { padding-bottom: 0.6em; border-bottom: 3px double var(--accent); }
+.orz-element.orz-el-article-title { padding-bottom: 0.6em; border-bottom: 3px double var(--accent); }

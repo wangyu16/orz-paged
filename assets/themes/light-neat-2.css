@@ -95,7 +95,7 @@
 
 .orz-toc { --toc-leader: color-mix(in srgb, var(--accent) 40%, transparent); }
 
-/* Title-block / CV-header elements — accent baseline rule. */
+/* Title-block elements — accent baseline rule. (cv-header / letterhead draw
+   their own rule via the element's `border` field, so they're excluded here.) */
 .orz-element.orz-el-report-title,
-.orz-element.orz-el-article-title,
-.orz-element.orz-el-cv-header { padding-bottom: 0.6em; border-bottom: 2px solid var(--accent); }
+.orz-element.orz-el-article-title { padding-bottom: 0.6em; border-bottom: 2px solid var(--accent); }

@@ -152,6 +152,9 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
   line-height: 1.2;
   color: var(--accent, #000);
 }
+/* The title is an <h1>; neutralize any theme h1 underline — the rule under a
+   title block is owned by the element wrapper, not the heading. */
+.orz-doc.markdown-body .orz-el-${kind} .orz-title { border-bottom: 0; padding-bottom: 0; }
 .orz-doc.markdown-body .orz-el-${kind} .orz-subtitle {
   margin: 0 0 0.75em;
   font-size: 1.2em;
@@ -493,6 +496,9 @@ function renderCvHeader(spec: ElementSpec, ctx: ElementCtx): ElementResult {
   font-size: 1.8em;
   color: var(--accent, #000);
 }
+/* The name is an <h1>; neutralize any theme h1 underline — the CV header's rule
+   is owned by .orz-cv-header-inner.orz-bordered, not the name. */
+.orz-doc.markdown-body .orz-el-cv-header .orz-cv-name { border-bottom: 0; padding-bottom: 0; }
 .orz-el-cv-header .orz-cv-title {
   font-size: 1.1em;
   opacity: 0.85;
