@@ -66,6 +66,18 @@ templates/elements) with a clear agent skill — see
 [docs/document-model.md](docs/document-model.md) (a spec reference from
 orz-md-pdf).
 
+## Use with an AI agent
+
+The package ships an **agent skill** that teaches an AI agent the document format —
+page templates, headers/footers, and the curated elements (CVs, letters, exams). The
+quickest way to produce a document is to let an agent do it:
+
+- **Any agent** — point it at the skill, then describe what you want:
+  `https://cdn.jsdelivr.net/npm/orz-paged/orz-paged-skills/SKILL.md`
+- **Claude Code** — copy `orz-paged-skills/` into `~/.claude/skills/orz-paged/`.
+
+More install routes (Claude.ai upload, etc.): <https://markdown.orz.how/agents.html>
+
 ## Security — treat these as programs, not documents
 
 A `.paged.html` is **self-contained executable HTML**: opening one runs the
