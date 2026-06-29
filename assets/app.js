@@ -264,12 +264,58 @@
     }).catch(function () { toast('Update failed — check your connection.'); });
   }
 
+  /* ---- template picker ---- */
+  function templates() { return (window.__ORZ_PAGED__ && window.__ORZ_PAGED__.templates) || []; }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  var TPL_ACCENT = { Article: '#2962a4', Report: '#2f6fe0', Exam: '#9a2820', Letter: '#2e7d32', CV: '#7a3f9a', Note: '#b7791f' };
+  function buildTemplateMenu() {
+    var menu = $('orz-template-menu'); if (!menu || menu.getAttribute('data-built')) return;
+    var list = templates(); if (!list.length) return;
+    var html = '', lastGroup = '';
+    for (var i = 0; i < list.length; i++) {
+      var t = list[i];
+      if (t.group !== lastGroup) { lastGroup = t.group; html += '<div class="tpl-group">' + esc(t.group) + '</div>'; }
+      html += '<button type="button" class="tpl" data-i="' + i + '" style="--tpl-accent:' + (TPL_ACCENT[t.group] || '#2f6fe0') + '">'
+        + '<span class="tpl-ic"></span>'
+        + '<span class="tpl-meta"><span class="tpl-label">' + esc(t.label) + '</span>'
+        + '<span class="tpl-desc">' + esc(t.description) + '</span></span></button>';
+    }
+    menu.innerHTML = html;
+    menu.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.tpl') : null;
+      if (!b) return;
+      applyTemplate(list[+b.getAttribute('data-i')]);
+      menu.hidden = true;
+    });
+    menu.setAttribute('data-built', '1');
+  }
+  function toggleTemplateMenu(show) {
+    var menu = $('orz-template-menu'); if (!menu) return;
+    if (show === undefined) show = menu.hidden;
+    if (show) buildTemplateMenu();
+    menu.hidden = !show;
+  }
+  function applyTemplate(t) {
+    if (!t || !t.skeleton) return;
+    var cur = currentSource().trim();
+    var next = t.skeleton;
+    if (cur) next += '\n\n<!-- Previous content (kept below — edit or delete):\n\n' + cur + '\n-->\n';
+    if (cm) { cm.setValue(next); cm.focus(); }
+    else { var ta = $('orz-ta'); if (ta) ta.value = next; syncSource(); if (api() && api().refresh) api().refresh(); }
+    toast('Started from "' + t.label + '"');
+  }
+
   /* ---- wire up ---- */
   function init() {
     var fab = $('orz-edit-fab'); if (fab) fab.addEventListener('click', enterEdit);
     var close = $('orz-close'); if (close) close.addEventListener('click', exitEdit);
     var exp = $('orz-export'); if (exp) exp.addEventListener('click', function () { if (api()) api().exportPdf(); });
     var sav = $('orz-save'); if (sav) sav.addEventListener('click', save);
+    var tpl = $('orz-template'); if (tpl) tpl.addEventListener('click', function (e) { e.stopPropagation(); toggleTemplateMenu(); });
+    document.addEventListener('click', function (e) {
+      var menu = $('orz-template-menu'), btn = $('orz-template');
+      if (menu && !menu.hidden && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) menu.hidden = true;
+    });
     var theme = $('orz-theme');
     if (theme) theme.addEventListener('change', function () { if (api() && api().setTheme) api().setTheme(theme.value); });
     var sync = $('orz-sync');

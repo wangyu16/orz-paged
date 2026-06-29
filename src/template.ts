@@ -16,6 +16,9 @@ export type RendererSpec = { mode: 'inline'; js: string } | { mode: 'cdn'; src: 
 
 export interface ThemeAsset { id: string; css: string }
 
+/** A template + its starter skeleton, for the in-editor template picker. */
+export interface TemplateAsset { id: string; label: string; description: string; group: string; skeleton: string }
+
 export interface BuildOptions {
   source: string;
   title: string;
@@ -33,6 +36,8 @@ export interface BuildOptions {
   appJs: string;
   /** orz-markdown browser runtime (copy-as-Markdown + qr). */
   runtime: string;
+  /** template catalog for the in-editor picker (id/label/description/group/skeleton). */
+  templates?: TemplateAsset[];
 }
 
 function escapeHtml(s: string): string {
@@ -62,6 +67,7 @@ const ICON = {
   sync: ic('<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M8 12h8"/>'),
   pencil: ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>'),
   collapse: ic('<path d="M15 6l-6 6 6 6"/>'),
+  template: ic('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>'),
 };
 
 const BRAND =
@@ -161,6 +167,28 @@ const CHROME_CSS = `
     font: 13px system-ui, sans-serif; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
   #orz-toast.show { opacity: .95; transform: translateX(-50%) translateY(0); }
 
+  /* template picker — a popover under the toolbar listing starter templates */
+  #orz-template-menu { position: absolute; left: 10px; right: 10px; top: 46px; z-index: 60;
+    max-height: 70vh; overflow: auto; padding: 8px; border-radius: 10px;
+    background: #23262c; border: 1px solid #3c414a; box-shadow: 0 8px 26px rgba(0,0,0,.4); }
+  #orz-template-menu[hidden] { display: none; }
+  #orz-template-menu .tpl-group { font: 700 10.5px/1 system-ui, sans-serif; text-transform: uppercase;
+    letter-spacing: .06em; color: #7f8896; padding: 8px 8px 4px; }
+  #orz-template-menu .tpl {
+    display: flex; gap: 9px; align-items: flex-start; width: 100%; text-align: left;
+    padding: 8px 9px; border: 0; border-radius: 8px; background: transparent; color: #dfe3ea; cursor: pointer; }
+  #orz-template-menu .tpl:hover { background: #34383f; }
+  #orz-template-menu .tpl .tpl-ic { flex: 0 0 auto; width: 30px; height: 38px; border-radius: 4px;
+    background: #fff; border: 1px solid #c9ccd2; position: relative; overflow: hidden; }
+  #orz-template-menu .tpl .tpl-ic::before { content: ""; position: absolute; left: 4px; right: 4px; top: 4px;
+    height: 7px; border-radius: 2px; background: var(--tpl-accent, #2f6fe0); }
+  #orz-template-menu .tpl .tpl-ic::after { content: ""; position: absolute; left: 4px; right: 4px; top: 15px;
+    bottom: 4px; background:
+      repeating-linear-gradient(#c7ccd4 0 1.5px, transparent 1.5px 5px); }
+  #orz-template-menu .tpl .tpl-meta { min-width: 0; }
+  #orz-template-menu .tpl .tpl-label { display: block; font: 600 13px/1.2 system-ui, sans-serif; }
+  #orz-template-menu .tpl .tpl-desc { display: block; font: 11.5px/1.35 system-ui, sans-serif; color: #98a0ae; margin-top: 2px; }
+
   /* update banner — shown only in edit view (the editor triggers the check) */
   .orz-banner { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 80;
     display: none; align-items: center; gap: 10px; background: #2b2f36; color: #eee;
@@ -187,6 +215,8 @@ export function buildHtml(o: BuildOptions): string {
     // newer one?" comparison). The update SOURCE (packages, manifest, host) is
     // hardcoded in app.js — never config-driven — so it can't be redirected.
     version: o.rendererVersion,
+    // template catalog for the in-editor picker (skeleton scaffolding).
+    templates: o.templates ?? [],
   };
   const themeOptions = o.themes
     .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.id)}</option>`)
@@ -217,10 +247,12 @@ export function buildHtml(o: BuildOptions): string {
     <span class="orz-sep"></span>
     <button id="orz-save" class="ic primary" title="Save (Ctrl/Cmd+S)">${ICON.save}</button>
     <button id="orz-export" class="ic" title="Export PDF (print)">${ICON.print}</button>
+    <button id="orz-template" class="ic" title="Start from a template">${ICON.template}</button>
     <span class="orz-spacer"></span>
     <button id="orz-sync" class="ic" title="Sync scrolling on/off" aria-pressed="true">${ICON.sync}</button>
     <select id="orz-theme" title="Theme"><option value="">(document theme)</option>${themeOptions}</select>
   </div>
+  <div id="orz-template-menu" hidden></div>
   <button id="orz-close" title="Close editor">${ICON.collapse}</button>
   <div id="orz-editor-host"><textarea id="orz-ta" spellcheck="false"></textarea></div>
   <div id="orz-foot">© <a href="https://markdown.orz.how" target="_blank" rel="noopener noreferrer">orz-markdown</a></div>

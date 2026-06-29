@@ -13,10 +13,12 @@ describe('DEFAULTS', () => {
     expect(DEFAULTS.marginBottom).toBe(20);
     expect(DEFAULTS.marginLeft).toBe(20);
     expect(DEFAULTS.marginRight).toBe(20);
-    expect(DEFAULTS.fontPreset).toBe('system-serif');
+    // fontPreset / decorationColor are intentionally unset by default so a
+    // theme's own font + accent apply unless explicitly overridden.
+    expect(DEFAULTS.fontPreset).toBeUndefined();
     expect(DEFAULTS.fontSize).toBe(12);
     expect(DEFAULTS.lineHeight).toBe(1.5);
-    expect(DEFAULTS.decorationColor).toBe('#000000');
+    expect(DEFAULTS.decorationColor).toBeUndefined();
     expect(DEFAULTS.pageNumberPosition).toBe('footer-center');
     expect(DEFAULTS.pageNumberStyle).toBe('simple');
     expect(DEFAULTS.pageNumberStartPage).toBe(1);

@@ -1,63 +1,80 @@
 import { describe, it, expect } from 'vitest';
-import { TEMPLATES, resolveTemplate } from '../src/doc/templates.js';
+import {
+  TEMPLATES,
+  resolveTemplate,
+  canonicalTemplate,
+  templateSkeletonName,
+  templateList,
+} from '../src/doc/templates.js';
 import { DEFAULTS, mergeSettings } from '../src/doc/settings.js';
 import type { TemplateName } from '../src/types.js';
 
 const ALL: TemplateName[] = [
-  'article',
-  'report',
-  'letter',
-  'cv',
-  'note',
-  'exam',
+  'article-page', 'article-section',
+  'report-page', 'report-section',
+  'exam-page', 'exam-section',
+  'letter', 'cover-letter', 'cv', 'note',
 ];
 
 describe('TEMPLATES', () => {
-  it('defines all 6 curated templates', () => {
+  it('defines all 10 curated templates', () => {
     expect(Object.keys(TEMPLATES).sort()).toEqual([...ALL].sort());
   });
 
-  it('every template stamps its own name', () => {
+  it('every template stamps its own name + has picker metadata + a skeleton stem', () => {
     for (const name of ALL) {
-      expect(TEMPLATES[name].template).toBe(name);
+      expect(TEMPLATES[name].settings.template).toBe(name);
+      expect(TEMPLATES[name].label.length).toBeGreaterThan(0);
+      expect(TEMPLATES[name].group.length).toBeGreaterThan(0);
+      expect(TEMPLATES[name].skeleton).toBe(name);
     }
   });
 
-  it('article: Letter · serif · light-academic-1', () => {
-    expect(TEMPLATES.article.pageSize).toBe('Letter');
-    expect(TEMPLATES.article.fontPreset).toBe('system-serif');
-    expect(TEMPLATES.article.theme).toBe('light-academic-1');
+  it('article variants: Letter · serif · light-academic-1', () => {
+    for (const v of ['article-page', 'article-section'] as TemplateName[]) {
+      expect(TEMPLATES[v].settings.pageSize).toBe('Letter');
+      expect(TEMPLATES[v].settings.fontPreset).toBe('system-serif');
+      expect(TEMPLATES[v].settings.theme).toBe('light-academic-1');
+    }
   });
 
-  it('report: Letter · sans', () => {
-    expect(TEMPLATES.report.pageSize).toBe('Letter');
-    expect(TEMPLATES.report.fontPreset).toBe('inter');
+  it('report variants: Letter · sans (inter) · light-neat-1', () => {
+    for (const v of ['report-page', 'report-section'] as TemplateName[]) {
+      expect(TEMPLATES[v].settings.pageSize).toBe('Letter');
+      expect(TEMPLATES[v].settings.fontPreset).toBe('inter');
+      expect(TEMPLATES[v].settings.theme).toBe('light-neat-1');
+    }
   });
 
-  it('letter: Letter · serif', () => {
-    expect(TEMPLATES.letter.pageSize).toBe('Letter');
-    expect(TEMPLATES.letter.fontPreset).toBe('source-serif-4');
+  it('letter: Letter · serif; cv: Letter · sans; note: A4 · serif', () => {
+    expect(TEMPLATES.letter.settings.fontPreset).toBe('source-serif-4');
+    expect(TEMPLATES.cv.settings.fontPreset).toBe('ibm-plex-sans');
+    expect(TEMPLATES.note.settings.pageSize).toBe('A4');
+    expect(TEMPLATES.note.settings.fontPreset).toBe('lora');
   });
+});
 
-  it('cv: Letter · sans', () => {
-    expect(TEMPLATES.cv.pageSize).toBe('Letter');
-    expect(TEMPLATES.cv.fontPreset).toBe('ibm-plex-sans');
+describe('canonicalTemplate / legacy aliases', () => {
+  it('passes canonical names through', () => {
+    expect(canonicalTemplate('exam-page')).toBe('exam-page');
   });
-
-  it('note: A4 · serif', () => {
-    expect(TEMPLATES.note.pageSize).toBe('A4');
-    expect(TEMPLATES.note.fontPreset).toBe('lora');
+  it('maps legacy article/report/exam to the -section variant', () => {
+    expect(canonicalTemplate('article')).toBe('article-section');
+    expect(canonicalTemplate('report')).toBe('report-section');
+    expect(canonicalTemplate('exam')).toBe('exam-section');
   });
-
-  it('exam: Letter · serif', () => {
-    expect(TEMPLATES.exam.pageSize).toBe('Letter');
-    expect(TEMPLATES.exam.fontPreset).toBe('noto-serif');
+  it('returns undefined for an unknown name', () => {
+    expect(canonicalTemplate('nope')).toBeUndefined();
   });
 });
 
 describe('resolveTemplate', () => {
-  it('returns the template layer for a known name', () => {
-    expect(resolveTemplate('article')).toBe(TEMPLATES.article);
+  it('returns the settings layer for a known name', () => {
+    expect(resolveTemplate('article-page')).toBe(TEMPLATES['article-page'].settings);
+  });
+
+  it('resolves a legacy name to its -section settings', () => {
+    expect(resolveTemplate('article')).toBe(TEMPLATES['article-section'].settings);
   });
 
   it('returns {} for an unknown name', () => {
@@ -73,5 +90,22 @@ describe('resolveTemplate', () => {
     expect(merged.pageSize).toBe('Letter');
     expect(merged.fontPreset).toBe('lora'); // template default survives
     expect(merged.lineHeight).toBe(1.5); // untouched default
+  });
+});
+
+describe('templateSkeletonName / templateList', () => {
+  it('returns the skeleton stem for canonical + legacy names', () => {
+    expect(templateSkeletonName('cv')).toBe('cv');
+    expect(templateSkeletonName('exam')).toBe('exam-section');
+  });
+  it('lists all 10 with id/label/group/skeleton', () => {
+    const list = templateList();
+    expect(list).toHaveLength(10);
+    for (const e of list) {
+      expect(e.id).toBeTruthy();
+      expect(e.label).toBeTruthy();
+      expect(e.group).toBeTruthy();
+      expect(e.skeleton).toBeTruthy();
+    }
   });
 });

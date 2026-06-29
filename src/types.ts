@@ -25,9 +25,17 @@ export type PageNumberStyle =
   | 'simple' | 'page-n' | 'page-n-of-N' | 'n-of-N'
   | 'n-slash-N' | 'dash-n-dash' | 'brackets' | 'parentheses';
 
-/** Curated document templates (DESIGN §8). */
+/**
+ * Curated document templates. `article`/`report`/`exam` come in two variants —
+ * `-page` (a dedicated title/cover page) and `-section` (title-on-content) — via
+ * the title element's `placement`. Legacy names (`article`/`report`/`exam`) still
+ * resolve to the `-section` variant (see resolveTemplate).
+ */
 export type TemplateName =
-  | 'article' | 'report' | 'letter' | 'cv' | 'note' | 'exam';
+  | 'article-page' | 'article-section'
+  | 'report-page' | 'report-section'
+  | 'exam-page' | 'exam-section'
+  | 'letter' | 'cover-letter' | 'cv' | 'note';
 
 /** Curated, light-only themes (DESIGN §8). `none` = plain. */
 export type ThemeName =

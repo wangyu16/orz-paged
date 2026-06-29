@@ -13,7 +13,8 @@ import { dirname, join, basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getBrowserRuntimeScript } from 'orz-markdown/runtime';
 import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
-import { buildHtml, type ThemeAsset, type RendererSpec } from './template.js';
+import { buildHtml, type ThemeAsset, type RendererSpec, type TemplateAsset } from './template.js';
+import { templateList } from './doc/templates.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -54,29 +55,93 @@ function loadThemes(): { baseCss: string; themes: ThemeAsset[] } {
   return { baseCss, themes };
 }
 
+/** Load every template's starter skeleton from `assets/templates/<stem>.md`. */
+function loadTemplates(): TemplateAsset[] {
+  const dir = findAsset('assets/templates');
+  return templateList().map((t) => ({
+    id: t.id,
+    label: t.label,
+    description: t.description,
+    group: t.group,
+    skeleton: readFileSync(join(dir, t.skeleton + '.md'), 'utf8'),
+  }));
+}
+
 function parseArgs(argv: string[]) {
-  const a: { input?: string; out?: string; mode: 'inline' | 'cdn'; title?: string } = { mode: 'inline' };
+  const a: {
+    input?: string; out?: string; mode: 'inline' | 'cdn'; title?: string;
+    template?: string; newDoc?: string; list?: boolean;
+  } = { mode: 'inline' };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '-o' || arg === '--out') a.out = argv[++i];
     else if (arg === '--inline') a.mode = 'inline';
     else if (arg === '--cdn') a.mode = 'cdn';
     else if (arg === '--title') a.title = argv[++i];
+    else if (arg === '--template') a.template = argv[++i];
+    else if (arg === '--new') a.newDoc = argv[++i];
+    else if (arg === '--list-templates') a.list = true;
     else if (!arg.startsWith('-')) a.input = arg;
   }
   return a;
 }
 
-function main(): void {
-  const args = parseArgs(process.argv.slice(2));
-  if (!args.input) {
-    console.error('Usage: orz-paged <input.md> [-o out.paged.html] [--inline|--cdn] [--title t]');
+/** Resolve a (possibly legacy) template name to its loaded skeleton, or exit. */
+function skeletonOrExit(name: string, templates: TemplateAsset[]): TemplateAsset {
+  const t = templates.find((x) => x.id === name)
+    ?? templates.find((x) => x.id === name + '-section'); // legacy: article→article-section
+  if (!t) {
+    console.error(`Unknown template: ${name}\nKnown: ${templates.map((x) => x.id).join(', ')}`);
     process.exit(1);
   }
-  const inPath = resolve(args.input);
-  const source = readFileSync(inPath, 'utf8');
-  const base = basename(inPath).replace(/\.(md|markdown)$/i, '');
-  const outPath = args.out ? resolve(args.out) : join(dirname(inPath), base + '.paged.html');
+  return t;
+}
+
+function main(): void {
+  const args = parseArgs(process.argv.slice(2));
+  const templates = loadTemplates();
+
+  // `--list-templates` — print the catalog and exit.
+  if (args.list) {
+    console.log('Templates (use --template <name> or --new <name>):\n');
+    let group = '';
+    for (const t of templates) {
+      if (t.group !== group) { group = t.group; console.log(`  ${group}`); }
+      console.log(`    ${t.id.padEnd(16)} ${t.description}`);
+    }
+    return;
+  }
+
+  // `--new <name>` — scaffold the starter Markdown to a .md file (then edit it).
+  if (args.newDoc) {
+    const t = skeletonOrExit(args.newDoc, templates);
+    const outMd = args.out ? resolve(args.out) : resolve(t.id + '.md');
+    writeFileSync(outMd, t.skeleton, 'utf8');
+    console.log(`Wrote ${outMd} (starter for "${t.label}")`);
+    return;
+  }
+
+  // Source = an input file, or a template skeleton via `--template <name>`.
+  let source: string;
+  let base: string;
+  if (args.input) {
+    source = readFileSync(resolve(args.input), 'utf8');
+    base = basename(resolve(args.input)).replace(/\.(md|markdown)$/i, '');
+  } else if (args.template) {
+    const t = skeletonOrExit(args.template, templates);
+    source = t.skeleton;
+    base = t.id;
+  } else {
+    console.error(
+      'Usage: orz-paged <input.md> [-o out.paged.html] [--inline|--cdn] [--title t]\n' +
+      '       orz-paged --template <name> [-o out.paged.html]   # scaffold + render a starter\n' +
+      '       orz-paged --new <name> [-o out.md]                # write a starter .md to edit\n' +
+      '       orz-paged --list-templates',
+    );
+    process.exit(1);
+  }
+  const inDir = args.input ? dirname(resolve(args.input)) : process.cwd();
+  const outPath = args.out ? resolve(args.out) : join(inDir, base + '.paged.html');
   const title = args.title || base;
 
   const { baseCss, themes } = loadThemes();
@@ -97,7 +162,8 @@ function main(): void {
     renderer,
     baseCss,
     themes,
-    defaultTheme: themes[0] ? themes[0].id : 'none',
+    defaultTheme: themes.some((t) => t.id === 'light-neat-1') ? 'light-neat-1' : (themes[0]?.id ?? 'none'),
+    templates,
     cdn: CDN,
     appJs,
     runtime,

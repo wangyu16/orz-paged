@@ -129,9 +129,12 @@ describe('buildPageCss — :root tokens', () => {
     expect(css).toContain('Lora');
   });
 
-  it('defaults --page-bg to white when no pageBackground', () => {
-    const css = buildPageCss(makeSettings());
-    expect(css).toContain('--page-bg: #ffffff;');
+  it('omits --page-bg / --accent when unset so the theme can provide them', () => {
+    const css = buildPageCss(makeSettings({ pageBackground: undefined, decorationColor: undefined }));
+    expect(css).not.toContain('--page-bg:');
+    expect(css).not.toContain('--accent:');
+    // header/footer rules still resolve, falling back to the (theme) accent.
+    expect(css).toContain('--header-rule: var(--accent, #cccccc);');
   });
 });
 
