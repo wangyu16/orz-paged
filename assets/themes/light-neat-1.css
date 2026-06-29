@@ -48,7 +48,7 @@
 .orz-doc.markdown-body h6 { font-weight: 700; letter-spacing: -0.01em; }
 
 .orz-doc.markdown-body h1 { font-size: 1.95em; color: var(--accent); }
-.orz-doc.markdown-body h2 { font-size: 1.45em; padding-bottom: 0.2em; border-bottom: 2px solid var(--accent); }
+.orz-doc.markdown-body h2 { font-size: 1.45em; padding-bottom: 0.2em; border-bottom: 1px solid var(--border-soft); }
 .orz-doc.markdown-body h3 { font-size: 1.2em; color: var(--accent); }
 
 .orz-doc.markdown-body a {
