@@ -92,6 +92,12 @@
 /* Letterhead / title-block elements — centered editorial masthead. */
 .orz-element.orz-el-letterhead,
 .orz-element.orz-el-report-title,
-.orz-element.orz-el-article-title {
-  text-align: center; padding-bottom: 0.8em; margin-bottom: 1.8em; border-bottom: 2px solid var(--text-main);
-}
+.orz-element.orz-el-article-title { text-align: center; margin-bottom: 1.8em; }
+/* The under-rule: title blocks don't self-rule (theme draws it); letterhead /
+   cv-header draw their own via the element's `border` field, so exclude them
+   here to avoid a double rule. */
+.orz-element.orz-el-report-title,
+.orz-element.orz-el-article-title { padding-bottom: 0.8em; border-bottom: 2px solid var(--text-main); }
+/* Center the contact row to match the centered masthead (the .orz-contact flex
+   would otherwise pack phone/email to the left while the org is centered). */
+.orz-el-letterhead .orz-contact { justify-content: center; }
