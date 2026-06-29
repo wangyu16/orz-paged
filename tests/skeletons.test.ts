@@ -12,7 +12,7 @@ describe('template skeletons', () => {
   const list = templateList();
 
   it('there is one starter file per template', () => {
-    expect(list).toHaveLength(10);
+    expect(list).toHaveLength(12);
     for (const t of list) {
       expect(existsSync(join(TPL_DIR, t.skeleton + '.md')), `${t.skeleton}.md exists`).toBe(true);
     }

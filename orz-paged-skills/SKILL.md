@@ -146,7 +146,9 @@ block above the content):
 | `exam-page` / `exam-section` | exam / assessment | title (cover / inline) + `question-*`, answer-key toggle |
 | `letter` | formal letter | `letterhead` + inside-address + body + signature |
 | `cover-letter` | job cover letter | sender header + recipient + body + sign-off |
-| `cv` | résumé | `cv-header` + sectioned body |
+| `cv` | résumé (classic) | `cv-header` + sectioned body |
+| `cv-modern` | résumé (modern) | accent name + rule, uppercase labels, right-aligned dates, skill chips |
+| `cv-elegant` | résumé (elegant) | centered, hairline rules, two-column "ledger" entries |
 | `note` | clean readable notes | A4, minimal furniture |
 
 The bare names `article` / `report` / `exam` still work and resolve to the

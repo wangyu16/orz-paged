@@ -35,7 +35,8 @@ export type TemplateName =
   | 'article-page' | 'article-section'
   | 'report-page' | 'report-section'
   | 'exam-page' | 'exam-section'
-  | 'letter' | 'cover-letter' | 'cv' | 'note';
+  | 'letter' | 'cover-letter'
+  | 'cv' | 'cv-modern' | 'cv-elegant' | 'note';
 
 /** Curated, light-only themes (DESIGN §8). `none` = plain. */
 export type ThemeName =

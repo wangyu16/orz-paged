@@ -13,11 +13,11 @@ const ALL: TemplateName[] = [
   'article-page', 'article-section',
   'report-page', 'report-section',
   'exam-page', 'exam-section',
-  'letter', 'cover-letter', 'cv', 'note',
+  'letter', 'cover-letter', 'cv', 'cv-modern', 'cv-elegant', 'note',
 ];
 
 describe('TEMPLATES', () => {
-  it('defines all 10 curated templates', () => {
+  it('defines all 12 curated templates', () => {
     expect(Object.keys(TEMPLATES).sort()).toEqual([...ALL].sort());
   });
 
@@ -94,7 +94,7 @@ describe('templateSkeletonName / templateList', () => {
   });
   it('lists all 10 with id/label/group/skeleton', () => {
     const list = templateList();
-    expect(list).toHaveLength(10);
+    expect(list).toHaveLength(12);
     for (const e of list) {
       expect(e.id).toBeTruthy();
       expect(e.label).toBeTruthy();

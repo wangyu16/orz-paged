@@ -104,11 +104,25 @@ export const TEMPLATES: Record<TemplateName, TemplateDef> = {
   },
 
   cv: {
-    label: 'CV / résumé',
+    label: 'CV — classic',
     description: 'Résumé: name/contact header and clean sectioned body.',
     group: 'CV',
     skeleton: 'cv',
     settings: { template: 'cv', pageSize: 'Letter' },
+  },
+  'cv-modern': {
+    label: 'CV — modern',
+    description: 'Accent name + rule, uppercase section labels, right-aligned dates, skill chips.',
+    group: 'CV',
+    skeleton: 'cv-modern',
+    settings: { template: 'cv-modern', pageSize: 'Letter' },
+  },
+  'cv-elegant': {
+    label: 'CV — elegant',
+    description: 'Centered, letter-spaced name, hairline rules, two-column "ledger" entries.',
+    group: 'CV',
+    skeleton: 'cv-elegant',
+    settings: { template: 'cv-elegant', pageSize: 'Letter' },
   },
 
   note: {
