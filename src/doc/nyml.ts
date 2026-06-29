@@ -108,12 +108,31 @@ function parseBody(inner: string): { kind: string; fields: Record<string, string
   return { kind, fields };
 }
 
+/** Char ranges `[start, end)` covered by HTML comments `<!-- … -->`. */
+function commentRanges(source: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  let i = 0;
+  while (true) {
+    const open = source.indexOf('<!--', i);
+    if (open === -1) break;
+    const close = source.indexOf('-->', open + 4);
+    if (close === -1) { ranges.push([open, source.length]); break; } // unclosed → to end
+    ranges.push([open, close + 3]);
+    i = close + 3;
+  }
+  return ranges;
+}
+
 /**
  * Scan a source for every `{{nyml … }}` block, in document order. Each result
- * carries its parsed `kind`, `fields`, and `[start, end)` char offsets.
+ * carries its parsed `kind`, `fields`, and `[start, end)` char offsets. Blocks
+ * inside an HTML comment (`<!-- … -->`) are skipped — so a commented-out element
+ * (e.g. content the editor's template picker preserves) does not render.
  */
 export function scanNymlBlocks(source: string): NymlBlock[] {
   const out: NymlBlock[] = [];
+  const comments = commentRanges(source);
+  const inComment = (pos: number) => comments.some(([a, b]) => pos >= a && pos < b);
   let searchFrom = 0;
 
   while (searchFrom < source.length) {
@@ -123,9 +142,11 @@ export function scanNymlBlocks(source: string): NymlBlock[] {
     const close = findClosing(source, open + OPEN.length);
     if (close === -1) break;
 
-    const inner = source.slice(open + OPEN.length, close);
-    const { kind, fields } = parseBody(inner);
-    out.push({ kind, fields, start: open, end: close + 2 });
+    if (!inComment(open)) {
+      const inner = source.slice(open + OPEN.length, close);
+      const { kind, fields } = parseBody(inner);
+      out.push({ kind, fields, start: open, end: close + 2 });
+    }
 
     searchFrom = close + 2;
   }

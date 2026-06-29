@@ -59,16 +59,18 @@
   }
   window.__orzPagedAfterRender = function () { fitPreview(); buildDynControls(); }; // engine calls this after every render
 
-  /* ---- dynamic switch (live) — build a control per dynamic_choices key ---- */
+  /* ---- dynamic switch (live) — a control per key the document actually uses ---- */
   function humanizeKey(k) { return String(k).replace(/_/g, ' '); }
+  function normKey(k) { return String(k).trim().toLowerCase().replace(/-/g, '_'); }
+
   function buildDynControls() {
     var host = $('orz-dyn'); if (!host) return;
-    if (!api() || !api().getDynamicState) { host.innerHTML = ''; return; }
+    if (!api() || !api().getDynamicState) { host.innerHTML = ''; host.removeAttribute('data-keys'); return; }
     var st = api().getDynamicState();
     var opts = st.options || {}, choices = st.choices || {};
-    var keys = Object.keys(opts);
-    Object.keys(choices).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });
-    keys.sort();
+    // Only keys the CURRENT document actually uses (data-show-when / -hide-when),
+    // so the control disappears when you switch to a template that has none.
+    var keys = Object.keys(opts).sort();
     if (!keys.length) { host.innerHTML = ''; host.removeAttribute('data-keys'); return; }
     var sig = keys.join(',');
     if (host.getAttribute('data-keys') === sig) {            // same keys → just sync values
@@ -89,9 +91,42 @@
       var sel = document.createElement('select'); sel.id = 'orz-dyn-' + k; sel.setAttribute('data-key', k); sel.title = humanizeKey(k);
       vals.forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
       sel.value = cur;
-      sel.addEventListener('change', function () { if (api() && api().setDynamicChoice) api().setDynamicChoice(k, sel.value); });
+      // Write the choice back into the source's `dynamic_choices` block so the
+      // dropdown and the nyml stay in sync (and editing the nyml drives the dropdown).
+      sel.addEventListener('change', function () { applyDynChoiceToSource(k, sel.value); });
       ctl.appendChild(lab); ctl.appendChild(sel); host.appendChild(ctl);
     });
+  }
+
+  /** Set `key: value` inside the document block's `dynamic_choices:` map, matching
+   *  the key by normalized form (so `answer-key` and `answer_key` are the same). */
+  function setSourceDynamicChoice(src, key, value) {
+    key = normKey(key);
+    var lines = src.split('\n');
+    var dcIdx = -1, dcIndent = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].match(/^(\s*)dynamic_choices\s*:/);
+      if (m) { dcIdx = i; dcIndent = m[1].length; break; }
+    }
+    if (dcIdx < 0) return null;                       // no block — nothing to sync
+    for (var j = dcIdx + 1; j < lines.length; j++) {
+      if (lines[j].trim() === '') continue;
+      var lm = lines[j].match(/^(\s*)([A-Za-z][\w-]*)\s*:\s*(.*)$/);
+      if (!lm || lm[1].length <= dcIndent) break;     // dedented / not a key → end of block
+      if (normKey(lm[2]) === key) { lines[j] = lm[1] + lm[2] + ': ' + value; return lines.join('\n'); }
+    }
+    var indent = ''; for (var s = 0; s < dcIndent + 2; s++) indent += ' ';
+    lines.splice(dcIdx + 1, 0, indent + key.replace(/_/g, '-') + ': ' + value);
+    return lines.join('\n');
+  }
+
+  function applyDynChoiceToSource(key, value) {
+    var next = setSourceDynamicChoice(currentSource(), key, value);
+    if (next == null) return;
+    if (cm) cm.setValue(next);
+    else { var ta = $('orz-ta'); if (ta) ta.value = next; }
+    syncSource();
+    if (api() && api().refresh) api().refresh();
   }
 
   /* ---- draggable divider (relative width) ---- */
@@ -337,7 +372,11 @@
     if (!t || !t.skeleton) return;
     var cur = currentSource().trim();
     var next = t.skeleton;
-    if (cur) next += '\n\n<!-- Previous content (kept below — edit or delete):\n\n' + cur + '\n-->\n';
+    // Preserve the old content in a comment so it's kept but inert (nyml blocks
+    // inside a comment don't render). Neutralize any `-->` in it first, else the
+    // first one would close the wrapper early and leak the rest back in.
+    if (cur) next += '\n\n<!-- Previous content (kept below — edit or delete):\n\n'
+      + cur.replace(/--+>/g, '--​>') + '\n-->\n';
     if (cm) { cm.setValue(next); cm.focus(); }
     else { var ta = $('orz-ta'); if (ta) ta.value = next; syncSource(); if (api() && api().refresh) api().refresh(); }
     toast('Started from "' + t.label + '"');

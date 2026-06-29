@@ -76,6 +76,22 @@ const SOURCE = [
   'Some **body** text.',
 ].join('\n');
 
+describe('scanNymlBlocks — comments', () => {
+  it('skips nyml blocks inside an HTML comment', () => {
+    const src = '{{nyml\nkind: article-title\ntitle: Live\n}}\n\n<!--\n{{nyml\nkind: question-mc\nn: 1\n}}\n-->\n';
+    const kinds = scanNymlBlocks(src).map((b) => b.kind);
+    expect(kinds).toContain('article-title');
+    expect(kinds).not.toContain('question-mc'); // commented out → ignored
+  });
+});
+
+describe('assemble — commented elements', () => {
+  it('does not render a commented-out element', () => {
+    const src = '{{nyml\nkind: document\ntemplate: note\n}}\n\n# Hi\n\n<!--\n{{nyml\nkind: question-mc\nn: 1\nbody: Q\nanswer: A\n}}\n-->\n';
+    expect(assemble(src).bodyHtml).not.toContain('orz-el-question-mc');
+  });
+});
+
 describe('assemble', () => {
   const out = assemble(SOURCE);
 

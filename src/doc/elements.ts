@@ -296,6 +296,8 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
 .orz-el-exam-title .orz-exam-fields {
   text-align: left;
   margin: 1.3em auto 0;
+  width: 100%;        /* stretch to the page width on the cover (a flex column),
+                         matching the title-section variant */
   max-width: 40em;
 }
 .orz-el-exam-title .orz-exam-row {

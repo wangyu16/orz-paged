@@ -164,8 +164,9 @@ async function renderEnhancers(root: HTMLElement): Promise<void> {
 
 let lastAssembly: PagedAssembly | null = null;
 let themeOverride: string | null = null; // editor theme picker; null = the document's theme
-let dynOverride: Record<string, string> = {}; // editor dynamic-switch overrides
-let lastDynChoices: Record<string, string> = {}; // effective choices last applied
+// Dynamic switch: the document's `dynamic_choices` is the single source of truth
+// (the editor's switcher writes back to it), so there's no separate override here.
+let lastDynChoices: Record<string, string> = {}; // choices last applied (from the source)
 let lastDynOptions: Record<string, string[]> = {}; // key → values seen (for the switcher UI)
 
 function stylesheetsFor(a: PagedAssembly): PagedStylesheet[] {
@@ -216,7 +217,7 @@ async function render(source: string): Promise<void> {
   // switcher) BEFORE resolving, then remove conditional content that doesn't
   // match the effective choices (source `dynamic_choices` + live overrides).
   lastDynOptions = collectDynamicChoices(stage);
-  lastDynChoices = { ...a.settings.dynamicChoices, ...dynOverride };
+  lastDynChoices = { ...a.settings.dynamicChoices };
   applyDynamicChoices(stage, lastDynChoices);
 
   // Double-buffer: paginate into an off-screen container, then swap it in. The old
@@ -291,18 +292,13 @@ const api = {
   setTheme: (id: string) => { themeOverride = id && id !== 'none' ? id : null; return render(sourceText()); },
   /** The theme currently in effect (the override, or the document's own theme). */
   getTheme: () => themeOverride || (lastAssembly ? lastAssembly.theme : null),
-  /** Dynamic switch (live): the keys/values available + the effective choices. */
+  /** Dynamic switch: the keys/values available + the effective choices (from the
+   *  source's `dynamic_choices`). The editor's switcher writes back to the source
+   *  so the dropdown and the nyml block always agree. */
   getDynamicState: () => ({
     options: lastDynOptions,
     choices: lastDynChoices,
   }),
-  /** Override one dynamic choice live (editor switcher) and re-render. */
-  setDynamicChoice: (key: string, value: string | null) => {
-    const k = key.toLowerCase().replace(/-/g, '_');
-    if (value === null || value === '') delete dynOverride[k];
-    else dynOverride[k] = value;
-    return render(sourceText());
-  },
   /** The last assembly (resolved settings etc.) for the editor's settings panel. */
   get assembly() { return lastAssembly; },
   /** Read the embedded source. */
