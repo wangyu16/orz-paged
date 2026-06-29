@@ -33,7 +33,7 @@ export type TemplateName =
 export type ThemeName =
   | 'none'
   | 'light-academic-1' | 'light-academic-2'
-  | 'light-neat-1' | 'light-neat-2'
+  | 'light-neat-1' | 'light-neat-2' | 'light-neat-3'
   | 'beige-decent-1' | 'beige-decent-2';
 
 /** Curated CDN font presets (DESIGN §4, §8). */
@@ -73,13 +73,13 @@ export interface DocSettings {
   pageBackground?: string;        // CSS color; light only
 
   // typography
-  fontPreset: FontPresetName;
+  fontPreset?: FontPresetName;    // undefined → theme/base font applies
   fontFamily?: string;            // advanced override of the CSS stack
   fontHeadingPreset?: FontPresetName;
   fontMarginBoxPreset?: FontPresetName;
   fontSize: number;       // pt
   lineHeight: number;     // unitless
-  decorationColor: string;        // accent CSS color
+  decorationColor?: string;       // accent CSS color; undefined → theme/base provides
 
   // page numbers
   pageNumberPosition: PageNumberPosition;

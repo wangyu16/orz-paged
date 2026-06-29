@@ -1,0 +1,91 @@
+/* ==========================================================================
+   orz-paged · light-neat-3.css — "Orchard"
+   Calm brand-green accent on warm off-white paper, characterful headings.
+   Tinted leafy blockquote card, accent list markers, light harmonic code,
+   generous spacing. Adapted from the Orchard web theme for light / print.
+
+   Theme contract:
+   - :root sets the page-managed tokens (--accent, --page-bg, --font-*) DIRECTLY
+     so they apply by default; an explicit font_preset / decoration_color /
+     page_background overrides them (page CSS is added last & only emits when set).
+   - .orz-doc.markdown-body sets the content-only palette + construct tokens that
+     base.css consumes, plus this theme's signature construct styling.
+   ========================================================================== */
+
+:root {
+  --accent: #5f9e44;
+  --page-bg: #fbfbf8;
+  --font-body: "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+}
+
+.orz-doc.markdown-body {
+  --text-main: #1b1d1a;
+  --text-muted: #6c7064;
+  --heading-color: #18211a;
+  --border-soft: #e7e7df;
+  --code-bg: #f3f6ee;
+  --table-head-bg: #f1f7ec;
+  --toc-leader: #c3d3b5;
+  --mark-bg: #fdeb9c;
+  --surface-2: #f7f8f3;
+  --ins-color: #1d7a36;
+
+  --span-red: #c0392b;  --span-yellow: #b07d12;  --span-green: #2e8b3d;  --span-blue: #2e6db5;
+  --success-bg: #eaf6ec; --success-text: #1d7a36; --success-border: #c5e6cb;
+  --info-bg: #eef4fb;    --info-text: #1f5fa6;    --info-border: #cfe0f3;
+  --warning-bg: #fdf6e3; --warning-text: #8a6411; --warning-border: #efe2bf;
+  --danger-bg: #fbecec;  --danger-text: #b03030;  --danger-border: #f1cfcf;
+}
+
+/* Headings — characterful display face, firm weight, tight tracking. */
+.orz-doc.markdown-body h1,
+.orz-doc.markdown-body h2,
+.orz-doc.markdown-body h3,
+.orz-doc.markdown-body h4,
+.orz-doc.markdown-body h5,
+.orz-doc.markdown-body h6 { font-weight: 700; letter-spacing: -0.015em; }
+
+.orz-doc.markdown-body h1 { font-size: 2.05em; color: var(--accent); padding-bottom: 0.35em; border-bottom: 1px solid var(--border-soft); }
+.orz-doc.markdown-body h2 { font-size: 1.5em; }
+.orz-doc.markdown-body h3 { font-size: 1.22em; color: color-mix(in srgb, var(--accent) 70%, #1b3514); }
+.orz-doc.markdown-body h6 { text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+
+.orz-doc.markdown-body a {
+  color: color-mix(in srgb, var(--accent) 70%, #1b3514);
+  text-decoration-color: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+/* Blockquote — leafy tinted card with an accent edge. */
+.orz-doc.markdown-body blockquote {
+  border-left: 3px solid var(--accent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, var(--page-bg)), transparent 90%);
+  color: var(--text-muted);
+  padding: 0.55em 1.1em;
+  border-radius: 0 8px 8px 0;
+}
+
+/* Tables — gridded with a washed, accent-underlined header. */
+.orz-doc.markdown-body th {
+  background: var(--table-head-bg);
+  color: var(--heading-color);
+  border-bottom: 2px solid var(--accent);
+}
+.orz-doc.markdown-body tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+
+.orz-doc.markdown-body ul > li::marker,
+.orz-doc.markdown-body ol > li::marker { color: var(--accent); }
+
+/* Code — light & harmonic panel, code sits flat on the tint. */
+.orz-doc.markdown-body pre,
+.orz-doc.markdown-body :not(pre) > code { background: var(--code-bg); border-color: var(--border-soft); }
+.orz-doc.markdown-body :not(pre) > code { color: #2f5226; }
+
+.orz-doc.markdown-body hr { height: 1px; background: color-mix(in srgb, var(--accent) 32%, transparent); }
+
+.orz-toc { --toc-leader: color-mix(in srgb, var(--accent) 42%, transparent); }
+
+/* Title-block / CV-header elements — accent baseline rule. */
+.orz-element.orz-el-report-title,
+.orz-element.orz-el-article-title,
+.orz-element.orz-el-cv-header { padding-bottom: 0.6em; border-bottom: 2px solid var(--accent); }

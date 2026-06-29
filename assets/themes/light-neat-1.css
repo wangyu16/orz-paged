@@ -1,20 +1,24 @@
 /* ==========================================================================
    orz-paged · light-neat-1.css
-   Clean sans-serif on white paper with a blue accent. Crisp headings, a thin
-   accent rule under h2, tinted table header, ragged-right body. Light / print.
+   Clean sans-serif on white paper, blue accent. Crisp headings, a thin accent
+   rule under h2, tinted table header, ragged-right body. Light / print.
 
-   Adapted from orz-markdown's light-neat-1 (screen) for paper:
-   - white page via --page-bg, blue accent via --accent
-   - sans body + heading, accent rules and markers
-   - consumes the dom-contract :root tokens with sensible fallbacks
+   Theme contract:
+   - :root sets the page-managed tokens (--accent, --page-bg, --font-*) DIRECTLY
+     so they apply by default; an explicit font_preset / decoration_color /
+     page_background overrides them (page CSS is added last & only emits when set).
+   - .orz-doc.markdown-body sets the content-only palette + construct tokens that
+     base.css consumes, plus this theme's signature construct styling.
    ========================================================================== */
 
-@import url("./base.css");
+:root {
+  --accent: #2e6db5;
+  --page-bg: #ffffff;
+  --font-body: system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-heading: var(--font-body);
+}
 
 .orz-doc.markdown-body {
-  --page-bg: var(--page-bg, #ffffff);
-  --accent: var(--accent, #2e6db5);
-
   --text-main: #1f2a36;
   --text-muted: #5d6b78;
   --heading-color: #142230;
@@ -23,10 +27,16 @@
   --table-head-bg: #eef4fa;
   --toc-leader: #b9c4cf;
   --mark-bg: #fdeaa8;
+  --surface-2: #f4f8fc;
+  --ins-color: #2e7d32;
 
-  font-family: var(--font-body, system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif);
-  /* Sans reads better ragged-right on the page. */
-  text-align: left;
+  --span-red: #c0392b;  --span-yellow: #b7791f;  --span-green: #2e7d32;  --span-blue: #2e6db5;
+  --success-bg: #e6f4ea; --success-text: #1e6b2e; --success-border: #b6dcc0;
+  --info-bg: #e8eff8;    --info-text: #234e84;    --info-border: #b9cfe8;
+  --warning-bg: #fbf2dc; --warning-text: #8a5a00; --warning-border: #ecd9a6;
+  --danger-bg: #fbe9e7;  --danger-text: #9a2820;  --danger-border: #ecc2bc;
+
+  text-align: left; /* sans reads better ragged-right on the page */
 }
 
 /* Headings — sans, firm weight, tight tracking. */
@@ -35,31 +45,12 @@
 .orz-doc.markdown-body h3,
 .orz-doc.markdown-body h4,
 .orz-doc.markdown-body h5,
-.orz-doc.markdown-body h6 {
-  font-family: var(--font-heading, var(--font-body, system-ui, sans-serif));
-  color: var(--heading-color);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
+.orz-doc.markdown-body h6 { font-weight: 700; letter-spacing: -0.01em; }
 
-.orz-doc.markdown-body h1 {
-  font-size: 1.95em;
-  color: var(--accent);
-}
+.orz-doc.markdown-body h1 { font-size: 1.95em; color: var(--accent); }
+.orz-doc.markdown-body h2 { font-size: 1.45em; padding-bottom: 0.2em; border-bottom: 2px solid var(--accent); }
+.orz-doc.markdown-body h3 { font-size: 1.2em; color: var(--accent); }
 
-/* Thin accent rule under section heads. */
-.orz-doc.markdown-body h2 {
-  font-size: 1.45em;
-  padding-bottom: 0.2em;
-  border-bottom: 2px solid var(--accent);
-}
-
-.orz-doc.markdown-body h3 {
-  font-size: 1.2em;
-  color: var(--accent);
-}
-
-/* Links — accent, no heavy decoration. */
 .orz-doc.markdown-body a {
   color: var(--accent);
   text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
@@ -68,7 +59,7 @@
 /* Blockquote — soft tinted card with an accent edge. */
 .orz-doc.markdown-body blockquote {
   border-left: 3px solid var(--accent);
-  background: #f4f8fc;
+  background: var(--surface-2);
   color: var(--text-muted);
   padding: 0.5em 1.1em;
   border-radius: 0 3px 3px 0;
@@ -80,38 +71,19 @@
   color: var(--heading-color);
   border-bottom: 2px solid var(--accent);
 }
+.orz-doc.markdown-body tbody tr:nth-child(even) td { background: #f8fbfd; }
 
-.orz-doc.markdown-body tbody tr:nth-child(even) td {
-  background: #f8fbfd;
-}
-
-/* List markers in the accent. */
 .orz-doc.markdown-body ul > li::marker,
-.orz-doc.markdown-body ol > li::marker {
-  color: var(--accent);
-}
+.orz-doc.markdown-body ol > li::marker { color: var(--accent); }
 
-/* Code — cool tint matching the accent family. */
 .orz-doc.markdown-body pre,
-.orz-doc.markdown-body :not(pre) > code {
-  background: var(--code-bg);
-  border-color: var(--border-soft);
-}
+.orz-doc.markdown-body :not(pre) > code { background: var(--code-bg); border-color: var(--border-soft); }
 
-/* hr — slim accent line. */
-.orz-doc.markdown-body hr {
-  height: 2px;
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-}
+.orz-doc.markdown-body hr { height: 2px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
 
-/* TOC — accent-colored leaders for a tidy report look. */
-.orz-toc {
-  --toc-leader: color-mix(in srgb, var(--accent) 40%, transparent);
-}
+.orz-toc { --toc-leader: color-mix(in srgb, var(--accent) 40%, transparent); }
 
-/* Report/CV header elements — accent baseline rule. */
+/* Title-block / CV-header elements — accent baseline rule. */
 .orz-element.orz-el-report-title,
-.orz-element.orz-el-cv-header {
-  padding-bottom: 0.6em;
-  border-bottom: 2px solid var(--accent);
-}
+.orz-element.orz-el-article-title,
+.orz-element.orz-el-cv-header { padding-bottom: 0.6em; border-bottom: 2px solid var(--accent); }

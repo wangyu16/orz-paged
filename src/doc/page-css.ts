@@ -78,14 +78,13 @@ function pageNumberExpr(style: PageNumberStyle): string {
  * Build the full page CSS string for a document. Pure: depends only on `s`.
  */
 export function buildPageCss(s: DocSettings): string {
-  const body = fontPreset(s.fontPreset);
-  const family = s.fontFamily ?? body.family;
-  const headingFamily = s.fontHeadingPreset
-    ? fontPreset(s.fontHeadingPreset).family
-    : family;
+  // Font family is explicit only when the user/template set fontFamily or
+  // fontPreset; otherwise leave it to the theme (or base.css fallback).
+  const bodyFamily = s.fontFamily ?? (s.fontPreset ? fontPreset(s.fontPreset).family : undefined);
+  const headingFamily = s.fontHeadingPreset ? fontPreset(s.fontHeadingPreset).family : bodyFamily;
   const marginBoxFamily = s.fontMarginBoxPreset
     ? fontPreset(s.fontMarginBoxPreset).family
-    : family;
+    : (bodyFamily ?? 'system-ui, "Segoe UI", Helvetica, Arial, sans-serif');
 
   const headerRuleColor = s.headerRuleColor || s.decorationColor;
   const footerRuleColor = s.footerRuleColor || s.decorationColor;
@@ -185,16 +184,19 @@ export function buildPageCss(s: DocSettings): string {
     `  --margin-b: ${s.marginBottom}mm;`,
     `  --margin-l: ${s.marginLeft}mm;`,
     `  --margin-r: ${s.marginRight}mm;`,
-    `  --font-body: ${family};`,
-    `  --font-heading: ${headingFamily};`,
     `  --font-margin-box: ${marginBoxFamily};`,
     `  --font-size: ${s.fontSize}pt;`,
     `  --line-height: ${s.lineHeight};`,
-    `  --accent: ${s.decorationColor};`,
-    `  --page-bg: ${s.pageBackground || '#ffffff'};`,
-    `  --header-rule: ${headerRuleColor};`,
-    `  --footer-rule: ${footerRuleColor};`,
   ];
+  // Look tokens: emit only when explicitly set, so a theme's own font / accent /
+  // page background apply by default and an explicit setting still wins (this
+  // sheet is added last). header/footer rules follow the accent when unset.
+  if (bodyFamily) rootVars.push(`  --font-body: ${bodyFamily};`);
+  if (headingFamily) rootVars.push(`  --font-heading: ${headingFamily};`);
+  if (s.decorationColor) rootVars.push(`  --accent: ${s.decorationColor};`);
+  if (s.pageBackground) rootVars.push(`  --page-bg: ${s.pageBackground};`);
+  rootVars.push(`  --header-rule: ${headerRuleColor || 'var(--accent, #cccccc)'};`);
+  rootVars.push(`  --footer-rule: ${footerRuleColor || 'var(--accent, #cccccc)'};`);
   const rootRule = `:root {\n${rootVars.join('\n')}\n}`;
 
   // Body / element base styling that consumes the tokens.

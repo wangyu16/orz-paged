@@ -1,0 +1,98 @@
+/* ==========================================================================
+   orz-paged · light-academic-2.css
+   Scholarly print style: Vollkorn serif body, Fira Sans headings, deep-burgundy
+   accent. Booktabs-style tables (thick top/bottom rules, no verticals), plain
+   weighted headings, restrained callouts. Distinct from academic-1. Light/print.
+   ========================================================================== */
+
+:root {
+  --accent: #7a1f2b;
+  --page-bg: #ffffff;
+  --font-body: "Vollkorn", "Times New Roman", Times, "Noto Serif SC", serif;
+  --font-heading: "Fira Sans", Helvetica, Arial, "Noto Sans SC", sans-serif;
+}
+
+.orz-doc.markdown-body {
+  --text-main: #1a1715;
+  --text-muted: #5a514c;
+  --heading-color: #2a1416;
+  --border-soft: #ddd6d2;
+  --code-bg: #f6f3f1;
+  --table-head-bg: #f3ece9;
+  --toc-leader: #c8bdb7;
+  --mark-bg: #f3e3a6;
+  --surface-2: #f7f3f1;
+  --ins-color: #386641;
+
+  --span-red: #9e2a2b;  --span-yellow: #b8860b;  --span-green: #386641;  --span-blue: #2a5a8c;
+  --success-bg: #eef5ef; --success-text: #2f5d38; --success-border: #cfe3d2;
+  --info-bg: #eef3f8;    --info-text: #2a4f7a;    --info-border: #cfdcea;
+  --warning-bg: #f9f2e1; --warning-text: #8a5a00; --warning-border: #ecddb6;
+  --danger-bg: #f8ecea;  --danger-text: #8a2018;  --danger-border: #ead0cc;
+
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* Headings — Fira Sans, firm, with a small-caps flavour on section heads. */
+.orz-doc.markdown-body h1,
+.orz-doc.markdown-body h2,
+.orz-doc.markdown-body h3,
+.orz-doc.markdown-body h4,
+.orz-doc.markdown-body h5,
+.orz-doc.markdown-body h6 { font-family: var(--font-heading); color: var(--heading-color); }
+
+.orz-doc.markdown-body h1 {
+  font-size: 2.25em; font-weight: 700; letter-spacing: -0.02em;
+  padding-bottom: 0.35em; border-bottom: 3px double var(--accent);
+}
+.orz-doc.markdown-body h2 {
+  font-size: 1.5em; font-weight: 600; font-variant: small-caps; letter-spacing: 0.02em;
+  color: var(--accent); border-bottom: 1px solid var(--border-soft); padding-bottom: 0.25em;
+}
+.orz-doc.markdown-body h3 { font-size: 1.22em; font-weight: 600; font-variant: small-caps; }
+
+.orz-doc.markdown-body a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Blockquote — quiet serif aside, thin accent rule, italic. */
+.orz-doc.markdown-body blockquote {
+  border-left: 2px solid var(--accent);
+  background: none;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.1em 0 0.1em 1.3em;
+}
+
+/* Tables — booktabs: heavy top/bottom rules, ruled header, no vertical lines. */
+.orz-doc.markdown-body table {
+  border-top: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  font-family: var(--font-heading);
+  font-size: 0.92em;
+}
+.orz-doc.markdown-body th {
+  background: var(--table-head-bg);
+  color: var(--heading-color);
+  font-weight: 600; font-variant: small-caps;
+  border-bottom: 1px solid var(--accent);
+}
+.orz-doc.markdown-body td { border: none; }
+.orz-doc.markdown-body tbody tr:nth-child(even) td { background: #faf7f5; }
+
+.orz-doc.markdown-body ul > li::marker,
+.orz-doc.markdown-body ol > li::marker { color: var(--accent); }
+
+.orz-doc.markdown-body pre,
+.orz-doc.markdown-body :not(pre) > code { background: var(--code-bg); border-color: var(--border-soft); }
+
+.orz-doc.markdown-body hr { height: 1px; background: var(--border-soft); }
+
+.orz-toc { --toc-leader: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* Title-block / CV-header elements — double accent baseline rule. */
+.orz-element.orz-el-report-title,
+.orz-element.orz-el-article-title,
+.orz-element.orz-el-cv-header { padding-bottom: 0.6em; border-bottom: 3px double var(--accent); }

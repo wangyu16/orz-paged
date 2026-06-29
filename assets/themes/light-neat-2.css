@@ -1,0 +1,101 @@
+/* ==========================================================================
+   orz-paged · light-neat-2.css
+   Warm-paper neat variant: teal accent on a cream-tinted palette, serif body
+   with a sans heading face. Pill h3, accent-tinted code, quote-marked
+   blockquotes, dashed rules. Adapted from the "light-neat-2" screen theme
+   for print on white paper. Light / print.
+
+   Theme contract:
+   - :root sets the page-managed tokens (--accent, --page-bg, --font-*) DIRECTLY
+     so they apply by default; an explicit font_preset / decoration_color /
+     page_background overrides them (page CSS is added last & only emits when set).
+   - .orz-doc.markdown-body sets the content-only palette + construct tokens that
+     base.css consumes, plus this theme's signature construct styling.
+   ========================================================================== */
+
+:root {
+  --accent: #167a72;
+  --page-bg: #ffffff;
+  --font-body: Literata, Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --font-heading: Epilogue, system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.orz-doc.markdown-body {
+  --text-main: #2d322f;
+  --text-muted: #62685f;
+  --heading-color: #181c1b;
+  --border-soft: #ddd8cd;
+  --code-bg: #f4f1eb;
+  --table-head-bg: #f1eee7;
+  --toc-leader: #c9c1b1;
+  --mark-bg: #f3e1b0;
+  --surface-2: #f8f6f1;
+  --ins-color: #175651;
+
+  --span-red: #b34a4a;  --span-yellow: #8f6711;  --span-green: #2f7c49;  --span-blue: #21698a;
+  --success-bg: #e9f3ec; --success-text: #2e7a45; --success-border: #b8dabf;
+  --info-bg: #e6f1f6;    --info-text: #1e668d;    --info-border: #b8d8ea;
+  --warning-bg: #fbf2dc; --warning-text: #916516; --warning-border: #ecd39c;
+  --danger-bg: #fbe9e9;  --danger-text: #994545;  --danger-border: #e9b8b8;
+}
+
+/* Headings — sans face, firm weight, tight tracking. */
+.orz-doc.markdown-body h1,
+.orz-doc.markdown-body h2,
+.orz-doc.markdown-body h3,
+.orz-doc.markdown-body h4,
+.orz-doc.markdown-body h5,
+.orz-doc.markdown-body h6 { font-family: var(--font-heading); font-weight: 700; letter-spacing: -0.025em; }
+
+.orz-doc.markdown-body h1 { font-size: 2em; padding-bottom: 0.32em; border-bottom: 2px solid var(--border-soft); }
+.orz-doc.markdown-body h1::after { content: ""; display: block; width: 3rem; height: 3px; margin-top: 0.4rem; background: var(--accent); border-radius: 999px; }
+.orz-doc.markdown-body h2 { font-size: 1.5em; padding-bottom: 0.25em; border-bottom: 2px solid var(--accent); }
+.orz-doc.markdown-body h3 { font-size: 1.22em; width: fit-content; padding: 0.16em 0.7em 0.24em; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 999px; }
+
+.orz-doc.markdown-body a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Blockquote — tinted card with an accent edge and a faint quote mark. */
+.orz-doc.markdown-body blockquote {
+  position: relative;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  padding: 0.6em 1.15em;
+  border-radius: 0 4px 4px 0;
+}
+.orz-doc.markdown-body blockquote::before {
+  content: "\201C"; position: absolute; right: 0.5rem; top: 0.1rem;
+  color: color-mix(in srgb, var(--accent) 26%, transparent); font-size: 2rem; line-height: 1;
+}
+
+/* Tables — tinted, accent-underlined header. */
+.orz-doc.markdown-body th {
+  background: var(--table-head-bg);
+  color: var(--heading-color);
+  border-bottom: 2px solid var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.orz-doc.markdown-body tbody tr:nth-child(even) td { background: #faf8f3; }
+
+.orz-doc.markdown-body ul > li::marker,
+.orz-doc.markdown-body ol > li::marker { color: var(--accent); }
+
+.orz-doc.markdown-body pre,
+.orz-doc.markdown-body :not(pre) > code { background: var(--code-bg); border-color: var(--border-soft); }
+.orz-doc.markdown-body :not(pre) > code { color: #8b4d1a; }
+
+.orz-doc.markdown-body hr {
+  height: 1px; border: 0;
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--accent) 32%, transparent) 0 12px, transparent 12px 24px);
+}
+
+.orz-toc { --toc-leader: color-mix(in srgb, var(--accent) 40%, transparent); }
+
+/* Title-block / CV-header elements — accent baseline rule. */
+.orz-element.orz-el-report-title,
+.orz-element.orz-el-article-title,
+.orz-element.orz-el-cv-header { padding-bottom: 0.6em; border-bottom: 2px solid var(--accent); }

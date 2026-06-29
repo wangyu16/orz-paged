@@ -1,0 +1,90 @@
+/* ==========================================================================
+   orz-paged · beige-decent-2.css
+   Warm serif on cream paper, terracotta accent. Distinct from beige-decent-1:
+   rust headings, a centered accent rule under h2, and an italic underlined
+   blockquote on a deeper sand tint. Light / print.
+
+   Theme contract:
+   - :root sets the page-managed tokens (--accent, --page-bg, --font-*) DIRECTLY.
+   - .orz-doc.markdown-body sets the content palette + construct tokens base.css
+     consumes, plus this theme's signature construct styling.
+   ========================================================================== */
+
+:root {
+  --accent: #b5563a;
+  --page-bg: #f4ecdc;
+  --font-body: "Cardo", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-heading: "Josefin Sans", "Optima", "Segoe UI", system-ui, sans-serif;
+}
+
+.orz-doc.markdown-body {
+  --text-main: #4a3c31;
+  --text-muted: #786556;
+  --heading-color: #3a2b20;
+  --border-soft: #ddd0bb;
+  --code-bg: #efe5d0;
+  --table-head-bg: #ece0c8;
+  --toc-leader: #cdbfa6;
+  --mark-bg: #f6dca0;
+  --surface-2: #eee4d2;
+  --ins-color: #4a7553;
+
+  --span-red: #b5563a;  --span-yellow: #9a6f1f;  --span-green: #4a7553;  --span-blue: #2f6154;
+  --success-bg: #e6efd9; --success-text: #4a6b33; --success-border: #bcd3a0;
+  --info-bg: #e4ece9;    --info-text: #2f6154;    --info-border: #abc7bf;
+  --warning-bg: #f6ecce; --warning-text: #876d29; --warning-border: #e0cd97;
+  --danger-bg: #f4e0d8;  --danger-text: #9c4b3a;  --danger-border: #e0bbab;
+
+  text-align: justify; /* serif sits well justified on the page */
+}
+
+/* Headings — sans display face, rust h1, terracotta accents. */
+.orz-doc.markdown-body h1,
+.orz-doc.markdown-body h2,
+.orz-doc.markdown-body h3,
+.orz-doc.markdown-body h4,
+.orz-doc.markdown-body h5,
+.orz-doc.markdown-body h6 { font-weight: 700; line-height: 1.3; }
+
+.orz-doc.markdown-body h1 { font-size: 2.1em; color: var(--accent); letter-spacing: -0.02em; }
+.orz-doc.markdown-body h2 { font-size: 1.5em; font-weight: 600; padding-bottom: 0.25em; border-bottom: 1px solid var(--accent); }
+.orz-doc.markdown-body h3 { font-size: 1.22em; font-weight: 600; color: var(--accent); }
+
+.orz-doc.markdown-body a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Blockquote — italic, on a deeper sand tint with an accent edge bar. */
+.orz-doc.markdown-body blockquote {
+  border: none;
+  border-left: 4px solid var(--accent);
+  background: #ece2cf;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.7em 1.3em;
+  border-radius: 0 8px 8px 0;
+}
+
+/* Tables — warm header band, accent underline. */
+.orz-doc.markdown-body th {
+  background: var(--table-head-bg);
+  color: var(--heading-color);
+  border-bottom: 2px solid var(--accent);
+}
+.orz-doc.markdown-body tbody tr:nth-child(even) td { background: #f0e7d5; }
+
+.orz-doc.markdown-body ul > li::marker,
+.orz-doc.markdown-body ol > li::marker { color: var(--accent); }
+
+.orz-doc.markdown-body pre,
+.orz-doc.markdown-body :not(pre) > code { background: var(--code-bg); border-color: var(--border-soft); }
+
+.orz-doc.markdown-body hr { height: 2px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+.orz-toc { --toc-leader: color-mix(in srgb, var(--accent) 40%, transparent); }
+
+/* Title-block / CV-header elements — accent baseline rule. */
+.orz-element.orz-el-report-title,
+.orz-element.orz-el-article-title,
+.orz-element.orz-el-cv-header { padding-bottom: 0.6em; border-bottom: 2px solid var(--accent); }

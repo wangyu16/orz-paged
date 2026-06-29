@@ -33,11 +33,11 @@ export const DEFAULTS: DocSettings = {
   marginLeft: 20,
   marginRight: 20,
 
-  // typography
-  fontPreset: 'system-serif',
+  // typography — fontPreset / decorationColor intentionally unset so a theme's
+  // own font + accent apply by default; an explicit setting (or a template)
+  // overrides them (page CSS is added last and only emits a token when set).
   fontSize: 12,
   lineHeight: 1.5,
-  decorationColor: '#000000',
 
   // page numbers
   pageNumberPosition: 'footer-center',
