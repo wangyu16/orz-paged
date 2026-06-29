@@ -152,11 +152,14 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
   line-height: 1.2;
   color: var(--accent, #000);
 }
-.orz-el-${kind} .orz-subtitle {
+.orz-doc.markdown-body .orz-el-${kind} .orz-subtitle {
   margin: 0 0 0.75em;
   font-size: 1.2em;
   font-style: italic;
   opacity: 0.85;
+  /* outspecify a theme's justified-prose rule (.orz-doc.markdown-body p) so the
+     subtitle stays centered with the rest of the title block */
+  text-align: center;
 }
 .orz-el-${kind} .orz-title-meta {
   font-size: 0.95em;
