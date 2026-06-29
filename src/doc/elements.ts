@@ -700,7 +700,17 @@ function questionHeader(spec: ElementSpec): string {
 
 function renderQuestionMc(spec: ElementSpec, ctx: ElementCtx): ElementResult {
   const placement = resolvePlacement(spec);
-  const answer = field(spec, 'answer').toUpperCase();
+  // `answer` accepts one or several correct options (select-all-that-apply):
+  // "B", "B, D", "B D", or contiguous "BD". A single all-letters token is split
+  // into characters; otherwise only single-letter tokens count (so "B and D"
+  // yields B, D — the stray word is ignored).
+  const rawAnswer = field(spec, 'answer').toUpperCase().trim();
+  const answerParts = rawAnswer.split(/[\s,;/]+/).filter(Boolean);
+  const answerSet = new Set(
+    answerParts.length === 1 && /^[A-Z]{2,}$/.test(answerParts[0])
+      ? answerParts[0].split('')
+      : answerParts.filter((p) => /^[A-Z]$/.test(p)),
+  );
 
   const header = questionHeader(spec);
   const body = has(spec, 'body')
@@ -716,7 +726,7 @@ function renderQuestionMc(spec: ElementSpec, ctx: ElementCtx): ElementResult {
       const label = (m ? m[1] : LETTERS[i] || '?').toUpperCase();
       const text = m ? m[2] : raw;
       longest = Math.max(longest, text.length);
-      const isAnswer = answer !== '' && label === answer;
+      const isAnswer = answerSet.has(label);
       const answerAttr = isAnswer ? ' data-answer="true"' : '';
       // The ✓ reveal is gated by the dynamic switch: it survives only when
       // answer-key=show (instructor key), and is removed for the student copy.

@@ -886,7 +886,7 @@ ${M.join(`
 .orz-el-cv-header .orz-cv-summary {
   margin-top: 0.5em;
   font-size: 0.95em;
-}`;return x+=br("cv-header"),{html:k,css:x,placement:r}}var X9="ABCDEFGHIJKLMNOPQRSTUVWXYZ";function rg(e){let t=fe(e,"n"),r=fe(e,"pts"),a=[];return a.push(`<span class="orz-q-num">${Ie(t||"")}${t?".":""}</span>`),r&&a.push(`<span class="orz-q-pts">(${Ie(r)})</span>`),`<div class="orz-q-header">${a.join(" ")}</div>`}function Q9(e,t){let r=yr(e),a=fe(e,"answer").toUpperCase(),n=rg(e),i=_e(e,"body")?`<div class="orz-q-body">${t.renderBlock(fe(e,"body"))}</div>`:"",l=Wn(fe(e,"options")),c=0,d=l.map((v,q)=>{let L=v.match(/^([A-Za-z])[.)]\s+(.*)$/),O=(L?L[1]:X9[q]||"?").toUpperCase(),M=L?L[2]:v;c=Math.max(c,M.length);let H=a!==""&&O===a,F=H?' data-answer="true"':"",U=H?' <span class="orz-answer-mark" data-show-when="answer-key=show">\u2713</span>':"";return`<li class="orz-option"${F}><span class="orz-option-label">${Ie(O)}.</span> <span class="orz-option-text">${t.renderInline(M)}</span>`+U+"</li>"}).join(""),x=`<ol class="orz-options${c>40?" orz-single-col":""}">${d}</ol>`,p=kr("question-mc",r,n+i+x),g=`
+}`;return x+=br("cv-header"),{html:k,css:x,placement:r}}var X9="ABCDEFGHIJKLMNOPQRSTUVWXYZ";function rg(e){let t=fe(e,"n"),r=fe(e,"pts"),a=[];return a.push(`<span class="orz-q-num">${Ie(t||"")}${t?".":""}</span>`),r&&a.push(`<span class="orz-q-pts">(${Ie(r)})</span>`),`<div class="orz-q-header">${a.join(" ")}</div>`}function Q9(e,t){let r=yr(e),n=fe(e,"answer").toUpperCase().trim().split(/[\s,;/]+/).filter(Boolean),i=new Set(n.length===1&&/^[A-Z]{2,}$/.test(n[0])?n[0].split(""):n.filter(L=>/^[A-Z]$/.test(L))),l=rg(e),c=_e(e,"body")?`<div class="orz-q-body">${t.renderBlock(fe(e,"body"))}</div>`:"",d=Wn(fe(e,"options")),h=0,k=d.map((L,O)=>{let M=L.match(/^([A-Za-z])[.)]\s+(.*)$/),H=(M?M[1]:X9[O]||"?").toUpperCase(),F=M?M[2]:L;h=Math.max(h,F.length);let U=i.has(H),G=U?' data-answer="true"':"",Y=U?' <span class="orz-answer-mark" data-show-when="answer-key=show">\u2713</span>':"";return`<li class="orz-option"${G}><span class="orz-option-label">${Ie(H)}.</span> <span class="orz-option-text">${t.renderInline(F)}</span>`+Y+"</li>"}).join(""),g=`<ol class="orz-options${h>40?" orz-single-col":""}">${k}</ol>`,v=kr("question-mc",r,l+c+g),q=`
 .orz-el-question-mc {
   margin: 0 0 1em;
   break-inside: avoid;
@@ -929,7 +929,7 @@ ${M.join(`
 .orz-el-question-mc .orz-option:has(.orz-answer-mark) {
   color: var(--success-text, #1a7f37);
   font-weight: 600;
-}`;return g+=br("question-mc"),{html:p,css:g,placement:r}}function J9(e,t){let r=yr(e),a=_e(e,"space")?fe(e,"space"):"3cm",n=rg(e),i=_e(e,"body")?`<div class="orz-q-body">${t.renderBlock(fe(e,"body"))}</div>`:"",l=`<div class="orz-q-space" style="height:${Ie(a)}" aria-hidden="true"></div>`,c=_e(e,"answer")?`<div class="orz-answer-key" data-show-when="answer-key=show"><div class="orz-answer-label">Answer</div>${t.renderBlock(fe(e,"answer"))}</div>`:"",d=kr("question-open",r,n+i+l+c),h=`
+}`;return q+=br("question-mc"),{html:v,css:q,placement:r}}function J9(e,t){let r=yr(e),a=_e(e,"space")?fe(e,"space"):"3cm",n=rg(e),i=_e(e,"body")?`<div class="orz-q-body">${t.renderBlock(fe(e,"body"))}</div>`:"",l=`<div class="orz-q-space" style="height:${Ie(a)}" aria-hidden="true"></div>`,c=_e(e,"answer")?`<div class="orz-answer-key" data-show-when="answer-key=show"><div class="orz-answer-label">Answer</div>${t.renderBlock(fe(e,"answer"))}</div>`:"",d=kr("question-open",r,n+i+l+c),h=`
 .orz-el-question-open {
   margin: 0 0 1em;
   break-inside: avoid;

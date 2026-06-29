@@ -218,6 +218,15 @@ describe('question answer reveal (dynamic switch)', () => {
     expect(r.html).toContain('orz-answer-mark');
     expect(r.html).toContain('data-show-when="answer-key=show"');
   });
+  it('question-mc supports multiple correct answers (select all that apply)', () => {
+    const opts = 'A. one\nB. two\nC. three\nD. four';
+    for (const ans of ['B, D', 'B D', 'BD', 'B and D']) {
+      const r = renderElement(spec('question-mc', { n: '1', body: 'Q?', options: opts, answer: ans }), ctx);
+      expect((r.html.match(/data-answer="true"/g) || []).length, ans).toBe(2);
+      expect((r.html.match(/orz-answer-mark/g) || []).length, ans).toBe(2);
+    }
+  });
+
   it('question-open wraps the model answer in a show-when block', () => {
     const r = renderElement(
       spec('question-open', { n: '2', body: 'Explain.', answer: 'Because reasons.' }),

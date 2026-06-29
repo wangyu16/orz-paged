@@ -218,7 +218,7 @@ in the body where you want it to appear. Curated elements:
 | `letter-inside-address` | recipient address block | `to`, `organization`, `address` |
 | `letter-signature` | closing + signature | `from`, `closing`, `title` |
 | `cv-header` | CV name/contact header | `full_name`, `title`, `contacts` |
-| `question-mc` | multiple-choice question | `n`, `pts`, `body`, `options`, `answer` |
+| `question-mc` | multiple-choice question | `n`, `pts`, `body`, `options`, `answer` (one letter, or several for select-all: `B, D`) |
 | `question-open` | open-ended question | `n`, `pts`, `body`, `space`, `answer` |
 | `timestamp` | "last updated" line | `label`, `date` |
 
@@ -359,6 +359,24 @@ options: |
   C. Pascal
   D. Watt
 answer: B
+}}
+```
+
+For **select-all-that-apply**, list several correct letters in `answer` — `B, D`
+(or `B D`, or `BD`); every matching option is ✓-marked in the answer key:
+
+```
+{{nyml
+kind: question-mc
+n: 2
+pts: 6 pts
+body: Which of these are vector quantities? (Select all that apply.)
+options: |
+  A. Mass
+  B. Velocity
+  C. Temperature
+  D. Force
+answer: B, D
 }}
 
 {{nyml
