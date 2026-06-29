@@ -139,17 +139,21 @@ describe('buildPageCss — :root tokens', () => {
 });
 
 describe('buildPageCss — front matter clean', () => {
-  it('off by default: no front-matter hide / counter-reset', () => {
+  it('off by default: native counters, no front-matter hide', () => {
     const css = buildPageCss(makeSettings());
     expect(css).not.toContain('pagedjs_orz-front_page');
-    expect(css).not.toContain('counter-reset: page');
+    expect(css).not.toContain('--orz-pageno');
+    expect(css).toContain('counter(page) " of " counter(pages)');
   });
-  it('on: hides front-matter chrome and restarts numbering at the body', () => {
+  it('on: hides front-matter chrome and renumbers the body via CSS vars', () => {
     const css = buildPageCss(makeSettings({ frontMatterClean: true }));
     expect(css).toContain('.pagedjs_orz-front_page .pagedjs_margin-top');
     expect(css).toContain('.pagedjs_orz-front_page .pagedjs_margin-bottom');
     expect(css).toContain('display: none;');
-    expect(css).toContain('.orz-place-page + :not(.orz-place-page) { counter-reset: page 1; }');
+    // page-number expr uses the JS-fed vars (current + body total), with the
+    // native counters as fallbacks.
+    expect(css).toContain('var(--orz-pageno, counter(page))');
+    expect(css).toContain('var(--orz-body-pages, counter(pages))');
   });
 });
 

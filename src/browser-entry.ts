@@ -223,6 +223,18 @@ async function render(source: string): Promise<void> {
     const prevScroll = pages.scrollTop;
     pages.replaceChildren(...Array.prototype.slice.call(out.childNodes));
     pages.scrollTop = prevScroll;
+    // Clean front matter: renumber the body in JS (paged.js' page counter is
+    // unreliable across later page breaks). Each non-front page gets a sequential
+    // --orz-pageno (1, 2, …) that its page-number box reads; --orz-body-pages is
+    // the body total. Quote them — content var() interpolation needs a <string>.
+    if (a.settings.frontMatterClean) {
+      const allPages = Array.prototype.slice.call(
+        pages.querySelectorAll('.pagedjs_page'),
+      ) as HTMLElement[];
+      const bodyPages = allPages.filter((p) => !p.classList.contains('pagedjs_orz-front_page'));
+      document.documentElement.style.setProperty('--orz-body-pages', `"${bodyPages.length}"`);
+      bodyPages.forEach((p, i) => p.style.setProperty('--orz-pageno', `"${i + 1}"`));
+    }
     fillToc();
     // let the editor re-fit the preview zoom to the pane (it owns the layout)
     const hook = (window as unknown as { __orzPagedAfterRender?: () => void }).__orzPagedAfterRender;

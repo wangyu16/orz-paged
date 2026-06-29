@@ -244,9 +244,10 @@ placement: page
 
 When the title, abstract, and/or toc are each on their own page (`placement:
 page`), set `front_matter: clean` in the document block to give those front-matter
-pages **no running header, footer, or page number**, and **restart the page count**
-so the first main-content page is **1**. The `article-page` and `report-page`
-templates set it by default.
+pages **no running header, footer, or page number**, and **renumber the body**
+so it runs 1…N over the main content only — front-matter pages are excluded from
+both the current page number and the `… of N` total. The `article-page` and
+`report-page` templates set it by default.
 
 ```
 {{nyml
@@ -255,9 +256,6 @@ template: report-page
 front_matter: clean
 }}
 ```
-
-(The total in a `page-n-of-N` style still counts every physical page; only the
-current-page number restarts.)
 
 ### `toc` & `placement`
 

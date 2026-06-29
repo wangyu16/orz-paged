@@ -121,7 +121,18 @@ export function buildPageCss(s: DocSettings): string {
   // (so it isn't double-declared with a static header/footer in the same box).
   const pnBox = marginBoxName(s.pageNumberPosition);
   if (pnBox && s.pageNumberPosition !== 'none') {
-    const expr = pageNumberExpr(s.pageNumberStyle);
+    let expr = pageNumberExpr(s.pageNumberStyle);
+    // With clean front matter the body is renumbered from 1. paged.js' own page
+    // counter / counter-reset is unreliable across later page breaks, so the
+    // engine numbers body pages in JS after layout and feeds the values through
+    // CSS vars: --orz-pageno (this page's body number, set per page) and
+    // --orz-body-pages (body total = physical − front-matter pages). Both fall
+    // back to the native counters when unset (no front matter / pre-measure).
+    if (s.frontMatterClean) {
+      expr = expr
+        .replace(/counter\(pages\)/g, 'var(--orz-body-pages, counter(pages))')
+        .replace(/counter\(page\)/g, 'var(--orz-pageno, counter(page))');
+    }
     const isHeader = s.pageNumberPosition.startsWith('header-');
     const fontSize = isHeader ? headerFs : footerFs;
     boxes.set(pnBox, [`content: ${expr}; ${fontSize}`]);
@@ -182,13 +193,11 @@ export function buildPageCss(s: DocSettings): string {
   // class `.pagedjs_orz-front_page`). Hide its margin rows to strip the running
   // header, footer, and page number — done via the page class, NOT `@page
   // orz-front { @top-* { content: none } }`, because paged.js leaks that
-  // `content: none` onto the base @page and blanks every page's chrome. The
-  // first main-content element (right after the last front-matter page) restarts
-  // the page counter so the body begins at 1.
+  // `content: none` onto the base @page and blanks every page's chrome. Body
+  // renumbering is done in JS (per-page --orz-pageno), so no counter-reset here.
   const frontMatterRule = s.frontMatterClean
     ? `.pagedjs_orz-front_page .pagedjs_margin-top,\n` +
-      `.pagedjs_orz-front_page .pagedjs_margin-bottom { display: none; }\n` +
-      `.orz-doc.markdown-body > .orz-place-page + :not(.orz-place-page) { counter-reset: page 1; }`
+      `.pagedjs_orz-front_page .pagedjs_margin-bottom { display: none; }`
     : '';
 
   // :root design tokens (dom-contract).
