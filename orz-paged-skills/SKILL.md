@@ -210,7 +210,7 @@ in the body where you want it to appear. Curated elements:
 |---|---|---|
 | `article-title` | article title block | `title`, `subtitle`, `authors` (or `author`), `affiliations`, `notes`, `date`, `placement` |
 | `report-title` | report title block | `title`, `subtitle`, `authors` (or `author`), `affiliations`, `notes`, `date`, `placement` |
-| `exam-title` | exam title / cover | `title`, `subtitle`, `author`, `date`, `placement` |
+| `exam-title` | exam title / cover | `title`, `subtitle`, `author`, `course`, `duration`, `total_points`, `student_fields`, `instructions`, `date`, `placement` |
 | `abstract` | abstract block | `text`, `keywords` |
 | `toc` | table of contents | `title`, `max_level`, `placement` |
 | `letterhead` | letter letterhead bar | `organization`, `address`, `email`, `phone` |
@@ -301,6 +301,46 @@ puts it on its own page.
 kind: toc
 title: Contents
 max_level: 2
+placement: page
+}}
+```
+
+### Exam title — student fields & instructions
+
+On `exam-title` (cover page or inline section — the **first page**), put the
+student identity fields and the instructions, so they appear **once** rather than
+in a running header on every page:
+
+- **`student_fields`** — one fill-in field per line, each rendered as a labelled
+  blank line. Add `| suffix` to put text after the blank (e.g. a score max):
+
+  ```
+  student_fields: |
+    Name
+    Student ID
+    Score | / 100
+  ```
+
+- **`instructions`** — a multiline block (Markdown, so lists work) shown under the
+  title. Optional: leave it empty and instead write the instructions as normal
+  Markdown at the **top of the main content** — either placement works, whichever
+  the instructor prefers.
+
+```
+{{nyml
+kind: exam-title
+title: Course Name — Exam 1
+author: Instructor Name
+duration: 60 minutes
+total_points: 100 points
+student_fields: |
+  Name
+  Student ID
+  Score | / 100
+instructions: |
+  **Instructions.** Read each question carefully.
+  - Answer all questions; show your work for full credit.
+  - No calculators or notes.
 placement: page
 }}
 ```

@@ -1,8 +1,6 @@
 {{nyml
 kind: document
 template: exam-page
-header_left: Name: ______________________
-header_right: Score: ______ / 100
 page_number_position: footer-center
 page_number_style: page-n-of-N
 }}
@@ -12,20 +10,21 @@ kind: exam-title
 title: Course Name — Exam 1
 subtitle: Fall Term, October Date
 author: Instructor Name
+duration: 60 minutes
+total_points: 100 points
+student_fields: |
+  Name
+  Student ID
+  Score | / 100
+instructions: |
+  **Instructions.** Read each question carefully before answering.
+
+  - Answer all questions. Multiple-choice questions are worth 5 points each; open-response questions are worth the points indicated.
+  - For multiple-choice questions, circle the single best answer.
+  - For open-response questions, write your answer in the space provided. Show all work; partial credit is awarded for correct reasoning.
+  - No calculators, notes, or electronic devices are permitted unless otherwise stated. Do not turn the page until instructed.
 placement: page
 }}
-
-**Instructions.** Read each question carefully before answering. This exam is
-worth 100 points total and you have 60 minutes to complete it. Write your name
-at the top of every page.
-
-- Answer all questions. Multiple-choice questions are worth 5 points each;
-  open-response questions are worth the points indicated.
-- For multiple-choice questions, circle the single best answer.
-- For open-response questions, write your answer in the space provided. Show all
-  work; partial credit is awarded for correct reasoning.
-- No calculators, notes, or electronic devices are permitted unless otherwise
-  stated. Do not turn the page until instructed.
 
 {{nyml
 kind: question-mc

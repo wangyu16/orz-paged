@@ -204,6 +204,26 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
     rows.push(`<div class="orz-title-meta">${meta.join('')}</div>`);
   }
 
+  // Exam-only: student fill-in fields (Name / Student ID / Score …) and an
+  // optional instructions block, both on the title page/section — so identity
+  // fields live on page 1 instead of a running header on every page.
+  if (kind === 'exam-title') {
+    if (has(spec, 'student_fields')) {
+      const fields = textLines(field(spec, 'student_fields')).map((line) => {
+        const [label, suffix] = line.split('|').map((s) => s.trim());
+        return '<div class="orz-exam-field">'
+          + `<span class="orz-field-label">${ctx.renderInline(label)}</span>`
+          + '<span class="orz-field-blank"></span>'
+          + (suffix ? `<span class="orz-field-suffix">${ctx.renderInline(suffix)}</span>` : '')
+          + '</div>';
+      });
+      if (fields.length) rows.push(`<div class="orz-exam-fields">${fields.join('')}</div>`);
+    }
+    if (has(spec, 'instructions')) {
+      rows.push(`<div class="orz-exam-instructions">${ctx.renderBlock(field(spec, 'instructions'))}</div>`);
+    }
+  }
+
   const html = wrap(kind, placement, rows.join(''));
 
   let css = `
@@ -259,6 +279,36 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
 }
 .orz-el-${kind} .orz-affil sup,
 .orz-el-${kind} .orz-note sup { margin-right: 0.12em; }`;
+
+  if (kind === 'exam-title') {
+    css += `
+.orz-el-exam-title .orz-exam-fields {
+  text-align: left;
+  margin: 1.3em auto 0;
+  max-width: 34em;
+}
+.orz-el-exam-title .orz-exam-field {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.45em;
+  margin: 0.6em 0;
+}
+.orz-el-exam-title .orz-field-label { white-space: nowrap; font-weight: 600; }
+.orz-el-exam-title .orz-field-blank {
+  flex: 1;
+  min-width: 4em;
+  height: 1.45em;
+  border-bottom: 1px solid var(--text-main, #333);
+}
+.orz-el-exam-title .orz-field-suffix { white-space: nowrap; color: var(--text-muted, #555); }
+.orz-doc.markdown-body .orz-el-exam-title .orz-exam-instructions {
+  text-align: left;
+  margin: 1.4em auto 0;
+  max-width: 40em;
+  font-size: 0.94em;
+}
+.orz-doc.markdown-body .orz-el-exam-title .orz-exam-instructions p { text-align: left; margin: 0.35em 0; }`;
+  }
   css += pageBreakCss(kind);
 
   return { html, css, placement };

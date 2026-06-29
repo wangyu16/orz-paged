@@ -169,6 +169,33 @@ describe('exam-title', () => {
     expect(r.html).toContain('90 minutes');
     expect(r.html).toContain('100 pts');
   });
+
+  it('renders student fill-in fields (incl. a suffix) and an instructions block', () => {
+    const r = renderElement(
+      spec('exam-title', {
+        title: 'Final',
+        student_fields: ['Name', 'Student ID', 'Score | / 100'].join('\n'),
+        instructions: '- Answer all questions.\n- No calculators.',
+      }),
+      ctx,
+    );
+    expect((r.html.match(/orz-exam-field"/g) || []).length).toBe(3); // field divs (not the -fields container)
+    expect(r.html).toContain('orz-field-label">Name');
+    expect(r.html).toContain('orz-field-label">Student ID');
+    expect(r.html).toContain('orz-field-blank');
+    expect(r.html).toContain('orz-field-suffix">/ 100'); // suffix after the blank
+    expect(r.html).toContain('orz-exam-instructions');
+    expect(r.css).toContain('.orz-el-exam-title .orz-field-blank');
+  });
+
+  it('student fields / instructions are exam-only (absent on article-title)', () => {
+    const r = renderElement(
+      spec('article-title', { title: 'X', student_fields: 'Name', instructions: 'Do this' }),
+      ctx,
+    );
+    expect(r.html).not.toContain('orz-exam-field');
+    expect(r.html).not.toContain('orz-exam-instructions');
+  });
 });
 
 describe('abstract', () => {

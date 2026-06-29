@@ -1,8 +1,6 @@
 {{nyml
 kind: document
 template: exam-section
-header_left: Name: ______________________
-header_right: Score: ______ / 100
 page_number_position: footer-center
 page_number_style: page-n-of-N
 }}
@@ -12,10 +10,18 @@ kind: exam-title
 title: Course Name — Midterm Exam
 subtitle: Chapter 1–4 Assessment
 author: Instructor Name
+student_fields: |
+  Name
+  Student ID
+  Score | / 100
 placement: section
 }}
 
-Answer all questions in the space provided. Calculators are not permitted, and you have 60 minutes to complete this exam.
+<!-- This template leaves the exam-title `instructions:` field empty and puts the
+     instructions at the top of the content instead — either placement works. -->
+
+**Instructions.** Answer all questions in the space provided. Calculators are not
+permitted, and you have 60 minutes to complete this exam.
 
 {{nyml
 kind: question-mc
