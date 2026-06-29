@@ -177,6 +177,20 @@ export function buildPageCss(s: DocSettings): string {
     ? `@page:first {\n${firstPageDecls.join('\n')}\n}`
     : '';
 
+  // Front-matter "clean" mode: every `placement: page` page (title / abstract /
+  // toc) is rendered on the named page `orz-front` (paged.js tags it with the
+  // class `.pagedjs_orz-front_page`). Hide its margin rows to strip the running
+  // header, footer, and page number — done via the page class, NOT `@page
+  // orz-front { @top-* { content: none } }`, because paged.js leaks that
+  // `content: none` onto the base @page and blanks every page's chrome. The
+  // first main-content element (right after the last front-matter page) restarts
+  // the page counter so the body begins at 1.
+  const frontMatterRule = s.frontMatterClean
+    ? `.pagedjs_orz-front_page .pagedjs_margin-top,\n` +
+      `.pagedjs_orz-front_page .pagedjs_margin-bottom { display: none; }\n` +
+      `.orz-doc.markdown-body > .orz-place-page + :not(.orz-place-page) { counter-reset: page 1; }`
+    : '';
+
   // :root design tokens (dom-contract).
   const rootVars: string[] = [
     `  --page-size: ${pageSizeValue(s.pageSize)};`,
@@ -231,6 +245,7 @@ export function buildPageCss(s: DocSettings): string {
   return [
     pageRule,
     firstPageRule,
+    frontMatterRule,
     rootRule,
     baseRule,
     layoutRule,

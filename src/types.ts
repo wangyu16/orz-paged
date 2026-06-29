@@ -101,6 +101,10 @@ export interface DocSettings {
   footerLeft: string; footerCenter: string; footerRight: string;
   footerRule: boolean; footerRuleColor?: string; footerFontSize: number;
   firstPageHideHeader: boolean; firstPageHideFooter: boolean;
+  /** Strip header/footer/number from every `placement: page` front-matter page
+   *  (title / abstract / toc on their own pages) and restart the page count so
+   *  the first main-content page is 1. */
+  frontMatterClean: boolean;
 
   // layout behavior
   limitImageToPage: boolean;

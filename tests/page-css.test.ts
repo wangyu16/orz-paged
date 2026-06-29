@@ -138,6 +138,21 @@ describe('buildPageCss — :root tokens', () => {
   });
 });
 
+describe('buildPageCss — front matter clean', () => {
+  it('off by default: no front-matter hide / counter-reset', () => {
+    const css = buildPageCss(makeSettings());
+    expect(css).not.toContain('pagedjs_orz-front_page');
+    expect(css).not.toContain('counter-reset: page');
+  });
+  it('on: hides front-matter chrome and restarts numbering at the body', () => {
+    const css = buildPageCss(makeSettings({ frontMatterClean: true }));
+    expect(css).toContain('.pagedjs_orz-front_page .pagedjs_margin-top');
+    expect(css).toContain('.pagedjs_orz-front_page .pagedjs_margin-bottom');
+    expect(css).toContain('display: none;');
+    expect(css).toContain('.orz-place-page + :not(.orz-place-page) { counter-reset: page 1; }');
+  });
+});
+
 describe('buildPageCss — layout behavior', () => {
   it('emits all enabled layout rules', () => {
     const css = buildPageCss(makeSettings());

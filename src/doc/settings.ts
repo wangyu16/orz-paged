@@ -58,6 +58,7 @@ export const DEFAULTS: DocSettings = {
   footerFontSize: 9,
   firstPageHideHeader: false,
   firstPageHideFooter: false,
+  frontMatterClean: false,
 
   // layout behavior
   limitImageToPage: true,
@@ -365,6 +366,13 @@ export function normalizeRawToLayer(raw: RawDocSettings): DocSettingsLayer {
       case 'first_page_hide_footer':
         setBool('firstPageHideFooter', v);
         break;
+      case 'front_matter':
+      case 'front_matter_clean': {
+        const fm = toStr(v).toLowerCase();
+        (out as Record<string, unknown>).frontMatterClean =
+          fm === 'clean' || fm === 'plain' || toBool(v);
+        break;
+      }
 
       // layout behavior
       case 'limit_image_to_page':

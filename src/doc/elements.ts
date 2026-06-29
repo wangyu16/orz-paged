@@ -74,10 +74,13 @@ function resolvePlacement(spec: ElementSpec): Placement {
   return 'section';
 }
 
-/** CSS that turns a section into a dedicated page (used for `placement: page`). */
+/** CSS that turns a section into a dedicated page (used for `placement: page`).
+ *  `page: orz-front` names the page so page-css can target it (front_matter:
+ *  clean strips its chrome via `@page orz-front`). Harmless when no such rule. */
 const PAGE_BREAK_CSS = `
 .orz-el-PLACEHOLDER.orz-place-page {
   break-after: page;
+  page: orz-front;
   display: flex;
   flex-direction: column;
   justify-content: center;

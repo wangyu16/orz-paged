@@ -166,6 +166,7 @@ The bare names `article` / `report` / `exam` still work and resolve to the
 | `footer_left` / `footer_center` / `footer_right` | text | running footer margin boxes |
 | `page_number_position` | `header-left\|center\|right`, `footer-left\|center\|right`, `none` | where the page number sits |
 | `page_number_style` | see [Page-number styles](#page-number-styles) | how it reads |
+| `front_matter` | `clean` (or `normal`, the default) | `clean`: strip header/footer/number from every `placement: page` front-matter page (title / abstract / toc) and restart the page count so the body begins at **1** |
 | `theme` | `none` · `light-neat-1/2/3` · `light-academic-1/2` · `beige-decent-1/2` | **light only** |
 
 #### Font presets
@@ -238,6 +239,25 @@ date: October 2026
 placement: page
 }}
 ```
+
+### Clean front matter (`front_matter: clean`)
+
+When the title, abstract, and/or toc are each on their own page (`placement:
+page`), set `front_matter: clean` in the document block to give those front-matter
+pages **no running header, footer, or page number**, and **restart the page count**
+so the first main-content page is **1**. The `article-page` and `report-page`
+templates set it by default.
+
+```
+{{nyml
+kind: document
+template: report-page
+front_matter: clean
+}}
+```
+
+(The total in a `page-n-of-N` style still counts every physical page; only the
+current-page number restarts.)
 
 ### `toc` & `placement`
 

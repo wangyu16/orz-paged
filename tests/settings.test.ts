@@ -198,6 +198,13 @@ describe('normalizeRawToLayer', () => {
     expect(layer.fontSize).toBe(14);
     expect(Object.keys(layer)).toEqual(['fontSize']);
   });
+
+  it('front_matter accepts clean/plain/booleans', () => {
+    expect(normalizeRawToLayer({ front_matter: 'clean' }).frontMatterClean).toBe(true);
+    expect(normalizeRawToLayer({ front_matter: 'plain' }).frontMatterClean).toBe(true);
+    expect(normalizeRawToLayer({ front_matter_clean: true }).frontMatterClean).toBe(true);
+    expect(normalizeRawToLayer({ front_matter: 'normal' }).frontMatterClean).toBe(false);
+  });
 });
 
 describe('mergeSettings', () => {

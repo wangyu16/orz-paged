@@ -1,6 +1,7 @@
 {{nyml
 kind: document
 template: article-page
+front_matter: clean
 }}
 
 {{nyml

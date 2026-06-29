@@ -5,6 +5,7 @@ header_center: Report Title
 footer_left: Confidential
 page_number_position: footer-right
 page_number_style: page-n-of-N
+front_matter: clean
 }}
 
 {{nyml
