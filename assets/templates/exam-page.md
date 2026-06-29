@@ -13,9 +13,7 @@ author: Instructor Name
 duration: 60 minutes
 total_points: 100 points
 student_fields: |
-  Name
-  Student ID
-  Score | / 100
+  Name | Student ID | Score / 100
 instructions: |
   **Instructions.** Read each question carefully before answering.
 

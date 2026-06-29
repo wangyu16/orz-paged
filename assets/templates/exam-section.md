@@ -11,9 +11,7 @@ title: Course Name — Midterm Exam
 subtitle: Chapter 1–4 Assessment
 author: Instructor Name
 student_fields: |
-  Name
-  Student ID
-  Score | / 100
+  Name | Student ID | Score / 100
 placement: section
 }}
 

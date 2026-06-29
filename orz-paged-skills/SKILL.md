@@ -311,15 +311,16 @@ On `exam-title` (cover page or inline section — the **first page**), put the
 student identity fields and the instructions, so they appear **once** rather than
 in a running header on every page:
 
-- **`student_fields`** — one fill-in field per line, each rendered as a labelled
-  blank line. Add `| suffix` to put text after the blank (e.g. a score max):
+- **`student_fields`** — labelled fill-in blanks. Each **line is a row**; put
+  several fields on the **same line** by separating them with `|`. A trailing
+  `/ <number>` (e.g. `Score / 100`) becomes a suffix after the blank.
 
   ```
   student_fields: |
-    Name
-    Student ID
-    Score | / 100
+    Name | Student ID | Score / 100
   ```
+
+  (Or one per line to stack them: `Name`, then `Student ID`, then `Score / 100`.)
 
 - **`instructions`** — a multiline block (Markdown, so lists work) shown under the
   title. Optional: leave it empty and instead write the instructions as normal
@@ -334,9 +335,7 @@ author: Instructor Name
 duration: 60 minutes
 total_points: 100 points
 student_fields: |
-  Name
-  Student ID
-  Score | / 100
+  Name | Student ID | Score / 100
 instructions: |
   **Instructions.** Read each question carefully.
   - Answer all questions; show your work for full credit.

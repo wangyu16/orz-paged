@@ -170,22 +170,32 @@ describe('exam-title', () => {
     expect(r.html).toContain('100 pts');
   });
 
-  it('renders student fill-in fields (incl. a suffix) and an instructions block', () => {
+  it('puts several student fields on one row (| separator) with a score suffix', () => {
     const r = renderElement(
       spec('exam-title', {
         title: 'Final',
-        student_fields: ['Name', 'Student ID', 'Score | / 100'].join('\n'),
+        student_fields: 'Name | Student ID | Score / 100',
         instructions: '- Answer all questions.\n- No calculators.',
       }),
       ctx,
     );
-    expect((r.html.match(/orz-exam-field"/g) || []).length).toBe(3); // field divs (not the -fields container)
+    expect((r.html.match(/orz-exam-row/g) || []).length).toBe(1); // one row
+    expect((r.html.match(/orz-exam-field"/g) || []).length).toBe(3); // three fields on it
     expect(r.html).toContain('orz-field-label">Name');
     expect(r.html).toContain('orz-field-label">Student ID');
-    expect(r.html).toContain('orz-field-blank');
-    expect(r.html).toContain('orz-field-suffix">/ 100'); // suffix after the blank
+    expect(r.html).toContain('orz-field-label">Score');
+    expect(r.html).toContain('orz-field-suffix">/ 100'); // trailing "/ N" → suffix after the blank
     expect(r.html).toContain('orz-exam-instructions');
     expect(r.css).toContain('.orz-el-exam-title .orz-field-blank');
+  });
+
+  it('stacks student fields when on separate lines', () => {
+    const r = renderElement(
+      spec('exam-title', { title: 'X', student_fields: 'Name\nStudent ID' }),
+      ctx,
+    );
+    expect((r.html.match(/orz-exam-row/g) || []).length).toBe(2); // two rows
+    expect((r.html.match(/orz-exam-field"/g) || []).length).toBe(2);
   });
 
   it('student fields / instructions are exam-only (absent on article-title)', () => {

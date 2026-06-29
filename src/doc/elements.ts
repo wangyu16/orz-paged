@@ -209,15 +209,26 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
   // fields live on page 1 instead of a running header on every page.
   if (kind === 'exam-title') {
     if (has(spec, 'student_fields')) {
-      const fields = textLines(field(spec, 'student_fields')).map((line) => {
-        const [label, suffix] = line.split('|').map((s) => s.trim());
-        return '<div class="orz-exam-field">'
-          + `<span class="orz-field-label">${ctx.renderInline(label)}</span>`
-          + '<span class="orz-field-blank"></span>'
-          + (suffix ? `<span class="orz-field-suffix">${ctx.renderInline(suffix)}</span>` : '')
-          + '</div>';
-      });
-      if (fields.length) rows.push(`<div class="orz-exam-fields">${fields.join('')}</div>`);
+      // Each line is a ROW; `|` puts several fields on the same row. A trailing
+      // `/ <number>` (e.g. "Score / 100") becomes a suffix after the blank.
+      const fieldRows = textLines(field(spec, 'student_fields')).map((line) => {
+        const fields = line
+          .split('|')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((f) => {
+            const m = f.match(/^(.*?)\s*(\/\s*\d.*)$/);
+            const label = m ? m[1].trim() : f;
+            const suffix = m ? m[2].trim() : '';
+            return '<span class="orz-exam-field">'
+              + `<span class="orz-field-label">${ctx.renderInline(label)}</span>`
+              + '<span class="orz-field-blank"></span>'
+              + (suffix ? `<span class="orz-field-suffix">${ctx.renderInline(suffix)}</span>` : '')
+              + '</span>';
+          });
+        return fields.length ? `<div class="orz-exam-row">${fields.join('')}</div>` : '';
+      }).filter(Boolean);
+      if (fieldRows.length) rows.push(`<div class="orz-exam-fields">${fieldRows.join('')}</div>`);
     }
     if (has(spec, 'instructions')) {
       rows.push(`<div class="orz-exam-instructions">${ctx.renderBlock(field(spec, 'instructions'))}</div>`);
@@ -285,18 +296,24 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
 .orz-el-exam-title .orz-exam-fields {
   text-align: left;
   margin: 1.3em auto 0;
-  max-width: 34em;
+  max-width: 40em;
+}
+.orz-el-exam-title .orz-exam-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em 1.3em;
+  margin: 0.75em 0;
 }
 .orz-el-exam-title .orz-exam-field {
+  flex: 1 1 0;
   display: flex;
   align-items: flex-end;
-  gap: 0.45em;
-  margin: 0.6em 0;
+  gap: 0.4em;
 }
 .orz-el-exam-title .orz-field-label { white-space: nowrap; font-weight: 600; }
 .orz-el-exam-title .orz-field-blank {
   flex: 1;
-  min-width: 4em;
+  min-width: 2.5em;
   height: 1.45em;
   border-bottom: 1px solid var(--text-main, #333);
 }
