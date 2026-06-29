@@ -3,9 +3,11 @@
 **Source of truth for the orz-paged project.** This document initiates the
 design; `BUILD-PLAN.md` is the module map and build order.
 
-> Status: **MVP built and browser-verified.** Markdown → `.paged.html` →
-> paged.js pagination → editor → print all work (see `PLAN.md` for the module
-> status and what's deferred). This document remains the source of truth for *why*.
+> Status: **built and browser-verified, feature-complete (unpublished).** Markdown
+> → `.paged.html` → paged.js pagination → editor → print all work, plus 12
+> templates, 7 vendored themes, rich title/author elements, exam questions with a
+> dynamic answer-key switch, and an in-file template picker. This document remains
+> the source of truth for *why*; see `README.md` for current usage.
 
 ---
 

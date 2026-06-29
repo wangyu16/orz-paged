@@ -1,6 +1,6 @@
 ---
 name: orz-paged
-description: Author and edit self-contained .paged.html print documents (orz-paged). Use when a user wants to turn Markdown into a paginated, printable document — one portable HTML file that, in any browser, shows the text as real print pages on light paper (paged.js), is edited in-browser, and exports to PDF by printing (Ctrl/Cmd+P → Save as PDF). Covers the document settings block, templates, the curated document elements (title sections, abstract, toc, letter and CV parts, exam questions), page breaks, and print-first content guidance.
+description: Author and edit self-contained .paged.html print documents (orz-paged). Use when a user wants to turn Markdown into a paginated, printable document — one portable HTML file that, in any browser, shows the text as real print pages on light paper (paged.js), is edited in-browser, and exports to PDF by printing (Ctrl/Cmd+P → Save as PDF). Covers the document settings block, templates (article, report, exam, letter, cover-letter, three CV styles, note), the curated document elements (title sections with multi-author/affiliation/ORCID support, abstract, toc, letter and CV parts, exam questions), a dynamic switch (print several versions from one source, e.g. an exam with or without its answer key), page breaks, and print-first content guidance.
 ---
 
 # orz-paged — author a `.paged.html` document

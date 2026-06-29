@@ -1,9 +1,11 @@
 # orz-paged
 
-> **Status: built and browser-verified** — 10 starter templates, 7 light themes,
-> the full document-element set, and an in-file editor with a template picker.
-> `npm run build` then `npm run gen -- tests/sample.md` produces a working
-> `.paged.html`. See [DESIGN.md](./DESIGN.md) for the design.
+> **Status: built and browser-verified** — 12 starter templates, 7 light themes,
+> the full document-element set, an in-file editor with a template picker, and a
+> dynamic switch (e.g. exam answer keys). **Not yet published to npm**, so use it
+> from a local checkout: `npm install`, `npm run build`, then
+> `npm run gen -- tests/sample.md` produces a working `.paged.html`. See
+> [DESIGN.md](./DESIGN.md) for the design.
 
 Generate a single, self-contained, **editable** `.paged.html` from Markdown — a
 document shown as **print pages** in any browser (A4/Letter, real margins,
@@ -32,7 +34,7 @@ binary, Puppeteer, or untested code.
   mode**, no screen-only constructs (avoid tabs, spoilers, embedded video).
 - **Assume internet.** Fonts, web images, and math/diagram libraries load from
   CDN at view/print time; files stay small.
-- **Curated, not sprawling.** Ten common templates + seven light themes (shared
+- **Curated, not sprawling.** A dozen common templates + seven light themes (shared
   with the orz family) + a clear agent skill, rather than every option — but every
   element/theme/setting stays independently composable for power users and agents.
 
@@ -53,10 +55,12 @@ orz-paged --new <name> [-o out.md]                # write a starter .md you then
 orz-paged --list-templates                        # list the templates
 ```
 
-`--inline` (default) embeds the engine + paged.js + every theme; `--cdn` references
-jsDelivr for the engine + theme. **Fonts, web images, and math/diagram libraries
-always load from CDN** (internet assumed) — so files stay small. The document's
-`{{nyml kind: document}}` block (`template:`, `theme:`, …) is the source of truth.
+`--inline` (default) embeds the engine + paged.js + every theme. `--cdn` instead
+references jsDelivr for the engine + theme — but that needs `orz-paged-browser`
+published, so **while orz-paged is unpublished, use the default `--inline`**.
+**Fonts, web images, and math/diagram libraries always load from CDN** (internet
+assumed) — so files stay small. The document's `{{nyml kind: document}}` block
+(`template:`, `theme:`, …) is the source of truth.
 
 ## Templates & themes
 
@@ -64,12 +68,12 @@ always load from CDN** (internet assumed) — so files stay small. The document'
 appear and where) and a **theme owns the look** (font, decoration color, element
 styling) — so the same theme renders the same across every template.
 
-Ten starter **templates** scaffold a real document, not just defaults —
+Twelve starter **templates** scaffold a real document, not just defaults —
 `article`, `report`, and `exam` each in a **title-page** and a **title-section**
-variant, plus `letter`, `cover-letter`, `cv`, and `note`. Pick one with
-`--template <name>`, or in the in-file editor from the **template picker** (the
-📄 toolbar button); the picker drops the starter into the editor (keeping any
-existing content in a comment).
+variant, three CV styles (`cv` classic, `cv-modern`, `cv-elegant`), plus
+`letter`, `cover-letter`, and `note`. Pick one with `--template <name>`, or in the
+in-file editor from the **template picker** (the 📄 toolbar button); the picker
+drops the starter into the editor (keeping any existing content in a comment).
 
 Seven light **themes** are vendored from orz-markdown and print-adapted —
 `light-neat-1/2/3`, `light-academic-1/2`, `beige-decent-1/2` — selectable per
@@ -102,14 +106,16 @@ orz-md-pdf).
 ## Use with an AI agent
 
 The package ships an **agent skill** that teaches an AI agent the document format —
-page templates, headers/footers, and the curated elements (CVs, letters, exams). The
-quickest way to produce a document is to let an agent do it:
+page templates, headers/footers, the curated elements (CVs, letters, exams), and
+the dynamic switch. The quickest way to produce a document is to let an agent do it:
 
-- **Any agent** — point it at the skill, then describe what you want:
-  `https://cdn.jsdelivr.net/npm/orz-paged/orz-paged-skills/SKILL.md`
 - **Claude Code** — copy `orz-paged-skills/` into `~/.claude/skills/orz-paged/`.
+- **Any agent** — point it at the local `orz-paged-skills/SKILL.md`, then describe
+  what you want.
 
-More install routes (Claude.ai upload, etc.): <https://markdown.orz.how/agents.html>
+Once orz-paged is published to npm, the skill will also be loadable from jsDelivr
+(`https://cdn.jsdelivr.net/npm/orz-paged/orz-paged-skills/SKILL.md`), like the other
+orz tools. More install routes: <https://markdown.orz.how/agents.html>
 
 ## Security — treat these as programs, not documents
 

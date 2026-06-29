@@ -1,6 +1,14 @@
 # Supported Features
 
-This file is the current machine-friendly and human-readable catalog of supported features in the rebuilt `pipeline-model` core.
+> **Provenance & status:** this is a **specification reference from the upstream
+> `orz-md-pdf` `pipeline-model` core** (`@orz-how/markdown-parser`, Puppeteer PDF,
+> a live preview server). It does **not** describe orz-paged's own feature set or
+> current state — orz-paged reimplements a curated subset in TypeScript, ships
+> themes/templates/elements that are fully built, assumes internet, is light-only,
+> and exports PDF via browser print. **For orz-paged's actual, current features see
+> [`../README.md`](../README.md) and [`../orz-paged-skills/SKILL.md`](../orz-paged-skills/SKILL.md).**
+
+This file is the machine-friendly and human-readable catalog of supported features in the upstream `pipeline-model` core.
 
 It is intended for:
 
