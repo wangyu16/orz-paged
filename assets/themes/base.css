@@ -346,6 +346,84 @@
 .orz-doc.markdown-body .center { text-align: center; }
 .orz-doc.markdown-body .right  { text-align: right; }
 
+/* Floated sidebar ( ::: left ) — a boxed aside floated beside the text. */
+.orz-doc.markdown-body .left {
+  float: left;
+  max-width: min(44%, 20rem);
+  margin: 0 1.2em 0.8em 0;
+  padding: 0.7em 0.9em;
+  background: var(--surface-2, #f6f6f4);
+  border: 1px solid var(--border-soft, #e0e0dc);
+  border-radius: 4px;
+  break-inside: avoid;
+}
+.orz-doc.markdown-body .left > :last-child { margin-bottom: 0; }
+
+/* --------------------------------------------------------------------------
+   13b. Inline spans, semantic badges, ins/del  (mirrors orz-markdown's
+   --span-* / --*-bg/text/border tokens; fallbacks here so `theme: none`
+   works, theme files override the tokens.)
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body span.red    { color: var(--span-red, #c0392b); }
+.orz-doc.markdown-body span.yellow { color: var(--span-yellow, #b7791f); }
+.orz-doc.markdown-body span.green  { color: var(--span-green, #2e7d32); }
+.orz-doc.markdown-body span.blue   { color: var(--span-blue, #1a4f8b); }
+
+/* Inline badge ({{span[success] …}}): override the block-callout rule above so a
+   SPAN renders as a small pill, not a bordered block. */
+.orz-doc.markdown-body span.success,
+.orz-doc.markdown-body span.info,
+.orz-doc.markdown-body span.warning,
+.orz-doc.markdown-body span.danger {
+  display: inline;
+  margin: 0;
+  padding: 0.12em 0.55em;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+.orz-doc.markdown-body span.success { background: var(--success-bg, #e6f4ea); color: var(--success-text, #1e6b2e); border-color: var(--success-border, #b6dcc0); }
+.orz-doc.markdown-body span.info    { background: var(--info-bg, #e8eff8);    color: var(--info-text, #234e84);    border-color: var(--info-border, #b9cfe8); }
+.orz-doc.markdown-body span.warning { background: var(--warning-bg, #fbf2dc); color: var(--warning-text, #8a5a00); border-color: var(--warning-border, #ecd9a6); }
+.orz-doc.markdown-body span.danger  { background: var(--danger-bg, #fbe9e7);  color: var(--danger-text, #9a2820);  border-color: var(--danger-border, #ecc2bc); }
+
+.orz-doc.markdown-body ins { text-decoration: none; border-bottom: 2px solid var(--ins-color, #2e8540); }
+.orz-doc.markdown-body del { color: var(--text-muted, #777); }
+
+/* --------------------------------------------------------------------------
+   13c. QR codes + chart/SMILES canvases (print-safe: plate, no screen overlay)
+   -------------------------------------------------------------------------- */
+.orz-doc.markdown-body span.qrcode {
+  display: inline-block;
+  padding: 6px;
+  line-height: 0;
+  background: #fff;
+  border-radius: 4px;
+  break-inside: avoid;
+}
+.orz-doc.markdown-body span.qrcode svg,
+.orz-doc.markdown-body span.qrcode img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 160px;
+}
+.orz-doc.markdown-body .qrcode__icon { display: none; }  /* screen-only expand affordance */
+
+.orz-doc.markdown-body canvas.orz-chart,
+.orz-doc.markdown-body img.orz-chart,
+.orz-doc.markdown-body canvas[data-smiles] {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.2em auto;
+  break-inside: avoid;
+}
+
 /* --------------------------------------------------------------------------
    14. Page break ( ::: page-break  →  <div class="page-break"> )
    -------------------------------------------------------------------------- */
