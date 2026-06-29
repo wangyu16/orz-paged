@@ -13,8 +13,8 @@
 :root {
   --accent: #b5563a;
   --page-bg: #f4ecdc;
-  --font-body: "Cardo", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --font-heading: "Josefin Sans", "Optima", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Noto Serif", Georgia, "Times New Roman", serif;
+  --font-heading: "Noto Serif", Georgia, "Times New Roman", serif;
 }
 
 .orz-doc.markdown-body {

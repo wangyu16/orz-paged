@@ -14,7 +14,7 @@
 :root {
   --accent: #944238;
   --page-bg: #f6efe2;
-  --font-body: "Iowan Old Style", Palatino, Georgia, "Times New Roman", serif;
+  --font-body: "Lora", Georgia, "Times New Roman", serif;
   --font-heading: var(--font-body);
 }
 

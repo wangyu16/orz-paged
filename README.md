@@ -60,6 +60,10 @@ always load from CDN** (internet assumed) — so files stay small. The document'
 
 ## Templates & themes
 
+**Clear split:** a **template owns layout** (page size, furniture, which elements
+appear and where) and a **theme owns the look** (font, decoration color, element
+styling) — so the same theme renders the same across every template.
+
 Ten starter **templates** scaffold a real document, not just defaults —
 `article`, `report`, and `exam` each in a **title-page** and a **title-section**
 variant, plus `letter`, `cover-letter`, `cv`, and `note`. Pick one with
@@ -69,9 +73,10 @@ existing content in a comment).
 
 Seven light **themes** are vendored from orz-markdown and print-adapted —
 `light-neat-1/2/3`, `light-academic-1/2`, `beige-decent-1/2` — selectable per
-document (`theme:`) or live in the editor. They are **light only by design**
+document (`theme:`) or live in the editor (switching swaps font + color + style
+together). The **default is `light-academic-1`**. They are **light only by design**
 (ink on paper); an explicit `font_preset` / `decoration_color` / `page_background`
-overrides a theme's font / accent / page tint.
+still overrides a theme's font / accent / page tint.
 
 ## Authoring
 

@@ -1,24 +1,22 @@
 /**
- * Curated document templates — settings defaults + a starter skeleton.
+ * Curated document templates — LAYOUT defaults + a starter skeleton.
+ *
+ * Responsibility split: a **template** owns layout only (page size, margins,
+ * furniture, and which elements appear / where). A **theme** owns the look —
+ * font, accent/decoration color, and element styling — so the same theme renders
+ * the same across every template (see ../doc/theme-fonts.ts + assets/themes/*).
+ * The default theme is `light-academic-1` (settings.ts DEFAULTS.theme).
  *
  * Each template carries:
- *   - a {@link DocSettingsLayer} of *defaults* (page size, fonts, theme) merged
- *     under any `kind: document` field the user sets (DESIGN §8 "template-first"),
+ *   - a {@link DocSettingsLayer} of *layout defaults* (page size; no font/theme),
+ *     merged under any `kind: document` field the user sets,
  *   - picker metadata (`label`, `description`, `group`),
  *   - a `skeleton` stem naming the starter Markdown in `assets/templates/<stem>.md`.
  *
  * `article` / `report` / `exam` ship in two variants — `-page` (a dedicated
  * title/cover page) and `-section` (title-on-content) — that differ only in their
- * skeleton (the title element's `placement: page | section`); their settings are
- * the same. Legacy names (`article`/`report`/`exam`) resolve to the `-section`
- * variant so older sources keep working.
- *
- *   article  Letter · serif (system-serif) · light-academic-1
- *   report   Letter · sans  (inter)         · light-neat-1
- *   exam     Letter · serif (noto-serif)    · none
- *   letter   Letter · serif (source-serif-4)· none
- *   cv       Letter · sans  (ibm-plex-sans) · none
- *   note     A4     · serif (lora)          · light-academic-2
+ * skeleton (the title element's `placement: page | section`). Legacy names
+ * (`article`/`report`/`exam`) resolve to the `-section` variant.
  */
 
 import type { TemplateName, DocSettingsLayer } from '../types.js';
@@ -36,22 +34,12 @@ export interface TemplateDef {
   settings: DocSettingsLayer;
 }
 
-const ARTICLE_SETTINGS: DocSettingsLayer = {
-  pageSize: 'Letter',
-  fontPreset: 'system-serif',
-  theme: 'light-academic-1',
-};
-const REPORT_SETTINGS: DocSettingsLayer = {
-  pageSize: 'Letter',
-  fontPreset: 'inter',
-  fontHeadingPreset: 'inter',
-  theme: 'light-neat-1',
-};
-const EXAM_SETTINGS: DocSettingsLayer = {
-  pageSize: 'Letter',
-  fontPreset: 'noto-serif',
-  theme: 'none',
-};
+// Templates set LAYOUT only (page size, margins, furniture). Font, accent, and
+// element style come from the theme — so the same theme looks the same across
+// every template. A document still overrides any of this in its settings block.
+const ARTICLE_SETTINGS: DocSettingsLayer = { pageSize: 'Letter' };
+const REPORT_SETTINGS: DocSettingsLayer = { pageSize: 'Letter' };
+const EXAM_SETTINGS: DocSettingsLayer = { pageSize: 'Letter' };
 
 /** The 10 curated templates. */
 export const TEMPLATES: Record<TemplateName, TemplateDef> = {
@@ -105,14 +93,14 @@ export const TEMPLATES: Record<TemplateName, TemplateDef> = {
     description: 'Formal letter: letterhead, inside address, body, signature.',
     group: 'Letter',
     skeleton: 'letter',
-    settings: { template: 'letter', pageSize: 'Letter', fontPreset: 'source-serif-4', theme: 'none' },
+    settings: { template: 'letter', pageSize: 'Letter' },
   },
   'cover-letter': {
     label: 'Cover letter',
     description: 'Job cover letter: sender header, recipient, body, sign-off.',
     group: 'Letter',
     skeleton: 'cover-letter',
-    settings: { template: 'cover-letter', pageSize: 'Letter', fontPreset: 'source-serif-4', theme: 'none' },
+    settings: { template: 'cover-letter', pageSize: 'Letter' },
   },
 
   cv: {
@@ -120,15 +108,15 @@ export const TEMPLATES: Record<TemplateName, TemplateDef> = {
     description: 'Résumé: name/contact header and clean sectioned body.',
     group: 'CV',
     skeleton: 'cv',
-    settings: { template: 'cv', pageSize: 'Letter', fontPreset: 'ibm-plex-sans', theme: 'none' },
+    settings: { template: 'cv', pageSize: 'Letter' },
   },
 
   note: {
     label: 'Note',
-    description: 'Clean readable note: A4, serif, minimal furniture.',
+    description: 'Clean readable note: minimal furniture on A4.',
     group: 'Note',
     skeleton: 'note',
-    settings: { template: 'note', pageSize: 'A4', fontPreset: 'lora', theme: 'light-academic-2' },
+    settings: { template: 'note', pageSize: 'A4' },
   },
 };
 

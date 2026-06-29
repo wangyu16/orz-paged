@@ -12,7 +12,9 @@
  */
 import { assemble } from './render-paged.js';
 import { paginate, printDocument, type PagedStylesheet } from './paged.js';
-import type { PagedAssembly } from './types.js';
+import { fontPreset } from './doc/fonts.js';
+import { THEME_FONTS } from './doc/theme-fonts.js';
+import type { PagedAssembly, ThemeName } from './types.js';
 
 const VERSION = typeof __ORZPAGED_VERSION__ !== 'undefined' ? __ORZPAGED_VERSION__ : '0.0.0';
 
@@ -188,6 +190,13 @@ async function render(source: string): Promise<void> {
   lastAssembly = a;
 
   // Stylesheets the document needs in <head> for fonts + math (and staging measurement).
+  // The active theme owns the document font: load its webfonts (lazily — only the
+  // active theme's, so a theme switch loads the new font, then re-paginates after
+  // document.fonts.ready). An explicit font_preset in the source still wins (its
+  // URL is in a.fontCssUrls and page CSS emits --font-body to override the theme).
+  const activeTheme = (themeOverride || a.theme) as ThemeName;
+  const tf = THEME_FONTS[activeTheme];
+  if (tf) { ensureLink(fontPreset(tf.body).cssUrl); ensureLink(fontPreset(tf.heading).cssUrl); }
   a.fontCssUrls.forEach((u) => ensureLink(u));
   if (cfg().katexCss) ensureLink(cfg().katexCss!, 'orz-katex');
   if (cfg().hljsCss) ensureLink(cfg().hljsCss!, 'orz-hljs');
@@ -257,6 +266,8 @@ const api = {
   exportPdf: () => printDocument(),
   /** Force a theme (editor picker); '' / 'none' clears the override. */
   setTheme: (id: string) => { themeOverride = id && id !== 'none' ? id : null; return render(sourceText()); },
+  /** The theme currently in effect (the override, or the document's own theme). */
+  getTheme: () => themeOverride || (lastAssembly ? lastAssembly.theme : null),
   /** The last assembly (resolved settings etc.) for the editor's settings panel. */
   get assembly() { return lastAssembly; },
   /** Read the embedded source. */

@@ -250,7 +250,7 @@ export function buildHtml(o: BuildOptions): string {
     <button id="orz-template" class="ic" title="Start from a template">${ICON.template}</button>
     <span class="orz-spacer"></span>
     <button id="orz-sync" class="ic" title="Sync scrolling on/off" aria-pressed="true">${ICON.sync}</button>
-    <select id="orz-theme" title="Theme"><option value="">(document theme)</option>${themeOptions}</select>
+    <select id="orz-theme" title="Theme">${themeOptions}</select>
   </div>
   <div id="orz-template-menu" hidden></div>
   <button id="orz-close" title="Close editor">${ICON.collapse}</button>

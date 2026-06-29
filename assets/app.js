@@ -113,6 +113,9 @@
     document.documentElement.setAttribute('data-mode', 'edit');
     checkVersion(); // edit view only — broad viewers never see the update banner
     wireDivider();
+    // reflect the theme actually in effect (document theme or a prior override)
+    var th = $('orz-theme');
+    if (th && api() && api().getTheme) { var cur = api().getTheme(); if (cur) th.value = cur; }
     ensureCodeMirror().then(function () {
       if (!cm) {
         var ta = $('orz-ta');

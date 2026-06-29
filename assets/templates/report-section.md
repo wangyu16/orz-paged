@@ -1,7 +1,6 @@
 {{nyml
 kind: document
 template: report-section
-theme: light-neat-1
 header_center: Report Title
 page_number_position: footer-right
 page_number_style: page-n-of-N

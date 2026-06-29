@@ -80,9 +80,10 @@ describe('assemble', () => {
   const out = assemble(SOURCE);
 
   it('reflects the merged settings (template + user overrides)', () => {
-    // template: article → fontPreset system-serif, theme light-academic-1.
+    // template: article sets LAYOUT only — no font; the theme owns that, and the
+    // default theme (light-academic-1) applies when the source doesn't pick one.
     expect(out.settings.template).toBe('article');
-    expect(out.settings.fontPreset).toBe('system-serif');
+    expect(out.settings.fontPreset).toBeUndefined();
     expect(out.settings.theme).toBe('light-academic-1');
     // user override beats the template default (A4 vs the template's Letter).
     expect(out.settings.pageSize).toBe('A4');

@@ -130,23 +130,27 @@ template: article
 }}
 ```
 
-### Templates (set one — it picks the defaults + a starter skeleton)
+### Templates (set one — it picks the layout + a starter skeleton)
 
-`article`, `report`, and `exam` come in **two variants** — `-page` (a dedicated
-title/cover page) and `-section` (an inline title block above the content):
+**A template owns *layout only*** — page size, furniture (running headers/footers,
+page numbers), and which elements appear and where. **The look — font, decoration
+color, and element styling — comes from the `theme`**, so the same theme renders
+the same across every template. `article`, `report`, and `exam` come in **two
+variants** — `-page` (a dedicated title/cover page) and `-section` (an inline title
+block above the content):
 
-| `template` | For | Sets up |
+| `template` | For | Layout |
 |---|---|---|
-| `article-page` / `article-section` | academic paper | serif · light-academic-1 · title (page/inline) + `abstract` |
-| `report-page` / `report-section` | business / technical report | sans · light-neat-1 · title (page/inline) + `toc` + header/footer |
-| `exam-page` / `exam-section` | exam / assessment | serif · title (cover/inline) + `question-*`, answer-key toggle |
-| `letter` | formal letter | serif · `letterhead` + inside-address + signature |
-| `cover-letter` | job cover letter | serif · sender header + recipient + sign-off |
-| `cv` | résumé | sans · `cv-header` + sectioned body |
-| `note` | clean readable notes | A4 serif · light-academic-2 · minimal furniture |
+| `article-page` / `article-section` | academic paper | title (own page / inline) + `abstract` (own page in `-page`) + body |
+| `report-page` / `report-section` | business / technical report | title (own page / inline) + `toc` + running header/footer + body |
+| `exam-page` / `exam-section` | exam / assessment | title (cover / inline) + `question-*`, answer-key toggle |
+| `letter` | formal letter | `letterhead` + inside-address + body + signature |
+| `cover-letter` | job cover letter | sender header + recipient + body + sign-off |
+| `cv` | résumé | `cv-header` + sectioned body |
+| `note` | clean readable notes | A4, minimal furniture |
 
 The bare names `article` / `report` / `exam` still work and resolve to the
-`-section` variant.
+`-section` variant. To change the look, set `theme:` (not the template).
 
 ### Overrides (all optional — the template supplies defaults)
 
@@ -185,9 +189,12 @@ Seven light themes, vendored from the orz family and print-adapted:
 - `beige-decent-1/2` — warm editorial paper,
 - `none` — plain.
 
-There are **no dark themes** — the document mimics ink on paper. A theme supplies
-the font, accent, and page tint; an explicit `font_preset` / `decoration_color` /
-`page_background` overrides them (so `defaults ← template ← theme ← your settings`).
+There are **no dark themes** — the document mimics ink on paper. **The theme owns
+the look** — font, accent (decoration) color, and element styling — so it is
+consistent across every template. The **default theme is `light-academic-1`** (used
+when a document doesn't set `theme:`). An explicit `font_preset` /
+`decoration_color` / `page_background` still overrides the theme (so
+`layout (template) + look (theme) ← your explicit settings`).
 
 ---
 

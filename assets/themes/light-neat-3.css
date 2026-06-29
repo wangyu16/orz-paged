@@ -15,8 +15,8 @@
 :root {
   --accent: #5f9e44;
   --page-bg: #fbfbf8;
-  --font-body: "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
-  --font-heading: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-heading: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .orz-doc.markdown-body {

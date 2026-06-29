@@ -30,27 +30,21 @@ describe('TEMPLATES', () => {
     }
   });
 
-  it('article variants: Letter · serif · light-academic-1', () => {
-    for (const v of ['article-page', 'article-section'] as TemplateName[]) {
-      expect(TEMPLATES[v].settings.pageSize).toBe('Letter');
-      expect(TEMPLATES[v].settings.fontPreset).toBe('system-serif');
-      expect(TEMPLATES[v].settings.theme).toBe('light-academic-1');
+  it('templates set LAYOUT only — page size, never font or theme', () => {
+    for (const name of ALL) {
+      const s = TEMPLATES[name].settings;
+      expect(s.pageSize).toBeTruthy();              // layout
+      expect(s.fontPreset).toBeUndefined();         // theme owns the font
+      expect(s.fontHeadingPreset).toBeUndefined();
+      expect(s.theme).toBeUndefined();              // theme owns the look
     }
   });
 
-  it('report variants: Letter · sans (inter) · light-neat-1', () => {
-    for (const v of ['report-page', 'report-section'] as TemplateName[]) {
-      expect(TEMPLATES[v].settings.pageSize).toBe('Letter');
-      expect(TEMPLATES[v].settings.fontPreset).toBe('inter');
-      expect(TEMPLATES[v].settings.theme).toBe('light-neat-1');
-    }
-  });
-
-  it('letter: Letter · serif; cv: Letter · sans; note: A4 · serif', () => {
-    expect(TEMPLATES.letter.settings.fontPreset).toBe('source-serif-4');
-    expect(TEMPLATES.cv.settings.fontPreset).toBe('ibm-plex-sans');
+  it('page sizes: note is A4, the rest Letter', () => {
     expect(TEMPLATES.note.settings.pageSize).toBe('A4');
-    expect(TEMPLATES.note.settings.fontPreset).toBe('lora');
+    for (const name of ALL.filter((n) => n !== 'note')) {
+      expect(TEMPLATES[name].settings.pageSize).toBe('Letter');
+    }
   });
 });
 
@@ -88,7 +82,7 @@ describe('resolveTemplate', () => {
       { pageSize: 'Letter' }, // user override beats the template's A4
     );
     expect(merged.pageSize).toBe('Letter');
-    expect(merged.fontPreset).toBe('lora'); // template default survives
+    expect(merged.template).toBe('note'); // template stamp survives
     expect(merged.lineHeight).toBe(1.5); // untouched default
   });
 });

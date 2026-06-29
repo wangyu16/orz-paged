@@ -8,8 +8,8 @@
 :root {
   --accent: #7a1f2b;
   --page-bg: #ffffff;
-  --font-body: "Vollkorn", "Times New Roman", Times, "Noto Serif SC", serif;
-  --font-heading: "Fira Sans", Helvetica, Arial, "Noto Sans SC", sans-serif;
+  --font-body: "Crimson Pro", Georgia, "Times New Roman", serif;
+  --font-heading: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .orz-doc.markdown-body {

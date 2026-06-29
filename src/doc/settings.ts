@@ -65,8 +65,9 @@ export const DEFAULTS: DocSettings = {
   repeatTableHeader: true,
   avoidTableRowBreaks: true,
 
-  // theme
-  theme: 'none',
+  // theme — the default look (font + accent + element style) when a document
+  // doesn't pick one. Templates set layout only, never a theme.
+  theme: 'light-academic-1',
 };
 
 /* ─────────────────────────── parsing ─────────────────────────── */

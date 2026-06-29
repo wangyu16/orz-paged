@@ -1,8 +1,6 @@
 {{nyml
 kind: document
 template: article-section
-theme: light-academic-1
-decoration_color: "#2962a4"
 }}
 
 {{nyml

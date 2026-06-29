@@ -16,8 +16,8 @@
 :root {
   --accent: #167a72;
   --page-bg: #ffffff;
-  --font-body: Literata, Georgia, "Iowan Old Style", "Times New Roman", serif;
-  --font-heading: Epilogue, system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-heading: "IBM Plex Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .orz-doc.markdown-body {

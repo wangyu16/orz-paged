@@ -36,7 +36,7 @@ describe('DEFAULTS', () => {
     expect(DEFAULTS.keepImageTogether).toBe(true);
     expect(DEFAULTS.repeatTableHeader).toBe(true);
     expect(DEFAULTS.avoidTableRowBreaks).toBe(true);
-    expect(DEFAULTS.theme).toBe('none');
+    expect(DEFAULTS.theme).toBe('light-academic-1');
   });
 });
 
@@ -237,6 +237,6 @@ describe('mergeSettings', () => {
     expect(merged.pageSize).toBe('Letter');
     expect(merged.fontSize).toBe(11);
     expect(merged.headerRule).toBe(false);
-    expect(merged.theme).toBe('none'); // default preserved
+    expect(merged.theme).toBe('light-academic-1'); // default preserved
   });
 });

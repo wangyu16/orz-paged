@@ -15,7 +15,7 @@
 :root {
   --accent: #7a1f1f;
   --page-bg: #fffff8;
-  --font-body: "Alegreya", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
   --font-heading: var(--font-body);
 }
 

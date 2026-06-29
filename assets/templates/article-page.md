@@ -1,8 +1,6 @@
 {{nyml
 kind: document
 template: article-page
-theme: light-academic-1
-decoration_color: "#2962a4"
 }}
 
 {{nyml
@@ -18,6 +16,7 @@ placement: page
 kind: abstract
 text: Briefly state the problem, what you did, and what you found. Summarize your main contribution in one or two sentences. Close with the significance of the result for the field.
 keywords: keyword one, keyword two, keyword three
+placement: page
 }}
 
 ## Introduction

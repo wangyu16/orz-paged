@@ -1,7 +1,6 @@
 {{nyml
 kind: document
 template: report-page
-theme: light-neat-1
 header_center: Report Title
 footer_left: Confidential
 page_number_position: footer-right
