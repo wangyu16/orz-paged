@@ -13,9 +13,10 @@ in [orz-markdown](../orz-markdown).
 
 **[DESIGN.md](./DESIGN.md) is the source of truth.** Read it first.
 
-> **Status: MVP built and browser-verified.** The full pipeline works (generate →
-> paginate → edit → print); `tsc` clean, vitest 125/125. See `PLAN.md` for module
-> status and deferred items. `npm run build` then `npm run gen -- tests/sample.md`.
+> **Status: published (v0.1.0) and browser-verified.** The full pipeline works
+> (generate → paginate → edit → print); `tsc` clean, vitest 125/125. The
+> `orz-paged` CLI and `orz-paged-browser` engine are published in lockstep.
+> See `PLAN.md` for module status and deferred items.
 
 ## The big idea (don't re-derive it)
 

@@ -1,11 +1,11 @@
 # orz-paged
 
-> **Status: built and browser-verified** — 12 starter templates, 7 light themes,
-> the full document-element set, an in-file editor with a template picker, and a
-> dynamic switch (e.g. exam answer keys). **Not yet published to npm**, so use it
-> from a local checkout: `npm install`, `npm run build`, then
-> `npm run gen -- tests/sample.md` produces a working `.paged.html`. See
-> [DESIGN.md](./DESIGN.md) for the design.
+> **Status: published (v0.1.0) and browser-verified** — 12 starter templates,
+> 7 light themes, the full document-element set, an in-file editor with a
+> template picker, and a dynamic switch (e.g. exam answer keys). Two packages
+> publish in lockstep: [`orz-paged`](https://www.npmjs.com/package/orz-paged)
+> and [`orz-paged-browser`](https://www.npmjs.com/package/orz-paged-browser).
+> See [DESIGN.md](./DESIGN.md) for the design.
 
 Generate a single, self-contained, **editable** `.paged.html` from Markdown — a
 document shown as **print pages** in any browser (A4/Letter, real margins,
@@ -56,8 +56,7 @@ orz-paged --list-templates                        # list the templates
 ```
 
 `--inline` (default) embeds the engine + paged.js + every theme. `--cdn` instead
-references jsDelivr for the engine + theme — but that needs `orz-paged-browser`
-published, so **while orz-paged is unpublished, use the default `--inline`**.
+references jsDelivr for the published `orz-paged-browser` engine + theme.
 **Fonts, web images, and math/diagram libraries always load from CDN** (internet
 assumed) — so files stay small. The document's `{{nyml kind: document}}` block
 (`template:`, `theme:`, …) is the source of truth.
@@ -109,13 +108,13 @@ The package ships an **agent skill** that teaches an AI agent the document forma
 page templates, headers/footers, the curated elements (CVs, letters, exams), and
 the dynamic switch. The quickest way to produce a document is to let an agent do it:
 
-- **Claude Code** — copy `orz-paged-skills/` into `~/.claude/skills/orz-paged/`.
-- **Any agent** — point it at the local `orz-paged-skills/SKILL.md`, then describe
-  what you want.
+- **Any agent** — point it at
+  `https://cdn.jsdelivr.net/npm/orz-paged/orz-paged-skills/SKILL.md`, then
+  describe what you want.
+- **Claude Code** — copy `orz-paged-skills/` into `~/.claude/skills/orz-paged/`
+  from this repo or from the installed npm package.
 
-Once orz-paged is published to npm, the skill will also be loadable from jsDelivr
-(`https://cdn.jsdelivr.net/npm/orz-paged/orz-paged-skills/SKILL.md`), like the other
-orz tools. More install routes: <https://markdown.orz.how/agents.html>
+More install routes: <https://markdown.orz.how/agents.html>
 
 ## Security — treat these as programs, not documents
 

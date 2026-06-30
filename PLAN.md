@@ -80,8 +80,8 @@ Wave 3 (polish)
 | **F3 dom-contract** | `docs/dom-contract.md` | review — page DOM (`@page`, `.pagedjs_page`, `.orz-page-*`, `.markdown-body`) + CSS-var token set |
 
 Mirror orz-slides exactly (same `package.json` scripts, `tsconfig`, esbuild
-`bundle.ts` + shims; swap `reveal.js` → `pagedjs`). Dep: `orz-markdown`
-(`file:../orz-markdown`) + `pagedjs`.
+`bundle.ts` + shims; swap `reveal.js` → `pagedjs`). Dependencies:
+`orz-markdown` from npm (`^1.3.0`, currently resolving to 1.3.1+) + `pagedjs`.
 
 ---
 
