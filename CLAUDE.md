@@ -14,7 +14,7 @@ in [orz-markdown](../orz-markdown).
 **[DESIGN.md](./DESIGN.md) is the source of truth.** Read it first.
 
 > **Status: MVP built and browser-verified.** The full pipeline works (generate →
-> paginate → edit → print); `tsc` clean, vitest 90/90. See `PLAN.md` for module
+> paginate → edit → print); `tsc` clean, vitest 125/125. See `PLAN.md` for module
 > status and deferred items. `npm run build` then `npm run gen -- tests/sample.md`.
 
 ## The big idea (don't re-derive it)
@@ -64,8 +64,9 @@ print-accurate **paged.js HTML**. orz-paged keeps that *model* but:
 
 - **Two lockstep npm packages:** `orz-paged` (CLI) + `orz-paged-browser` (esbuild
   engine bundle). jsDelivr for `--cdn`. Bump both together.
-- **`--inline` (default)** embeds engine + paged.js + theme + the document's
-  fonts; **`--cdn`** references jsDelivr / `@fontsource`.
+- **`--inline` (default)** embeds the engine + paged.js + all light themes;
+  **`--cdn`** references jsDelivr for the engine/theme. Fonts still load from
+  `@fontsource` on jsDelivr at view time.
 - **The document is the single source of truth** in a
   `<script type="text/markdown">`; Save is self-reproducing.
 - **Follow the embedding guide** —

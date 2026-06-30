@@ -67,7 +67,7 @@ the **template** button (📄) in the toolbar — a grouped picker of starter
 documents; choosing one drops the starter into the editor (any existing content is
 preserved in an HTML comment).
 
-`--inline` (default) embeds the `orz-paged` engine + paged.js + the active theme,
+`--inline` (default) embeds the `orz-paged` engine + paged.js + all light themes,
 so the document **paginates offline**. Either way, **fonts, web images, and the
 math/diagram/chart libraries load from a CDN at view time** (so a document that
 uses those, or in-browser editing, needs internet).

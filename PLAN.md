@@ -12,7 +12,7 @@ the executable decomposition.
   build pipeline (`tsc` + esbuild → `dist/orz-paged.browser.js`).
 - ✅ **Wave 1 (pure leaves)** — 3 concurrent agents: M1 settings, M2 templates,
   M3 fonts, M5 page-css, M4 elements (`src/doc/*`).
-- ✅ **Wave 2 (integration)** — M6 themes (`assets/themes/*`, 1 base + 3 light, by
+- ✅ **Wave 2 (integration)** — M6 themes (`assets/themes/*`, 1 base + 7 light, by
   agent), A1 assembler + `src/doc/nyml.ts` (by agent), M7 paged-shim (`src/paged.ts`),
   A2 engine (`src/browser-entry.ts` — assemble → render async on a hidden stage →
   await fonts → paginate → fill TOC), A3 template (`src/template.ts` + `paged`
@@ -21,7 +21,7 @@ the executable decomposition.
 - ✅ **Wave 3 (polish)** — P1 skill (`orz-paged-skills/SKILL.md`, by agent), P2
   coherence (this file, dom-contract, status notes).
 
-**Verification:** `tsc --noEmit` exit 0 · **vitest 90/90** · build clean · `npm run gen`
+**Verification:** `tsc --noEmit` exit 0 · **vitest 125/125** · build clean · `npm run gen`
 works · **browser**: `tests/sample.md` → 3 A4 pages, running header + footer page
 numbers (page-n-of-N), title + abstract elements, KaTeX math, `::: page-break`,
 theme; editor enter → CodeMirror → live re-paginate → theme switch → clean
