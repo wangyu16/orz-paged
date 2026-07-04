@@ -228,6 +228,7 @@
     syncSource();
     var clone = document.documentElement.cloneNode(true);
     clone.removeAttribute('data-mode');
+    clone.removeAttribute('data-orz-hosted'); // hosted-chrome flag is runtime-only, never saved bytes
     // strip runtime-injected nodes (fonts, libs, katex, CodeMirror assets)
     var rt = clone.querySelectorAll('[data-orz-runtime]');
     for (var i = 0; i < rt.length; i++) rt[i].parentNode.removeChild(rt[i]);
@@ -323,6 +324,8 @@
       hostOrigin = event.origin;
       // reply with the highest version we support ≤ the host's (we speak only 1)
       hostPost({ type: 'orz-host-ready', protocol: HOST_PROTOCOL, version: HOST_VERSION, kind: 'paged' });
+      // hosted chrome: the chrome CSS hides the file's orz logo (the host shows its own)
+      document.documentElement.dataset.orzHosted = '1';
       if (dirty) hostPost({ type: 'orz-host-dirty', protocol: HOST_PROTOCOL, version: HOST_VERSION, dirty: true });
     } else if (d.type === 'orz-host-saved' && hostSaveTimer) {
       clearTimeout(hostSaveTimer); hostSaveTimer = null;
