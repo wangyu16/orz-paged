@@ -10,6 +10,7 @@
   var CM_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16';
   var cm = null;
   var rerenderTimer = null;
+  var dirty = false; // edit-state, surfaced to an embedding host (orz-host-dirty)
 
   function $(id) { return document.getElementById(id); }
   function api() { return window.orzpaged; }
@@ -123,6 +124,7 @@
   function applyDynChoiceToSource(key, value) {
     var next = setSourceDynamicChoice(currentSource(), key, value);
     if (next == null) return;
+    setDirty(true);
     if (cm) cm.setValue(next);
     else { var ta = $('orz-ta'); if (ta) ta.value = next; }
     syncSource();
@@ -207,6 +209,7 @@
   }
 
   function scheduleRerender() {
+    setDirty(true);
     if (rerenderTimer) clearTimeout(rerenderTimer);
     rerenderTimer = setTimeout(function () {
       syncSource();
@@ -262,7 +265,10 @@
     return Promise.resolve(false);
   }
   function save() {
-    persist(serialize()).then(function (inPlace) { if (inPlace) toast('Saved'); })
+    // A hosting platform (verified handshake) receives the save instead of the
+    // file system; the host acknowledges with orz-host-saved (see PROTOCOL.md).
+    if (isHosted()) { hostSave(currentSource(), serialize()); return; }
+    persist(serialize()).then(function (inPlace) { if (inPlace) { setDirty(false); toast('Saved'); } })
       .catch(function (e) { if (e && e.name !== 'AbortError') downloadFile(serialize()); });
   }
   function downloadFile(html) {
@@ -273,6 +279,59 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
     toast('Downloaded a copy');
   }
+
+  /* ---- host embedding (orz-host-save@1) ----
+   * When a platform embeds this file in an iframe and announces the
+   * orz-host-save protocol (spec: PROTOCOL.md in the orz-mdhtml repo), Save
+   * posts the document to the host instead of touching the file system. Never
+   * enabled without the host's hello; protocol messages are accepted only from
+   * window.parent, and after the handshake only from the recorded host origin.
+   * Message content is read as data, never evaluated. Export/PDF keeps working. */
+  var HOST_PROTOCOL = 'orz-host-save';
+  var HOST_VERSION = 1;
+  var hostOrigin = null;    // recorded at handshake; null = unhosted
+  var hostSaveTimer = null; // watchdog for a save awaiting acknowledgement
+
+  function isHosted() { return hostOrigin !== null; }
+  // An opaque embedder (sandboxed/srcdoc host) serializes as the string 'null',
+  // which postMessage rejects as a targetOrigin — fall back to '*' (the payload
+  // contains nothing the host doesn't already have).
+  function hostTarget() { return hostOrigin && hostOrigin !== 'null' ? hostOrigin : '*'; }
+  function hostPost(msg) { try { window.parent.postMessage(msg, hostTarget()); } catch (e) {} }
+  function setDirty(d) {
+    d = !!d;
+    if (dirty === d) return;
+    dirty = d;
+    if (isHosted()) hostPost({ type: 'orz-host-dirty', protocol: HOST_PROTOCOL, version: HOST_VERSION, dirty: d });
+  }
+  function hostSave(src, html) {
+    if (hostSaveTimer) return; // one save in flight at a time
+    hostSaveTimer = setTimeout(function () {
+      hostSaveTimer = null;
+      toast('Save failed — no response from the host'); // document intact, still dirty
+    }, 10000);
+    hostPost({ type: 'orz-host-save', protocol: HOST_PROTOCOL, version: HOST_VERSION, source: src, html: html });
+  }
+  function onHostMessage(event) {
+    // only the embedding parent may speak the protocol
+    if (window.parent === window || event.source !== window.parent) return;
+    var d = event.data;
+    if (!d || typeof d !== 'object') return;
+    // after the handshake, hold the parent to the origin it introduced itself with
+    if (isHosted() && hostOrigin !== 'null' && event.origin !== hostOrigin) return;
+    if (d.type === 'orz-host-hello' && d.protocol === HOST_PROTOCOL && typeof d.version === 'number' && d.version >= 1) {
+      hostOrigin = event.origin;
+      // reply with the highest version we support ≤ the host's (we speak only 1)
+      hostPost({ type: 'orz-host-ready', protocol: HOST_PROTOCOL, version: HOST_VERSION, kind: 'paged' });
+      if (dirty) hostPost({ type: 'orz-host-dirty', protocol: HOST_PROTOCOL, version: HOST_VERSION, dirty: true });
+    } else if (d.type === 'orz-host-saved' && hostSaveTimer) {
+      clearTimeout(hostSaveTimer); hostSaveTimer = null;
+      if (d.ok) { setDirty(false); toast('Saved'); }
+      else { toast('Save failed' + (d.error ? ' — ' + String(d.error) : '')); }
+    }
+  }
+  // listen from script load so an early hello isn't missed
+  window.addEventListener('message', onHostMessage);
 
   /* ---- framework self-update (checked only in edit view) ---- */
   // SECURITY: the update source is HARDCODED here, never read from the file's
@@ -377,6 +436,7 @@
     // first one would close the wrapper early and leak the rest back in.
     if (cur) next += '\n\n<!-- Previous content (kept below — edit or delete):\n\n'
       + cur.replace(/--+>/g, '--​>') + '\n-->\n';
+    setDirty(true);
     if (cm) { cm.setValue(next); cm.focus(); }
     else { var ta = $('orz-ta'); if (ta) ta.value = next; syncSource(); if (api() && api().refresh) api().refresh(); }
     toast('Started from "' + t.label + '"');

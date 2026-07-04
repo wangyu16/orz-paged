@@ -116,6 +116,15 @@ the dynamic switch. The quickest way to produce a document is to let an agent do
 
 More install routes: <https://markdown.orz.how/agents.html>
 
+## Host embedding
+
+`.paged.html` files conform to **`orz-host-save@1`**: a platform can embed a
+document in an iframe, announce itself with a `postMessage` handshake, and
+receive saves (`{ source, html }`) instead of the file-system path —
+standalone behavior, Export to PDF, and downloads are unchanged, and nothing
+activates without the handshake. The canonical spec lives in the orz-mdhtml
+repo: [PROTOCOL.md](https://github.com/wangyu16/orz-mdhtml/blob/main/PROTOCOL.md).
+
 ## Security — treat these as programs, not documents
 
 A `.paged.html` is **self-contained executable HTML**: opening one runs the
