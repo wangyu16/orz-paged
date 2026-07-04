@@ -1,6 +1,6 @@
 {
   "name": "orz-paged-browser",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Prebuilt in-browser paged-document engine for orz-paged .paged.html files (paged.js + orz-markdown + the orz-paged document layer/assembler)",
   "main": "orz-paged.browser.js",
   "files": [
