@@ -8,64 +8,19 @@
  * references the published `orz-paged-browser` on jsDelivr. Fonts, images, and the
  * math/diagram libs always load from CDN at view time (DESIGN §4).
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, basename, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { getBrowserRuntimeScript } from 'orz-markdown/runtime';
-import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
-import { buildHtml, type ThemeAsset, type RendererSpec, type TemplateAsset } from './template.js';
-import { templateList } from './doc/templates.js';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..');
-
-const selfVersion: string =
-  JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version || '0.0.0';
-
-/** Pinned CDN assets used at view time — sourced from orz-markdown's shared
- *  preview-frame helper so every host app loads identical, tested versions.
- *  Paged is light-only, so highlight.js uses the light (github) stylesheet. */
-const CDN = {
-  katexCss: PREVIEW_CDN.katexCss,
-  mermaidJs: PREVIEW_CDN.mermaidJs,
-  smilesJs: PREVIEW_CDN.smilesJs,
-  chartJs: PREVIEW_CDN.chartJs,
-  hljsJs: PREVIEW_CDN.hljsJs,
-  hljsCss: PREVIEW_CDN.hljsLightCss,
-};
-
-function findAsset(rel: string): string {
-  const p = join(ROOT, rel);
-  if (!existsSync(p)) throw new Error('missing asset: ' + rel + ' (run `npm run build` first)');
-  return p;
-}
-
-/** Drop a theme's `@import url("./base.css")` — base is inlined separately, so the
- *  relative import points nowhere (404 on http; a fetch hazard on file://). */
-function stripBaseImport(css: string): string {
-  return css.replace(/@import\s+url\(\s*['"]?\.\/base\.css['"]?\s*\)\s*;?/gi, '');
-}
-
-function loadThemes(): { baseCss: string; themes: ThemeAsset[] } {
-  const dir = findAsset('assets/themes');
-  const baseCss = readFileSync(join(dir, 'base.css'), 'utf8');
-  const themes = readdirSync(dir)
-    .filter((f) => f.endsWith('.css') && f !== 'base.css')
-    .map((f) => ({ id: f.replace(/\.css$/, ''), css: stripBaseImport(readFileSync(join(dir, f), 'utf8')) }));
-  return { baseCss, themes };
-}
-
-/** Load every template's starter skeleton from `assets/templates/<stem>.md`. */
-function loadTemplates(): TemplateAsset[] {
-  const dir = findAsset('assets/templates');
-  return templateList().map((t) => ({
-    id: t.id,
-    label: t.label,
-    description: t.description,
-    group: t.group,
-    skeleton: readFileSync(join(dir, t.skeleton + '.md'), 'utf8'),
-  }));
-}
+import { buildHtml, type RendererSpec, type TemplateAsset } from './template.js';
+import {
+  selfVersion,
+  CDN,
+  findAsset,
+  loadThemes,
+  loadTemplates,
+  pickDefaultTheme,
+  composeInlineHtml,
+} from './lib.js';
 
 function parseArgs(argv: string[]) {
   const a: {
@@ -144,33 +99,40 @@ function main(): void {
   const outPath = args.out ? resolve(args.out) : join(inDir, base + '.paged.html');
   const title = args.title || base;
 
-  const { baseCss, themes } = loadThemes();
-  const appJs = readFileSync(findAsset('assets/app.js'), 'utf8');
-  const runtime = getBrowserRuntimeScript(); // copy-as-Markdown (+ qr) from orz-markdown
-
-  let renderer: RendererSpec;
+  let html: string;
+  let themeCount: number;
   if (args.mode === 'cdn') {
-    renderer = { mode: 'cdn', src: `https://cdn.jsdelivr.net/npm/orz-paged-browser@${selfVersion}/orz-paged.browser.js` };
+    // CDN mode references the published engine on jsDelivr (not inlined), so it
+    // has its own composition; the default inline path shares composeInlineHtml.
+    const { baseCss, themes } = loadThemes();
+    const appJs = readFileSync(findAsset('assets/app.js'), 'utf8');
+    const runtime = getBrowserRuntimeScript(); // copy-as-Markdown (+ qr) from orz-markdown
+    const renderer: RendererSpec = {
+      mode: 'cdn',
+      src: `https://cdn.jsdelivr.net/npm/orz-paged-browser@${selfVersion}/orz-paged.browser.js`,
+    };
+    themeCount = themes.length;
+    html = buildHtml({
+      source,
+      title,
+      rendererVersion: selfVersion,
+      renderer,
+      baseCss,
+      themes,
+      defaultTheme: pickDefaultTheme(themes),
+      templates,
+      cdn: CDN,
+      appJs,
+      runtime,
+    });
   } else {
-    renderer = { mode: 'inline', js: readFileSync(findAsset('dist/orz-paged.browser.js'), 'utf8') };
+    // Default: fully-inline, via the shared composition used by the library.
+    themeCount = loadThemes().themes.length;
+    html = composeInlineHtml(source, title);
   }
 
-  const html = buildHtml({
-    source,
-    title,
-    rendererVersion: selfVersion,
-    renderer,
-    baseCss,
-    themes,
-    defaultTheme: themes.some((t) => t.id === 'light-neat-1') ? 'light-neat-1' : (themes[0]?.id ?? 'none'),
-    templates,
-    cdn: CDN,
-    appJs,
-    runtime,
-  });
-
   writeFileSync(outPath, html, 'utf8');
-  console.log(`Wrote ${outPath} (${args.mode}, ${themes.length} themes)`);
+  console.log(`Wrote ${outPath} (${args.mode}, ${themeCount} themes)`);
 }
 
 main();
