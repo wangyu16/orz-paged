@@ -90,16 +90,29 @@ export function pickDefaultTheme(themes: ThemeAsset[]): string {
  * @param theme  optional theme id; when omitted (or unknown) the default theme
  *               ({@link pickDefaultTheme}) drives the picker's initial selection.
  */
-export function composeInlineHtml(source: string, title: string, theme?: string): string {
+export function composeInlineHtml(
+  source: string,
+  title: string,
+  theme?: string,
+  delivery?: 'inline' | 'cdn',
+): string {
   const templates = loadTemplates();
   const { baseCss, themes } = loadThemes();
   const appJs = readFileSync(findAsset('assets/app.js'), 'utf8');
   const runtime = getBrowserRuntimeScript(); // copy-as-Markdown (+ qr) from orz-markdown
 
-  const renderer: RendererSpec = {
-    mode: 'inline',
-    js: readFileSync(findAsset('dist/orz-paged.browser.js'), 'utf8'),
-  };
+  // `cdn` references the published engine on jsDelivr (small file); `inline`
+  // (default) embeds it. Only the renderer differs from the inline path.
+  const renderer: RendererSpec =
+    delivery === 'cdn'
+      ? {
+          mode: 'cdn',
+          src: `https://cdn.jsdelivr.net/npm/orz-paged-browser@${selfVersion}/orz-paged.browser.js`,
+        }
+      : {
+          mode: 'inline',
+          js: readFileSync(findAsset('dist/orz-paged.browser.js'), 'utf8'),
+        };
 
   const known = theme && themes.some((t) => t.id === theme);
   const defaultTheme = known ? (theme as string) : pickDefaultTheme(themes);
@@ -140,6 +153,9 @@ export function buildPagedHtml(opts: {
   title?: string;
   theme?: string;
   template?: string;
+  /** `inline` (default, offline) or `cdn` (small file — engine from jsDelivr;
+   *  requires orz-paged-browser published at this version). */
+  delivery?: 'inline' | 'cdn';
 }): string {
   let source = opts.markdown;
   if (opts.template && !opts.markdown.trim()) {
@@ -149,5 +165,5 @@ export function buildPagedHtml(opts: {
     if (t) source = t.skeleton;
   }
   const title = opts.title || 'Untitled';
-  return composeInlineHtml(source, title, opts.theme);
+  return composeInlineHtml(source, title, opts.theme, opts.delivery);
 }
