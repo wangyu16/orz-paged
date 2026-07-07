@@ -3,7 +3,7 @@
 **Source of truth for the orz-paged project.** This document initiates the
 design; `BUILD-PLAN.md` is the module map and build order.
 
-> Status: **built and browser-verified, feature-complete (unpublished).** Markdown
+> Status: **published and browser-verified** (`orz-paged` + `orz-paged-browser` v0.4.0). Markdown
 > → `.paged.html` → paged.js pagination → editor → print all work, plus 12
 > templates, 7 vendored themes, rich title/author elements, exam questions with a
 > dynamic answer-key switch, and an in-file template picker. This document remains
@@ -60,7 +60,7 @@ orz-markdown  (= @orz-how/markdown-parser — same package, repo wangyu16/orz-ma
 ```
 
 orz-paged depends on **`orz-markdown`** exactly like its siblings
-(`file:../orz-markdown` in dev; published later). It is a **host app that brings
+(`^1.3.2` from npm). It is a **host app that brings
 its own CSS + shell**, so it follows
 `../orz-markdown/orz-markdown-skills/references/embedding.md`.
 

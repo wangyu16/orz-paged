@@ -13,7 +13,7 @@ in [orz-markdown](../orz-markdown).
 
 **[DESIGN.md](./DESIGN.md) is the source of truth.** Read it first.
 
-> **Status: published (v0.1.0) and browser-verified.** The full pipeline works
+> **Status: published (v0.4.0) and browser-verified.** The full pipeline works
 > (generate → paginate → edit → print); `tsc` clean, vitest 125/125. The
 > `orz-paged` CLI and `orz-paged-browser` engine are published in lockstep.
 > See `PLAN.md` for module status and deferred items.

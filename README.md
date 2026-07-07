@@ -1,6 +1,6 @@
 # orz-paged
 
-> **Status: published (v0.1.0) and browser-verified** — 12 starter templates,
+> **Status: published (v0.4.0) and browser-verified** — 12 starter templates,
 > 7 light themes, the full document-element set, an in-file editor with a
 > template picker, and a dynamic switch (e.g. exam answer keys). Two packages
 > publish in lockstep: [`orz-paged`](https://www.npmjs.com/package/orz-paged)
@@ -151,4 +151,4 @@ the same as **running a downloaded program**, not opening a PDF.
 
 ## License
 
-TBD.
+MIT

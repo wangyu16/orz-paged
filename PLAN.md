@@ -81,7 +81,7 @@ Wave 3 (polish)
 
 Mirror orz-slides exactly (same `package.json` scripts, `tsconfig`, esbuild
 `bundle.ts` + shims; swap `reveal.js` → `pagedjs`). Dependencies:
-`orz-markdown` from npm (`^1.3.0`, currently resolving to 1.3.1+) + `pagedjs`.
+`orz-markdown` from npm (`^1.3.2`, currently resolving to 1.3.2+) + `pagedjs`.
 
 ---
 
