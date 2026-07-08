@@ -238,6 +238,19 @@ export function buildHtml(o: BuildOptions): string {
 <style>${CHROME_CSS}</style>
 </head>
 <body>
+<!-- ═══════════ orz · editing this document with an AI agent ═══════════
+  This is a self-contained, EDITABLE orz-paged document (.paged.html). The editable
+  source of truth is the markdown inside <script id="orz-src"> below (kind: paged,
+  format: 1) — NOT the rendered HTML.
+
+  To edit it correctly, load the official orz-paged agent skill first: it defines
+  the page model (templates, page size, margins, running headers/footers, page
+  breaks) and guarantees a byte-identical round-trip.
+    - Fetch the skill: https://cdn.jsdelivr.net/npm/orz-paged/orz-paged-skills/SKILL.md
+    - Install routes:  https://markdown.orz.how/agents.html
+
+  Rules: edit ONLY the embedded source; re-embed it in place; preserve block IDs.
+═══════════════════════════════════════════════════════════════════ -->
 
 <div id="orz-pages" data-orz-copy></div>
 <div id="orz-divider" title="Drag to resize"></div>

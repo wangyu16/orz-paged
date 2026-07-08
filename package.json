@@ -1,6 +1,6 @@
 {
   "name": "orz-paged",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Self-contained, editable HTML documents (.paged.html) — Markdown shown as print pages via paged.js, edited in-browser, exported to PDF by printing. Sibling of orz-mdhtml and orz-slides.",
   "type": "module",
   "main": "./dist/lib.js",
