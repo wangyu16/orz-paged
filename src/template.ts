@@ -240,7 +240,7 @@ export function buildHtml(o: BuildOptions): string {
 <body>
 <!-- ═══════════ orz · editing this document with an AI agent ═══════════
   This is a self-contained, EDITABLE orz-paged document (.paged.html). The editable
-  source of truth is the markdown inside <script id="orz-src"> below (kind: paged,
+  source of truth is the markdown in the embedded source island below (kind: paged,
   format: 1) — NOT the rendered HTML.
 
   To edit it correctly, load the official orz-paged agent skill first: it defines
