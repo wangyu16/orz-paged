@@ -8,7 +8,7 @@
  * Pipeline (DESIGN §3/§6):
  *   1. `parseDocSettings` extracts + strips the `{{nyml kind: document}}` block.
  *   2. Merge DEFAULTS ← template layer ← user overrides → resolved settings.
- *   3. Scan the remaining body for `{{nyml kind: element}}` blocks, render each
+ *   3. Scan the remaining body for concrete element-kind blocks, render each
  *      via `renderElement`, and replace it with a placeholder token.
  *   4. Render the placeholdered body Markdown, then swap each placeholder for
  *      its element's HTML (so element HTML is never re-parsed as Markdown).

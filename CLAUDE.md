@@ -13,8 +13,8 @@ in [orz-markdown](../orz-markdown).
 
 **[DESIGN.md](./DESIGN.md) is the source of truth.** Read it first.
 
-> **Status: published (v0.4.0) and browser-verified.** The full pipeline works
-> (generate → paginate → edit → print); `tsc` clean, vitest 125/125. The
+> **Status: published (v0.6.1) and browser-verified.** The full pipeline works
+> (generate → paginate → edit → print); `tsc` clean, vitest 133/133. The
 > `orz-paged` CLI and `orz-paged-browser` engine are published in lockstep.
 > See `PLAN.md` for module status and deferred items.
 
@@ -90,3 +90,7 @@ paged.js page DOM**; **iframe** preview; **CDN fonts, no embedding**; **light
 themes only**; page break = the **`::: page-break`** arbitrary-class container (no
 orz-markdown change); debounced full re-pagination for v1; depend on
 `orz-markdown`. Don't reopen these without reason; build against them.
+
+## Release
+
+- Before each publishing, always check coherency and consistency, update docs and agent skills, update the example/sample/testing dual extension name files to current version.

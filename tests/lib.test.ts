@@ -59,4 +59,28 @@ describe('buildPagedHtml', () => {
     // template-sourced doc differs from the empty-source doc.
     expect(fromTpl).not.toBe(buildPagedHtml({ markdown: '   ' }));
   });
+
+  it('consumes source metadata and lets host metadata win field by field', () => {
+    const source = [
+      '{{nyml',
+      'kind: meta',
+      'title: Source Title',
+      'author: Source Author',
+      'license: CC-BY-4.0',
+      '}}',
+      '',
+      SRC,
+    ].join('\n');
+    const built = buildPagedHtml({
+      markdown: source,
+      metadata: { author: 'Host Author' },
+    });
+
+    expect(built).toContain('<meta name="author" content="Host Author">');
+    expect(built).toContain('<meta name="dcterms.license" content="CC-BY-4.0">');
+    expect(built).toContain('"title": "Source Title"');
+    const embedded = /<script type="text\/markdown" id="orz-src">([\s\S]*?)<\/script>/.exec(built)?.[1];
+    expect(embedded).not.toContain('kind: meta');
+    expect(embedded).toContain('kind: document');
+  });
 });

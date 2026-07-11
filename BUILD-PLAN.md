@@ -24,7 +24,7 @@ for *why*; this file is *what* and *in what order*. Strategy mirrors orz-slides:
 - **WP1 · document layer (reimplement in TS).** `src/doc/` — **reimplement**, do
   not vendor, the curated model (DESIGN §3, §8): `settings` (parse + normalize
   `{{nyml kind: document}}`), `templates` (the curated registry), `elements` (the
-  curated `kind: element` → static HTML), `page-css` (settings → `@page` + margin
+  curated concrete element kinds → static HTML), `page-css` (settings → `@page` + margin
   boxes + counters + theme + font `<link>`). Read orz-md-pdf for behavior; write
   clean, pure, unit-tested TS.
 - **WP2 · themes (light only).** `assets/themes/*.css` — a small set of light,

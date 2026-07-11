@@ -1,7 +1,7 @@
 /**
  * orz-paged — built-in document elements.
  *
- * `renderElement(spec, ctx)` turns one `{{nyml kind: element}}` block into
+ * `renderElement(spec, ctx)` turns one concrete element-kind block into
  * semantic HTML + a small scoped stylesheet. Every element is wrapped in
  * `<section class="orz-element orz-el-<kind>">…</section>`. Markdown-typed
  * fields go through the injected `ctx.renderInline` / `ctx.renderBlock` so this

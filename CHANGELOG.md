@@ -3,6 +3,32 @@
 All notable changes to **orz-paged** are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] — 2026-07-11
+
+### Security
+
+- Updated build/test tooling to fixed `esbuild ^0.28.1` and `vitest ^4.1.10`
+  releases. Runtime dependencies and generated document behavior are unchanged.
+
+### Packaging
+
+- Ship the MIT license in both the CLI and browser npm packages.
+
+## [0.6.0] — 2026-07-11
+
+### Added
+
+- Portable document metadata. A source-level `{{nyml kind: meta}}` block is
+  consumed at generation time and emitted as standard `<head>` tags plus an
+  `#orz-meta` JSON island. Programmatic callers can pass `metadata` to
+  `buildPagedHtml`; host values win field by field. Requires
+  `orz-markdown ^1.4.0`.
+
+### Changed
+
+- The generic `{{nyml}}` scanner is now shared from orz-markdown, giving the
+  family one parser for metadata and paged document blocks.
+
 ## [0.5.0] — 2026-07-08
 
 ### Added

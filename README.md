@@ -1,6 +1,6 @@
 # orz-paged
 
-> **Status: published (v0.4.0) and browser-verified** — 12 starter templates,
+> **Status: published (v0.6.1) and browser-verified** — 12 starter templates,
 > 7 light themes, the full document-element set, an in-file editor with a
 > template picker, and a dynamic switch (e.g. exam answer keys). Two packages
 > publish in lockstep: [`orz-paged`](https://www.npmjs.com/package/orz-paged)
@@ -61,6 +61,26 @@ references jsDelivr for the published `orz-paged-browser` engine + theme.
 assumed) — so files stay small. The document's `{{nyml kind: document}}` block
 (`template:`, `theme:`, …) is the source of truth.
 
+### Portable metadata
+
+Before the document settings block, authors may add `{{nyml kind: meta}}` with
+`title`, `author`, `description`, `license`, `license_name`, `license_url`,
+`source`, `date`, and comma-separated `keywords`. Generation consumes this block
+and writes normalized `<head>` tags plus an `#orz-meta` JSON island. Those
+records survive later in-browser saves and framework updates. Programmatic
+callers may pass `metadata` to `buildPagedHtml`; host values win field by field.
+
+```markdown
+{{nyml
+kind: meta
+title: Quarterly Report
+author: Your Name
+license: CC-BY-4.0
+license_url: https://creativecommons.org/licenses/by/4.0/
+date: 2026-07-11
+}}
+```
+
 ## Templates & themes
 
 **Clear split:** a **template owns layout** (page size, furniture, which elements
@@ -94,9 +114,10 @@ any tailored-variant document.
 ## Authoring
 
 A `{{nyml kind: document}}` block sets page size/margins, font, headers/footers,
-page numbers, and a template/theme; `{{nyml kind: element}}` blocks insert
-constructs like title sections, abstracts, letterheads, TOCs, CV headers, and exam
-questions. orz-paged ships a **curated** subset of this model (the most common
+page numbers, and a template/theme; concrete element blocks such as
+`{{nyml kind: article-title}}`, `{{nyml kind: toc}}`, and
+`{{nyml kind: question-mc}}` insert document structures. orz-paged ships a
+**curated** subset of this model (the most common
 templates/elements) with a clear agent skill — see
 [DESIGN.md §8](./DESIGN.md). The full model orz-paged draws from is in
 [docs/document-model.md](docs/document-model.md) (a spec reference from

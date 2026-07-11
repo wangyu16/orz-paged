@@ -130,7 +130,7 @@ export type DocSettingsLayer = Partial<DocSettings>;
 
 /* ─────────────────────────── elements ─────────────────────────── */
 
-/** One `{{nyml kind: element}}` block: its kind + raw field map. */
+/** One concrete element-kind block: its kind + raw field map. */
 export interface ElementSpec {
   kind: ElementKind;
   /** snake_case field → raw string value (multiline values preserved). */

@@ -114,6 +114,18 @@ Body text in normal Markdown. Math like $E = mc^2$, tables, lists, and
 diagrams all print.
 ```
 
+### Optional portable metadata
+
+Before the document settings block, authors may add `{{nyml kind: meta}}` with
+`title`, `author`, `description`, `license`, `license_name`, `license_url`,
+`source`, `date`, and comma-separated `keywords`. The builder consumes this
+block and emits standard `<head>` tags plus an `#orz-meta` JSON island; those
+emitted records survive browser saves and framework updates. Programmatic hosts
+may pass `metadata` to `buildPagedHtml`; host values win field by field.
+
+Do not use `kind: document` for publication metadata: that block controls page
+layout. Do not reinsert a consumed meta block into generated HTML by hand.
+
 ---
 
 ## 1 · Document settings (`{{nyml kind: document}}`)

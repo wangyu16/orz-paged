@@ -3,7 +3,7 @@
 **Source of truth for the orz-paged project.** This document initiates the
 design; `BUILD-PLAN.md` is the module map and build order.
 
-> Status: **published and browser-verified** (`orz-paged` + `orz-paged-browser` v0.4.0). Markdown
+> Status: **published and browser-verified** (`orz-paged` + `orz-paged-browser` v0.6.1). Markdown
 > → `.paged.html` → paged.js pagination → editor → print all work, plus 12
 > templates, 7 vendored themes, rich title/author elements, exam questions with a
 > dynamic answer-key switch, and an in-file template picker. This document remains
@@ -60,7 +60,7 @@ orz-markdown  (= @orz-how/markdown-parser — same package, repo wangyu16/orz-ma
 ```
 
 orz-paged depends on **`orz-markdown`** exactly like its siblings
-(`^1.3.2` from npm). It is a **host app that brings
+(`^1.4.1` from npm). It is a **host app that brings
 its own CSS + shell**, so it follows
 `../orz-markdown/orz-markdown-skills/references/embedding.md`.
 
@@ -87,7 +87,7 @@ implements the **curated** parts of it (§7, §8).
 |---|---|---|
 | **parse + content** | `orz-markdown` renders the prose | dependency (as-is) |
 | **document settings** | read one `{{nyml kind: document}}` block → a normalized `DocSettings` | reuse orz-markdown's existing `{{nyml}}` (it already emits invisible JSON) |
-| **elements** | a small registry: `{{nyml kind: element}}` → static HTML (title section, abstract, letterhead, toc, CV header, exam question) | reimplement *curated* set (§8) |
+| **elements** | a small registry: concrete `kind:` values such as `article-title`, `toc`, and `question-mc` → static HTML | reimplement *curated* set (§8) |
 | **paged HTML** | settings + content → page CSS (`@page`, margin boxes, page numbers) + theme + font links | new, TS |
 | **pagination** | paged.js flows it into `.pagedjs_page` boxes | dependency (as-is) |
 | **shell + editor** | the `.paged.html` file, in-file editor, save, copy | **port orz-mdhtml** |
@@ -141,7 +141,7 @@ Mirrors mdhtml/slides exactly:
  #orz-src (Markdown)
    │  read {{nyml kind: document}}  →  DocSettings (+ template defaults, merged)
    │  orz-markdown.render(body)     →  content HTML  ({{…}}, :::, KaTeX, mermaid…)
-   │  processElements               →  {{nyml kind: element}} → static HTML
+   │  processElements               →  concrete element kind → static HTML
    │  buildPageCss(settings)        →  @page size/margins, margin boxes, counters, theme, font <link>
    │  paged.js Previewer.preview()  →  .pagedjs_page boxes   (the visible pages)
    ▼

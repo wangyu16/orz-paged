@@ -26,7 +26,7 @@ paged.js realizes them into the boxes above. Page numbers use `counter(page)` /
 ```html
 <main class="orz-doc markdown-body">
   <!-- orz-markdown content + rendered elements, in source order -->
-  <section class="orz-element orz-el-<kind>"> … </section>   <!-- a kind: element -->
+  <section class="orz-element orz-el-<kind>"> … </section>   <!-- a concrete element kind -->
   <div class="page-break"></div>                              <!-- ::: page-break -->
   …
 </main>
@@ -34,7 +34,7 @@ paged.js realizes them into the boxes above. Page numbers use `counter(page)` /
 
 - **`.orz-doc.markdown-body`** wraps all content (required so orz-markdown's CSS +
   copy-as-Markdown apply; follow the embedding guide).
-- **`.orz-element.orz-el-<kind>`** wraps each rendered `kind: element`. Element
+- **`.orz-element.orz-el-<kind>`** wraps each rendered concrete element kind. Element
   scoped CSS is injected **once per kind** (dedupe).
 - **`.page-break`** (from `::: page-break`) → `break-before: page`.
 - A title/cover element with `placement: page` carries the class

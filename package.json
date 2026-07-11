@@ -1,6 +1,6 @@
 {
   "name": "orz-paged",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Self-contained, editable HTML documents (.paged.html) — Markdown shown as print pages via paged.js, edited in-browser, exported to PDF by printing. Sibling of orz-mdhtml and orz-slides.",
   "type": "module",
   "main": "./dist/lib.js",
@@ -42,18 +42,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wangyu16/orz-paged"
+    "url": "git+https://github.com/wangyu16/orz-paged.git"
   },
   "dependencies": {
-    "orz-markdown": "^1.4.0",
+    "orz-markdown": "^1.4.1",
     "pagedjs": "^0.4.3"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "esbuild": "^0.21.5",
+    "esbuild": "^0.28.1",
     "path-browserify": "^1.0.1",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0",
-    "vitest": "^2.0.0"
+    "vitest": "^4.1.10"
   }
 }
