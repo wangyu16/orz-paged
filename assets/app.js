@@ -15,7 +15,15 @@
   function $(id) { return document.getElementById(id); }
   function api() { return window.orzpaged; }
   function srcEl() { return $('orz-src'); }
-  function currentSource() { return cm ? cm.getValue() : (srcEl() ? srcEl().textContent.replace(/^\n/, '').replace(/\n\s*$/, '') : ''); }
+  // The RAW source of record (with `{{md-include}}` directives). Captured lazily
+  // from #orz-src on first read — BEFORE syncSource() ever writes RESOLVED text
+  // into #orz-src for the engine — so currentSource()/save always stay raw.
+  var rawSource = null;
+  function currentSource() {
+    if (cm) return cm.getValue();
+    if (rawSource == null && srcEl()) rawSource = srcEl().textContent.replace(/^\n/, '').replace(/\n\s*$/, '');
+    return rawSource != null ? rawSource : '';
+  }
 
   function toast(msg) {
     var t = $('orz-toast'); if (!t) return;
@@ -217,17 +225,23 @@
     }, 500);
   }
 
-  /** Keep #orz-src in sync with the editor (so refresh()/setTheme()/save use current text). */
+  /** Keep #orz-src in sync with the editor for the ENGINE — with web includes
+   *  RESOLVED (serialize() writes the raw source into the saved file). */
   function syncSource() {
     var el = srcEl(); if (!el) return;
-    el.textContent = '\n' + currentSource() + '\n';
+    ensureIncludes(currentSource());
+    el.textContent = '\n' + applyIncludes(currentSource()) + '\n';
   }
 
   /* ---- self-reproducing save ---- */
   function serialize() {
-    syncSource();
+    syncSource(); // keep the LIVE #orz-src resolved for the engine
     var clone = document.documentElement.cloneNode(true);
     clone.removeAttribute('data-mode');
+    // The SAVED file keeps the RAW source (its `{{md-include}}` directives), not
+    // the resolved preview — resolution is a host-only, view-time concern.
+    var savedSrc = clone.querySelector('#orz-src');
+    if (savedSrc) savedSrc.textContent = '\n' + currentSource() + '\n';
     // strip runtime-injected nodes (fonts, libs, katex, CodeMirror assets)
     var rt = clone.querySelectorAll('[data-orz-runtime]');
     for (var i = 0; i < rt.length; i++) rt[i].parentNode.removeChild(rt[i]);
@@ -312,6 +326,45 @@
     }, 10000);
     hostPost({ type: 'orz-host-save', protocol: HOST_PROTOCOL, version: HOST_VERSION, source: src, html: html });
   }
+  /* ---- host-provided includes (orz-host-include@1) ----
+   * A trusted host resolves `{{md-include URL}}` / `{{markdown URL}}` for the
+   * PREVIEW (paginated into #orz-src). The saved source keeps the directive;
+   * standalone the file never resolves and never auto-fetches. See PROTOCOL.md. */
+  var INCLUDE_PROTOCOL = 'orz-host-include';
+  var INCLUDE_VERSION = 1;
+  var includeOrigin = null, includeSeq = 0, includePending = {}, includeCache = {}, includeInflight = {}, includeRerenderTimer = null;
+  function includeTarget() { return includeOrigin && includeOrigin !== 'null' ? includeOrigin : '*'; }
+  function includePost(msg) { try { window.parent.postMessage(msg, includeTarget()); } catch (e) {} }
+  function includeRequest(url) {
+    return new Promise(function (resolve) {
+      var id = 'inc' + (++includeSeq);
+      includePending[id] = resolve;
+      includePost({ type: 'orz-host-include-request', protocol: INCLUDE_PROTOCOL, version: INCLUDE_VERSION, requestId: id, url: url });
+      setTimeout(function () { if (includePending[id]) { delete includePending[id]; resolve(null); } }, 30000);
+    });
+  }
+  function applyIncludes(src) {
+    if (!includeOrigin) return src;
+    return src.replace(/\{\{(?:markdown|md-include)\s+(https?:\/\/[^\s}]+)\}\}/g, function (whole, url) {
+      var v = includeCache[url]; return (typeof v === 'string') ? v : whole;
+    });
+  }
+  function ensureIncludes(src) {
+    if (!includeOrigin) return;
+    var re = /\{\{(?:markdown|md-include)\s+(https?:\/\/[^\s}]+)\}\}/g, m, seen = {};
+    while ((m = re.exec(src))) {
+      var url = m[1];
+      if (seen[url]) continue; seen[url] = true;
+      if (Object.prototype.hasOwnProperty.call(includeCache, url) || includeInflight[url]) continue;
+      includeInflight[url] = true;
+      (function (u) { includeRequest(u).then(function (md) { includeCache[u] = (typeof md === 'string') ? md : null; delete includeInflight[u]; scheduleIncludeRerender(); }); })(url);
+    }
+  }
+  function scheduleIncludeRerender() {
+    if (includeRerenderTimer) clearTimeout(includeRerenderTimer);
+    includeRerenderTimer = setTimeout(function () { syncSource(); if (api() && api().refresh) api().refresh(); }, 80);
+  }
+
   function onHostMessage(event) {
     // only the embedding parent may speak the protocol
     if (window.parent === window || event.source !== window.parent) return;
@@ -328,6 +381,13 @@
       clearTimeout(hostSaveTimer); hostSaveTimer = null;
       if (d.ok) { setDirty(false); toast('Saved'); }
       else { toast('Save failed' + (d.error ? ' — ' + String(d.error) : '')); }
+    } else if (d.type === 'orz-host-include-hello' && d.protocol === INCLUDE_PROTOCOL && typeof d.version === 'number' && d.version >= 1) {
+      includeOrigin = event.origin;
+      includePost({ type: 'orz-host-include-ready', protocol: INCLUDE_PROTOCOL, version: INCLUDE_VERSION, kind: 'paged' });
+      scheduleIncludeRerender(); // request + re-paginate now that includes can resolve
+    } else if (d.type === 'orz-host-include-result' && d.requestId && includePending[d.requestId]) {
+      var incRes = includePending[d.requestId]; delete includePending[d.requestId];
+      incRes(d.ok ? d.markdown : null);
     }
   }
   // listen from script load so an early hello isn't missed

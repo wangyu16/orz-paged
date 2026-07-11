@@ -3,6 +3,12 @@
 All notable changes to **orz-paged** are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-07-11
+
+### Added
+
+- **`orz-host-include@1`** — a hosted paged document resolves `{{md-include https://…}}` for its preview via the host; the engine paginates the resolved text while the saved source keeps the raw directives (a rawSource stash). Standalone never resolves and never auto-fetches. See PROTOCOL.md.
+
 ## [0.6.1] — 2026-07-11
 
 ### Security
