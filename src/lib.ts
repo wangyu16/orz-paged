@@ -18,6 +18,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractDocMeta, mergeDocMeta, renderDocMetaHead, renderDocMetaIsland, type DocMeta } from 'orz-markdown/doc-meta';
 import { getBrowserRuntimeScript } from 'orz-markdown/runtime';
 import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
 import { buildHtml, type ThemeAsset, type RendererSpec, type TemplateAsset } from './template.js';
@@ -95,7 +96,14 @@ export function composeInlineHtml(
   title: string,
   theme?: string,
   delivery?: 'inline' | 'cdn',
+  metadata?: DocMeta,
 ): string {
+  // Read any `{{nyml kind: meta}}` block out of the source and strip it (so it
+  // is not rendered redundantly and cannot clash with the fixed nyml-data id);
+  // the host's injected metadata wins field by field. See orz-markdown/doc-meta.
+  const extracted = extractDocMeta(source);
+  const meta = mergeDocMeta(extracted.meta, metadata);
+  source = extracted.body;
   const templates = loadTemplates();
   const { baseCss, themes } = loadThemes();
   const appJs = readFileSync(findAsset('assets/app.js'), 'utf8');
@@ -122,6 +130,8 @@ export function composeInlineHtml(
     title,
     rendererVersion: selfVersion,
     renderer,
+    metaHead: renderDocMetaHead(meta),
+    metaIsland: renderDocMetaIsland(meta),
     baseCss,
     themes,
     defaultTheme,
@@ -156,6 +166,9 @@ export function buildPagedHtml(opts: {
   /** `inline` (default, offline) or `cdn` (small file — engine from jsDelivr;
    *  requires orz-paged-browser published at this version). */
   delivery?: 'inline' | 'cdn';
+  /** Document metadata (license, author, source …) injected by the host. Wins
+   *  over any `{{nyml kind: meta}}` block in the source. */
+  metadata?: DocMeta;
 }): string {
   let source = opts.markdown;
   if (opts.template && !opts.markdown.trim()) {
@@ -165,5 +178,5 @@ export function buildPagedHtml(opts: {
     if (t) source = t.skeleton;
   }
   const title = opts.title || 'Untitled';
-  return composeInlineHtml(source, title, opts.theme, opts.delivery);
+  return composeInlineHtml(source, title, opts.theme, opts.delivery, opts.metadata);
 }

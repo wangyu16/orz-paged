@@ -38,6 +38,10 @@ export interface BuildOptions {
   runtime: string;
   /** template catalog for the in-editor picker (id/label/description/group/skeleton). */
   templates?: TemplateAsset[];
+  /** document-metadata `<head>` tags (meta/link rel=license), or '' if none. */
+  metaHead?: string;
+  /** document-metadata JSON island, or '' if none. */
+  metaIsland?: string;
 }
 
 function escapeHtml(s: string): string {
@@ -234,8 +238,8 @@ export function buildHtml(o: BuildOptions): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="orz-paged ${escapeHtml(o.rendererVersion)}">
-<title>${escapeHtml(o.title)}</title>
-<style>${CHROME_CSS}</style>
+<title>${escapeHtml(o.title)}</title>${o.metaHead ? '\n' + o.metaHead : ''}
+<style>${CHROME_CSS}</style>${o.metaIsland ? '\n' + o.metaIsland : ''}
 </head>
 <body>
 <!-- ═══════════ orz · editing this document with an AI agent ═══════════
