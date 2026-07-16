@@ -1,14 +1,16 @@
 # orz-paged
 
-> **Status: published (v0.6.1) and browser-verified** — 12 starter templates,
+**Markdown that edits itself.**
+
+> **Status: published (v0.7.2) and browser-verified** — 12 starter templates,
 > 7 light themes, the full document-element set, an in-file editor with a
 > template picker, and a dynamic switch (e.g. exam answer keys). Two packages
 > publish in lockstep: [`orz-paged`](https://www.npmjs.com/package/orz-paged)
 > and [`orz-paged-browser`](https://www.npmjs.com/package/orz-paged-browser).
 > See [DESIGN.md](./DESIGN.md) for the design.
 
-Generate a single, self-contained, **editable** `.paged.html` from Markdown — a
-document shown as **print pages** in any browser (A4/Letter, real margins,
+Generate a single **`.paged.html`** from Markdown that **edits itself in the
+browser** — a document shown as **print pages** in any browser (A4/Letter, real margins,
 running headers/footers, page numbers), edited and saved **in the browser**, and
 exported to PDF by **printing it** (no PDF binary, no Puppeteer).
 
