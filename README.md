@@ -2,7 +2,7 @@
 
 **Markdown that edits itself.**
 
-> **Status: published (v0.7.2) and browser-verified** — 12 starter templates,
+> **Status: published (v0.7.3) and browser-verified** — 12 starter templates,
 > 7 light themes, the full document-element set, an in-file editor with a
 > template picker, and a dynamic switch (e.g. exam answer keys). Two packages
 > publish in lockstep: [`orz-paged`](https://www.npmjs.com/package/orz-paged)

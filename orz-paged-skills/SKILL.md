@@ -1,6 +1,6 @@
 ---
 name: orz-paged
-description: Author and edit self-contained .paged.html print documents (orz-paged). Use when a user wants to turn Markdown into a paginated, printable document — one portable HTML file that, in any browser, shows the text as real print pages on light paper (paged.js), is edited in-browser, and exports to PDF by printing (Ctrl/Cmd+P → Save as PDF). Covers the document settings block, templates (article, report, exam, letter, cover-letter, three CV styles, note), the curated document elements (title sections with multi-author/affiliation/ORCID support, abstract, toc, letter and CV parts, exam questions), a dynamic switch (print several versions from one source, e.g. an exam with or without its answer key), page breaks, and print-first content guidance.
+description: Author and edit single-file, self-editing .paged.html print documents (orz-paged). Use when a user wants to turn Markdown into a paginated, printable document — one portable HTML file that, in any browser, shows the text as real print pages on light paper (paged.js), is edited in-browser, and exports to PDF by printing (Ctrl/Cmd+P → Save as PDF). Covers the document settings block, templates (article, report, exam, letter, cover-letter, three CV styles, note), the curated document elements (title sections with multi-author/affiliation/ORCID support, abstract, toc, letter and CV parts, exam questions), a dynamic switch (print several versions from one source, e.g. an exam with or without its answer key), page breaks, and print-first content guidance.
 ---
 
 # orz-paged — author a `.paged.html` document
@@ -550,7 +550,7 @@ Pick up dry cleaning, email the draft to the committee, and water the plants.
 
 ## Security
 
-`.paged.html` files are **self-contained executable HTML** — opening one runs its
+`.paged.html` files are **single-file executable HTML** — opening one runs its
 embedded JavaScript. Treat them like programs: only open or edit files from a
 trusted source, and advise users the same. The one-click framework update is
 opt-in (edit view only, explicit confirm) and always fetches from the hardcoded
