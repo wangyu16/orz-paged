@@ -1,5 +1,6 @@
 {{nyml
 kind: document
+title: Your Name — CV
 template: cv
 }}
 

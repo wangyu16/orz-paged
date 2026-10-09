@@ -1,0 +1,217 @@
+/**
+ * The isomorphic assembler of orz-paged (FC-18 text format 1, kind `paged`).
+ *
+ * One module for every caller — the Node library, the CLI, the browser bundle
+ * (FC-19 §2 `assemble` / `extract` / `readDocument`), "New document from
+ * template…", "Save as new copy", the quiet update and the starters — so Node
+ * and the browser write the same bytes (FC-18 law 2). Mirrors orz-mdhtml's
+ * src/assemble.ts.
+ *
+ * The envelope (doctype, `<html lang data-orz-kind>`, generator, `<title>`,
+ * head metadata, `#orz-meta`, `#orz-shell`, the agent banner, the `#orz-src`
+ * island and `#orz-includes`) is the kit's `assembleEnvelope`; this module adds
+ * only the shell parts of the 1.0 shell.
+ *
+ * Rules: no Node built-ins, no clock, no randomness (except `newDocument`'s
+ * `mintUid`, a creation tool, FC-18 §10), no environment reads. The shell
+ * version is the generated constant in ./version.ts; the template skeletons
+ * are the generated ./starters.ts (from assets/templates).
+ */
+import {
+  assembleEnvelope,
+  editHeader,
+  extract,
+  kindFromFilename,
+  lintHeader,
+  mintUid,
+  readDocument as readKitDocument,
+  readHeader,
+  UID_PATTERN,
+  type DocumentInfo,
+  type HeaderChange,
+  type Kind,
+  type ShellParts,
+} from 'orz-markdown/carrier';
+import { bundleUrl, isScriptSafe } from 'orz-markdown/carrier/shell';
+import { canonicalTemplate, TEMPLATES } from './doc/templates.js';
+import { STARTERS } from './starters.js';
+import { isThemeId } from './themes.js';
+import { VERSION } from './version.js';
+import type { TemplateName } from './types.js';
+
+export { extract } from 'orz-markdown/carrier';
+export type { Extracted, DocumentInfo, Kind } from 'orz-markdown/carrier';
+
+/** The browser bundle's file name inside `orz-paged-browser` (its `release.json` `bundle.path`). */
+export const BUNDLE_FILE = 'orz-paged.browser.js';
+
+/** The text formats this shell reads and writes (FC-18 §8.4). */
+export const FORMATS: readonly number[] = Object.freeze([1]);
+
+/** The jsDelivr URL of the browser bundle of a release (the same URL the quiet update derives, spec/shell-runtime.md §6). */
+export function cdnBundleUrl(version: string = VERSION): string {
+  return bundleUrl({ kind: 'paged', version, bundle: { path: BUNDLE_FILE, integrity: '' } });
+}
+
+const KINDS: readonly string[] = ['md', 'slides', 'paged'];
+
+/**
+ * Read a document's facts from its text (FC-19 §2 `readDocument`): the kit's
+ * `readDocument`, with this carrier's default kind. The kind is `opts.kind`,
+ * else the file name's (FC-18 §3), else the header's `carrier`, else `paged`
+ * (the kit's own default is `md`). The title follows FC-18 §8.1 for `paged`:
+ * the header `title`, else the first top-level level-1 heading, else the
+ * `title` (else `text`) of the first `*-title` element, else `Untitled`.
+ */
+export function readDocument(text: string, opts: { kind?: Kind; filename?: string } = {}): DocumentInfo {
+  const carrier = readHeader(text)?.fields['carrier']?.trim();
+  const kind: Kind =
+    opts.kind ??
+    (opts.filename !== undefined ? kindFromFilename(opts.filename) : null) ??
+    (carrier !== undefined && KINDS.includes(carrier) ? (carrier as Kind) : 'paged');
+  return readKitDocument(text, { kind });
+}
+
+/** Options of {@link assemble} (FC-18 §8.2, FC-19 §2). */
+export interface AssembleOptions {
+  /** `inline` (default, FD-02) inlines the engine; `cdn` loads it from jsDelivr. */
+  delivery?: 'inline' | 'cdn';
+  /**
+   * The exact text of the browser bundle, inlined for `delivery: 'inline'`
+   * (required there: this module reads no files; the Node library and the
+   * browser bundle supply it). Must be script-safe (no `<script`, `</script`
+   * or CR — the bundle rule, spec/shell-runtime.md §6).
+   */
+  engineSource?: string;
+  /** Resolved includes, stored in `#orz-includes` exactly as given (FC-18 §8.3, D4). */
+  includes?: Record<string, string>;
+}
+
+/** The id of the element the pages are rendered into (the read view, print-ready). */
+export const PAGES_ID = 'orz-pages';
+
+/**
+ * The 1.0 shell's head part. PLACEHOLDER (rebuild step 2): the chrome, the
+ * page and theme styles and the runtime come with the engine and the paged
+ * kind on `carrier/app` (later steps).
+ */
+const SHELL_HEAD = '<meta name="viewport" content="width=device-width, initial-scale=1">';
+
+/**
+ * The 1.0 shell's body part around the engine. PLACEHOLDER (rebuild step 2):
+ * the read view the engine paginates the document into (print view, in the
+ * page).
+ */
+const SHELL_BODY = `<div id="${PAGES_ID}" class="orz-pages" aria-live="polite"></div>`;
+
+/**
+ * Assemble the `.paged.html` file of a text (FC-18 §8): the kit's envelope
+ * with kind `paged`, shell version {@link VERSION}, and the 1.0 shell parts.
+ *
+ * Deterministic: the same text, options and version give the same bytes.
+ * Throws for a text the envelope refuses (NUL, a lone surrogate, a header
+ * `format` above 1), an unknown delivery, a missing or script-unsafe
+ * `engineSource` for inline delivery.
+ */
+export function assemble(text: string, options: AssembleOptions = {}): string {
+  return assembleEnvelope(text, shellParts(options));
+}
+
+/**
+ * The shell parts {@link assemble} hands to the kit's `assembleEnvelope`: kind
+ * `paged`, shell version {@link VERSION}, delivery, head and body parts, and
+ * the includes. They depend on the options only, never on the text (FC-18 law
+ * 4, no document data in the shell). Throws as {@link assemble} does for the
+ * options.
+ */
+export function shellParts(options: AssembleOptions = {}): ShellParts {
+  const delivery = options.delivery ?? 'inline';
+  let engine: string;
+  if (delivery === 'inline') {
+    const src = options.engineSource;
+    if (typeof src !== 'string' || src === '') throw new Error('orz-paged: inline delivery needs the engine source (options.engineSource)');
+    if (!isScriptSafe(src)) throw new Error('orz-paged: the engine source is not script-safe (it holds <script, </script or a CR)');
+    engine = `<script id="orz-engine">${src}</script>`;
+  } else if (delivery === 'cdn') {
+    engine = `<script id="orz-engine" src="${cdnBundleUrl()}"></script>`;
+  } else {
+    throw new Error(`orz-paged: unknown delivery ${JSON.stringify(String(delivery))}`);
+  }
+  const includes = options.includes && Object.keys(options.includes).length > 0 ? options.includes : undefined;
+  return {
+    kind: 'paged',
+    shellVersion: VERSION,
+    delivery,
+    headHtml: SHELL_HEAD,
+    bodyHtml: `${SHELL_BODY}\n${engine}`,
+    ...(includes ? { includes } : {}),
+  };
+}
+
+/**
+ * The text a file assembled from `text` holds: `extract(assemble(text)).text`
+ * — `text` itself, except that mixed line endings are stored as one style
+ * (FC-18 §8.2, the first line break's). Compare a file's text with this, not
+ * with the raw input. A text the envelope refuses is returned as it is.
+ */
+export function storedText(text: string): string {
+  try {
+    return extract(assembleEnvelope(text, shellParts({ delivery: 'cdn' })))?.text ?? text;
+  } catch {
+    return text;
+  }
+}
+
+/* ─────────────────────────── newDocument ─────────────────────────── */
+
+/** The template a new document starts from when none is named. */
+export const DEFAULT_TEMPLATE: TemplateName = 'note';
+
+/** The template ids `newDocument` accepts (legacy `article` / `report` / `exam` resolve to their `-section` variant). */
+export const TEMPLATE_IDS: readonly TemplateName[] = Object.freeze(Object.keys(TEMPLATES) as TemplateName[]);
+
+/** The header opening every template skeleton starts with (tests/new-document.test.ts checks it). */
+const SKELETON_OPENING = '{{nyml\nkind: document\n';
+
+/** Options of {@link newDocument}: header values of the new text (FC-18 §5.1). */
+export interface NewDocumentOptions {
+  /** A template id of {@link TEMPLATE_IDS} (default {@link DEFAULT_TEMPLATE}); its skeleton is the new text. */
+  template?: string;
+  /** The header `title` (replaces the template's placeholder title). */
+  title?: string;
+  /** A paged theme id (src/themes.ts). */
+  theme?: string;
+  /** The document id; minted with the kit's `mintUid` when absent (tests inject one). */
+  uid?: string;
+}
+
+/**
+ * A new format-1 `paged` text (FC-18 §3, §7.3, §10): the template's skeleton
+ * (assets/templates, a text — header + starter body) with `carrier: paged` and
+ * the `uid` right after `kind: document`, then the template's own header lines
+ * (`title`, `template`, its settings), then the given `title` / `theme` set in
+ * place (FC-18 §9). Pure apart from `mintUid` when no `uid` is given.
+ *
+ * Throws for an unknown template or theme, a malformed uid, a value the
+ * header cannot hold (line break, `}}`, NUL), or a value lint reports as an
+ * error.
+ */
+export function newDocument(options: NewDocumentOptions = {}): string {
+  const { title, theme } = options;
+  const name = options.template ?? DEFAULT_TEMPLATE;
+  const id = canonicalTemplate(name);
+  if (!id) throw new Error(`orz-paged: unknown template ${JSON.stringify(name)} (${TEMPLATE_IDS.join(', ')})`);
+  if (theme !== undefined && !isThemeId(theme)) throw new Error(`orz-paged: unknown theme ${JSON.stringify(theme)}`);
+  const uid = options.uid ?? mintUid();
+  if (!UID_PATTERN.test(uid)) throw new Error(`orz-paged: malformed uid ${JSON.stringify(uid)} (doc- and 10 to 32 of [0-9a-z])`);
+  const skeleton = STARTERS[TEMPLATES[id].skeleton];
+  if (skeleton === undefined || !skeleton.startsWith(SKELETON_OPENING)) throw new Error(`orz-paged: the ${id} template skeleton does not start with a format-1 header`);
+  let text = `${SKELETON_OPENING}carrier: paged\nuid: ${uid}\n${skeleton.slice(SKELETON_OPENING.length)}`;
+  const changes: Record<string, HeaderChange> = {};
+  if (title !== undefined && title.trim() !== '') changes['title'] = title;
+  if (theme !== undefined) changes['theme'] = theme;
+  text = editHeader(text, changes);
+  const errors = lintHeader(text, 'paged').filter((l) => l.level === 'error');
+  if (errors.length > 0) throw new Error(`orz-paged: the new header is not valid: ${errors.map((l) => `${l.code} (${l.message})`).join('; ')}`);
+  return text;
+}

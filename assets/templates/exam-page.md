@@ -1,5 +1,6 @@
 {{nyml
 kind: document
+title: Course Name — Exam 1
 template: exam-page
 page_number_position: footer-center
 page_number_style: page-n-of-N

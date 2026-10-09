@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="orz-paged 0.7.3">
+<title>letter</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #f0f0f2; }
+  :root { --orz-split: 44%; }
+  /* the preview is a fixed full-window scroll container; in edit mode its left
+     edge animates inward to make room for the docked editor (side-by-side). */
+  #orz-pages { box-sizing: border-box; position: fixed; inset: 0; left: 0;
+    overflow: auto; background: #f0f0f2; transition: left .22s ease; }
+  [data-mode="edit"] #orz-pages { left: calc(var(--orz-split) + 6px); }
+  /* paged.js page boxes get a subtle drop shadow + centered layout */
+  .pagedjs_pages { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 0; }
+  .pagedjs_page { background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
+  @media print {
+    body { background: #fff; }
+    #orz-bar, #orz-panel, #orz-edit-fab, #orz-divider, #orz-close, .orz-banner, #orz-toast { display: none !important; }
+    #orz-pages { position: static; overflow: visible; left: 0; }
+    .pagedjs_pages { gap: 0; padding: 0; zoom: 1 !important; }
+    .pagedjs_page { box-shadow: none; }
+  }
+
+  #orz-edit-fab {
+    position: fixed; left: 22px; bottom: 18px; z-index: 30;
+    width: 42px; height: 42px; border: 0; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #2f6fe0; color: #fff; cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,.25); opacity: .9;
+  }
+  #orz-edit-fab svg { width: 19px; height: 19px; display: block; }
+  #orz-edit-fab:hover { opacity: 1; transform: scale(1.06); }
+  [data-mode="edit"] #orz-edit-fab { display: none; }
+
+  #orz-divider { display: none; }
+  [data-mode="edit"] #orz-divider {
+    display: block; position: fixed; top: 0; bottom: 0; left: var(--orz-split);
+    width: 6px; z-index: 45; cursor: col-resize; background: #34383f;
+  }
+  #orz-divider:hover, #orz-divider.dragging { background: #3b82f6; }
+
+  #orz-panel {
+    display: flex; flex-direction: column;
+    position: fixed; left: 0; top: 0; bottom: 0; width: var(--orz-split); z-index: 40;
+    background: #1f2228; border-right: 1px solid #333; box-shadow: 2px 0 16px rgba(0,0,0,.25);
+    /* extra offset so the protruding close tab also clears the viewport */
+    transform: translateX(calc(-100% - 24px)); transition: transform .22s ease;
+  }
+  [data-mode="edit"] #orz-panel { transform: translateX(0); }
+  /* close tab — a small handle on the editor's right edge that slides it away */
+  #orz-close {
+    position: absolute; top: 50%; right: -19px; transform: translateY(-50%);
+    width: 19px; height: 48px; z-index: 46; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 0 8px 8px 0; background: #23262c; color: #c2c8d0;
+    cursor: pointer; box-shadow: 2px 0 8px rgba(0,0,0,.18);
+  }
+  #orz-close:hover { background: #383d45; color: #fff; }
+  #orz-close svg { width: 15px; height: 15px; display: block; }
+  #orz-toolbar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+    padding: 7px 10px; background: #23262c; border-bottom: 1px solid #34383f; }
+  #orz-toolbar .ic { width: 32px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 0; border-radius: 7px; color: #c2c8d0; cursor: pointer; font-size: 16px; }
+  #orz-toolbar .ic:hover { background: #383d45; color: #fff; }
+  #orz-toolbar .ic svg { width: 17px; height: 17px; display: block; }
+  #orz-toolbar .ic[aria-pressed="true"] { color: #3b82f6; }
+  #orz-toolbar .ic[aria-pressed="false"] { opacity: .5; }
+  #orz-toolbar .ic.primary { background: #3b82f6; color: #fff; }
+  #orz-toolbar select { font: 500 12.5px/1 system-ui, sans-serif; color: #e6e8ec; background: #34383f;
+    border: 1px solid #454b55; border-radius: 7px; padding: 6px 8px; cursor: pointer; margin: 0 2px; }
+  #orz-toolbar .orz-sep { width: 1px; height: 20px; background: #3c414a; margin: 0 5px; }
+  #orz-dyn { display: inline-flex; align-items: center; gap: 4px; }
+  #orz-dyn .orz-dyn-ctl { display: inline-flex; align-items: center; gap: 4px; }
+  #orz-dyn label { font: 600 11px/1 system-ui, sans-serif; color: #9aa3b2; text-transform: capitalize; }
+  #orz-toolbar .orz-spacer { flex: 1; }
+  #orz-brand { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #cdd3df; padding: 2px 7px; border-radius: 7px; }
+  #orz-brand:hover { color: #fff; background: #383d45; }
+  #orz-brand .orz-logo svg { height: 22px; width: auto; display: block; }
+  #orz-brand .orz-brand-name { font: 700 13px/1 system-ui, sans-serif; }
+  #orz-brand .orz-gh { display: inline-flex; opacity: .55; }
+  #orz-brand:hover .orz-gh { opacity: 1; }
+  #orz-brand .orz-gh svg { width: 15px; height: 15px; display: block; }
+  #orz-editor-host { flex: 1; min-height: 0; overflow: hidden; }
+  #orz-editor-host .CodeMirror { height: 100%; font-size: 14px; }
+  #orz-foot { flex: 0 0 auto; height: 24px; display: flex; align-items: center; justify-content: center;
+    font: 11.5px/1 system-ui, sans-serif; color: #8b93a0; background: #23262c; border-top: 1px solid #34383f; gap: 4px; }
+  #orz-foot a { color: #9aa3b2; text-decoration: none; }
+  #orz-foot a:hover { color: #fff; text-decoration: underline; }
+  #orz-ta { width: 100%; height: 100%; box-sizing: border-box; border: 0; padding: 10px;
+    font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  #orz-toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(20px);
+    z-index: 70; background: #111; color: #fff; padding: 9px 16px; border-radius: 8px;
+    font: 13px system-ui, sans-serif; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+  #orz-toast.show { opacity: .95; transform: translateX(-50%) translateY(0); }
+
+  /* template picker — a popover under the toolbar listing starter templates */
+  #orz-template-menu { position: absolute; left: 10px; right: 10px; top: 46px; z-index: 60;
+    max-height: 70vh; overflow: auto; padding: 8px; border-radius: 10px;
+    background: #23262c; border: 1px solid #3c414a; box-shadow: 0 8px 26px rgba(0,0,0,.4); }
+  #orz-template-menu[hidden] { display: none; }
+  #orz-template-menu .tpl-group { font: 700 10.5px/1 system-ui, sans-serif; text-transform: uppercase;
+    letter-spacing: .06em; color: #7f8896; padding: 8px 8px 4px; }
+  #orz-template-menu .tpl {
+    display: flex; gap: 9px; align-items: flex-start; width: 100%; text-align: left;
+    padding: 8px 9px; border: 0; border-radius: 8px; background: transparent; color: #dfe3ea; cursor: pointer; }
+  #orz-template-menu .tpl:hover { background: #34383f; }
+  #orz-template-menu .tpl .tpl-ic { flex: 0 0 auto; width: 30px; height: 38px; border-radius: 4px;
+    background: #fff; border: 1px solid #c9ccd2; position: relative; overflow: hidden; }
+  #orz-template-menu .tpl .tpl-ic::before { content: ""; position: absolute; left: 4px; right: 4px; top: 4px;
+    height: 7px; border-radius: 2px; background: var(--tpl-accent, #2f6fe0); }
+  #orz-template-menu .tpl .tpl-ic::after { content: ""; position: absolute; left: 4px; right: 4px; top: 15px;
+    bottom: 4px; background:
+      repeating-linear-gradient(#c7ccd4 0 1.5px, transparent 1.5px 5px); }
+  #orz-template-menu .tpl .tpl-meta { min-width: 0; }
+  #orz-template-menu .tpl .tpl-label { display: block; font: 600 13px/1.2 system-ui, sans-serif; }
+  #orz-template-menu .tpl .tpl-desc { display: block; font: 11.5px/1.35 system-ui, sans-serif; color: #98a0ae; margin-top: 2px; }
+
+  /* update banner — shown only in edit view (the editor triggers the check) */
+  .orz-banner { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 80;
+    display: none; align-items: center; gap: 10px; background: #2b2f36; color: #eee;
+    border: 1px solid #444; border-radius: 9px; padding: 9px 14px;
+    font: 13px/1.3 system-ui, sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+  .orz-banner.show { display: flex; }
+  .orz-banner button { font: 500 12.5px system-ui, sans-serif; color: #e6e8ec; background: #3a3f48;
+    border: 1px solid #4a505a; border-radius: 6px; padding: 5px 11px; cursor: pointer; }
+  .orz-banner button.upd-primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+  .orz-banner button:hover { filter: brightness(1.1); }
+</style>
+</head>
+<body>
+<!-- ═══════════ orz · editing this document with an AI agent ═══════════
+  This is a self-contained, EDITABLE orz-paged document (.paged.html). The editable
+  source of truth is the markdown in the embedded source island below (kind: paged,
+  format: 1) — NOT the rendered HTML.
+
+  To edit it correctly, load the official orz-paged agent skill first: it defines
+  the page model (templates, page size, margins, running headers/footers, page
+  breaks) and guarantees a byte-identical round-trip.
+    - Fetch the skill: https://cdn.jsdelivr.net/npm/orz-paged/orz-paged-skills/SKILL.md
+    - Install routes:  https://markdown.orz.how/agents.html
+
+  Rules: edit ONLY the embedded source; re-embed it in place; preserve block IDs.
+═══════════════════════════════════════════════════════════════════ -->
+
+<div id="orz-pages" data-orz-copy></div>
+<div id="orz-divider" title="Drag to resize"></div>
+
+<button id="orz-edit-fab" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
+
+<div id="orz-panel">
+  <div id="orz-toolbar">
+    <a id="orz-brand" href="https://github.com/wangyu16/orz-paged" target="_blank" rel="noopener noreferrer" title="orz-paged on GitHub"><span class="orz-logo"><svg viewBox="-5 -5 180 100" xmlns="http://www.w3.org/2000/svg" class="orz-mark" aria-hidden="true"><defs><filter id="orzlogo-rough" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G"/></filter><path d="M 20,23 C 33,16 57,17 84,13 C 111,8 137,4 153,6 C 165,7 170,13 169,25 L 167,66 C 166,79 159,87 146,89 C 121,93 92,92 60,91 C 41,90 27,92 16,89 C 6,86 1,79 1,67 L 1,50 C 1,35 7,25 20,23 Z" id="orzlogo-seal"/><filter id="orzlogo-stone" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="2" seed="11" result="noise"/><feColorMatrix in="noise" type="saturate" values="0" result="mono"/><feComponentTransfer in="mono" result="grain"><feFuncA type="table" tableValues="0 0.16"/></feComponentTransfer></filter><mask id="orzlogo-mask"><use href="#orzlogo-seal" fill="white"/><path d="M37.81 80.31Q30.44 80.31 24.50 77Q18.56 73.69 15.25 67.75Q11.94 61.81 11.94 54.19L11.94 54.19Q11.94 41.69 21.13 35.56Q30.31 29.44 43.69 29.44L43.69 29.44Q49.81 29.44 55.13 32.44Q60.44 35.44 63.69 41.06Q66.94 46.69 66.94 54.06L66.94 54.06Q66.94 62.06 62.81 68Q58.69 73.94 52 77.13Q45.31 80.31 37.81 80.31L37.81 80.31ZM36.44 73.19Q48.06 73.19 54.06 67.94Q60.06 62.69 60.06 52.56L60.06 52.56Q60.06 45.69 55.38 40.69Q50.69 35.69 42.31 35.69L42.31 35.69Q36.69 35.69 30.94 37.81Q25.19 39.94 21.44 44.19Q17.69 48.44 17.69 54.44L17.69 54.44Q17.69 59.44 20.19 63.75Q22.69 68.06 27 70.63Q31.31 73.19 36.44 73.19L36.44 73.19ZM87.94 80.19Q82.81 70.19 79.88 56.69Q76.94 43.19 76.94 33.31L76.94 33.31Q76.94 29.44 78.69 28.31L78.69 28.31Q79.69 27.69 80.19 27.69L80.19 27.69Q81.06 27.69 81.50 29.06Q81.94 30.44 82.44 34.06L82.44 34.06L83.06 38.56Q84.44 31.81 88.38 27.88Q92.31 23.94 98.06 23.94L98.06 23.94Q104.44 23.94 107.56 26.38Q110.69 28.81 110.69 34.44L110.69 34.44Q104.44 31.44 99.31 31.44L99.31 31.44Q94.44 31.44 90.94 34.06Q87.44 36.69 86.06 41.81L86.06 41.81Q84.94 45.31 84.94 48.44L84.94 48.44Q84.94 51.81 85.88 54.75Q86.81 57.69 88.81 61.94L88.81 61.94Q90.69 66.31 91.75 69.44Q92.81 72.56 92.94 76.19L92.94 76.19Q92.94 78.31 91.44 79.25Q89.94 80.19 87.94 80.19L87.94 80.19ZM160.56 66.19Q163.06 68.06 163.06 70.19L163.06 70.19Q163.06 73.56 157.31 75.81Q151.56 78.06 144.31 79.13Q137.06 80.19 132.81 80.19L132.81 80.19Q128.06 80.19 123.75 78.63Q119.44 77.06 119.44 73.19L119.44 73.19Q119.44 69.44 123.63 63.44Q127.81 57.44 133.69 51.19L133.69 51.19L117.56 51.19Q116.31 51.19 116.31 48.94L116.31 48.94Q116.31 47.19 116.69 46.50Q117.06 45.81 117.69 45.69Q118.31 45.56 120.06 45.56L120.06 45.56L139.31 45.56Q143.94 39.69 146.38 35.50Q148.81 31.31 148.81 27.69L148.81 27.69Q148.81 24.06 146.31 21.19L146.31 21.19Q142.44 20.44 138.81 20.44L138.81 20.44Q131.94 20.44 127.19 22.75Q122.44 25.06 121.94 28.81L121.94 28.81Q119.06 28.81 118.13 27.81Q117.19 26.81 117.19 24.44L117.19 24.44Q117.19 21.94 119.75 19.63Q122.31 17.31 126.94 15.88Q131.56 14.44 137.31 14.44L137.31 14.44Q142.06 14.44 147.31 15.56L147.31 15.56Q150.56 16.19 152.81 19.69Q155.06 23.19 155.06 27.44L155.06 27.44Q155.06 31.19 152.75 35.31Q150.44 39.44 145.94 45.56L145.94 45.56L152.06 45.56Q156.81 45.56 158.38 46.06Q159.94 46.56 159.94 48.06L159.94 48.06Q159.94 49.31 159.13 50.19Q158.31 51.06 157.44 51.06L157.44 51.06L140.19 51.06Q134.06 57.94 130.81 63.25Q127.56 68.56 128.19 70.81L128.19 70.81Q128.69 73.19 135.94 74.06L135.94 74.06Q144.06 74.06 149.69 72.13Q155.31 70.19 160.56 66.19L160.56 66.19Z" fill="black" stroke="black" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></mask></defs><g filter="url(#orzlogo-rough)"><use href="#orzlogo-seal" fill="#96d969" mask="url(#orzlogo-mask)"/><use href="#orzlogo-seal" fill="#6ea84d" opacity="0.28" filter="url(#orzlogo-stone)" mask="url(#orzlogo-mask)"/><use href="#orzlogo-seal" fill="none" stroke="#c8f7a5" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" stroke-opacity="0.42" mask="url(#orzlogo-mask)"/><use href="#orzlogo-seal" fill="none" stroke="#5f8f44" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" stroke-opacity="0.35" mask="url(#orzlogo-mask)"/></g></svg></span><span class="orz-brand-name">paged</span><span class="orz-gh"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></span></a>
+    <span class="orz-sep"></span>
+    <button id="orz-save" class="ic primary" title="Save (Ctrl/Cmd+S)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg></button>
+    <button id="orz-export" class="ic" title="Export PDF (print)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg></button>
+    <button id="orz-template" class="ic" title="Start from a template"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></button>
+    <span class="orz-spacer"></span>
+    <button id="orz-sync" class="ic" title="Sync scrolling on/off" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+    <span id="orz-dyn"></span>
+    <select id="orz-theme" title="Theme"><option value="beige-decent-1">beige-decent-1</option><option value="beige-decent-2">beige-decent-2</option><option value="light-academic-1">light-academic-1</option><option value="light-academic-2">light-academic-2</option><option value="light-neat-1">light-neat-1</option><option value="light-neat-2">light-neat-2</option><option value="light-neat-3">light-neat-3</option></select>
+  </div>
+  <div id="orz-template-menu" hidden></div>
+  <button id="orz-close" title="Close editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+  <div id="orz-editor-host"><textarea id="orz-ta" spellcheck="false"></textarea></div>
+  <div id="orz-foot">© <a href="https://markdown.orz.how" target="_blank" rel="noopener noreferrer">orz-markdown</a></div>
+</div>
+
+<div id="orz-update" class="orz-banner">
+  <span class="upd-text"></span>
+  <button id="orz-upd-apply" class="upd-primary">Update</button>
+  <button id="orz-upd-dismiss">Dismiss</button>
+</div>
+
+<div id="orz-toast"></div>
+
+<script type="text/markdown" id="orz-src">
+{{nyml
+kind: document
+template: letter
+}}
+
+{{nyml
+kind: letterhead
+organization: Your Organization
+address: |
+  123 Main Street, Suite 400
+  Springfield, ST 00000
+email: hello@your-organization.example
+phone: (555) 123-4567
+}}
+
+June 29, 2026
+
+{{nyml
+kind: letter-inside-address
+to: Recipient Name
+organization: Recipient Organization
+address: |
+  456 Market Avenue
+  Metropolis, ST 11111
+}}
+
+Dear Recipient Name,
+
+I am writing to introduce Your Organization and to propose a brief conversation
+about how we might work together. Open this paragraph by stating your purpose
+clearly and giving the reader a reason to keep reading.
+
+Use the middle of the letter to provide the supporting details. Explain the
+background, outline what you are asking for, and note any relevant dates or
+deliverables. Keep each point concise so the entire letter fits comfortably on a
+single page.
+
+Close by stating the specific next step you would like the reader to take and
+how best to reach you. Thank you for your time and consideration; I look forward
+to your reply.
+
+{{nyml
+kind: letter-signature
+from: Your Name
+closing: Sincerely
+title: Your Title
+}}
+
+</script>
+
+<script data-orz-asset="engine" src="https://cdn.jsdelivr.net/npm/orz-paged-browser@0.7.3/orz-paged.browser.js"></script>
+<script>
+(function (global) {
+  var expandedQr = null;
+  var expandedSourceQr = null;
+
+  function collapseQr() {
+    if (!expandedQr) return;
+
+    if (expandedSourceQr) {
+      expandedSourceQr.classList.remove('is-expanded');
+      expandedSourceQr.setAttribute('aria-expanded', 'false');
+    }
+
+    if (expandedQr.parentNode) {
+      expandedQr.parentNode.removeChild(expandedQr);
+    }
+
+    if (global.document && global.document.body) {
+      global.document.body.style.overflow = '';
+    }
+    expandedQr = null;
+    expandedSourceQr = null;
+  }
+
+  function toggleQr(node) {
+    if (expandedSourceQr === node) {
+      collapseQr();
+      return;
+    }
+
+    collapseQr();
+    if (!global.document || !global.document.body) {
+      return;
+    }
+
+    expandedSourceQr = node;
+    expandedSourceQr.classList.add('is-expanded');
+    expandedSourceQr.setAttribute('aria-expanded', 'true');
+
+    expandedQr = node.cloneNode(true);
+    expandedQr.classList.add('qrcode-overlay', 'is-expanded');
+    expandedQr.setAttribute('aria-hidden', 'true');
+    expandedQr.removeAttribute('aria-expanded');
+    expandedQr.removeAttribute('tabindex');
+    expandedQr.removeAttribute('role');
+    expandedQr.addEventListener('click', function (event) {
+      event.stopPropagation();
+      collapseQr();
+    });
+
+    global.document.body.appendChild(expandedQr);
+
+    if (global.document && global.document.body) {
+      global.document.body.style.overflow = 'hidden';
+    }
+  }
+
+  function initQrCodes(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') return;
+
+    Array.prototype.slice.call(root.querySelectorAll('.qrcode')).forEach(function (node) {
+      if (node.getAttribute('data-qr-ready') === '1') return;
+
+      node.setAttribute('data-qr-ready', '1');
+      node.addEventListener('click', function (event) {
+        event.stopPropagation();
+        toggleQr(node);
+      });
+      node.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleQr(node);
+        }
+        if (event.key === 'Escape') {
+          collapseQr();
+        }
+      });
+    });
+  }
+
+  function initTabs(root) {
+    if (!root || typeof root.querySelectorAll !== 'function') return;
+    Array.prototype.slice.call(root.querySelectorAll('.tabs')).forEach(function (tabs) {
+      // data-js both guards re-init and switches the theme CSS from the no-JS
+      // fallback (all panels shown) to JS mode (only the .active panel shown).
+      if (tabs.getAttribute('data-js') === '1') return;
+      var panels = Array.prototype.slice.call(tabs.querySelectorAll(':scope > .tab'));
+      if (!panels.length) return;
+      tabs.setAttribute('data-js', '1');
+
+      var bar = global.document.createElement('div');
+      bar.className = 'tabs-bar';
+      panels.forEach(function (panel, i) {
+        var label = panel.getAttribute('data-label') || 'Tab ' + (i + 1);
+        var btn = global.document.createElement('button');
+        btn.className = 'tabs-bar-btn' + (i === 0 ? ' active' : '');
+        btn.textContent = label;
+        btn.addEventListener('click', function () {
+          Array.prototype.slice.call(tabs.querySelectorAll('.tabs-bar-btn')).forEach(function (b) { b.classList.remove('active'); });
+          panels.forEach(function (p) { p.classList.remove('active'); });
+          btn.classList.add('active');
+          panel.classList.add('active');
+        });
+        bar.appendChild(btn);
+      });
+      tabs.insertBefore(bar, tabs.firstChild);
+      panels[0].classList.add('active');
+    });
+  }
+
+  function init(root) {
+    var r = root || global.document;
+    initQrCodes(r);
+    initTabs(r);
+  }
+
+  // ---- copy-as-markdown: DOM -> Markdown walker ---------------------------
+  // Converts a selected DOM fragment back to Markdown so that copying rendered
+  // content yields source, not HTML. Standard constructs are reconstructed from
+  // their tags; generated constructs (math, mermaid, smiles, qr, youtube, chart) carry
+  // a [data-md] breadcrumb that is emitted verbatim. Written without template
+  // literals/backticks because this whole file is a String.raw template.
+  var BT = String.fromCharCode(96);
+  var FENCE = BT + BT + BT;
+
+  function rt_repeat(s, n) {
+    var out = '';
+    for (var i = 0; i < n; i++) out += s;
+    return out;
+  }
+
+  function rt_attr(node, name) {
+    return node && node.getAttribute ? node.getAttribute(name) : null;
+  }
+
+  function rt_isBlockElement(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (rt_attr(node, 'data-md') != null) return true;
+    var tag = node.tagName.toLowerCase();
+    if (/^(p|div|section|article|figure|h[1-6]|ul|ol|li|blockquote|pre|table|thead|tbody|tr|hr|details)$/.test(tag)) return true;
+    if (node.classList && (node.classList.contains('katex-display') || node.classList.contains('mermaid'))) return true;
+    return false;
+  }
+
+  function rt_katex(node, display) {
+    var ann = node.querySelector ? node.querySelector('annotation[encoding="application/x-tex"]') : null;
+    var tex = (ann ? ann.textContent : node.textContent) || '';
+    tex = tex.replace(/^\s+|\s+$/g, '');
+    if (display) return '$$\n' + tex + '\n$$';
+    return '$' + tex + '$';
+  }
+
+  function rt_img(node) {
+    var alt = rt_attr(node, 'alt') || '';
+    var src = rt_attr(node, 'src') || '';
+    var title = rt_attr(node, 'title');
+    return '![' + alt + '](' + src + (title ? ' "' + title + '"' : '') + ')';
+  }
+
+  function rt_inlineChildren(node) {
+    var out = '';
+    var kids = node.childNodes;
+    for (var i = 0; i < kids.length; i++) out += rt_inlineNode(kids[i]);
+    return out;
+  }
+
+  function rt_inlineNode(node) {
+    if (node.nodeType === 3) return node.nodeValue.replace(/\s+/g, ' ');
+    if (node.nodeType !== 1) return '';
+    var dm = rt_attr(node, 'data-md');
+    if (dm != null) return dm;
+    if (node.classList && node.classList.contains('katex')) return rt_katex(node, false);
+    var tag = node.tagName.toLowerCase();
+    switch (tag) {
+      case 'strong': case 'b': return '**' + rt_inlineChildren(node) + '**';
+      case 'em': case 'i': return '*' + rt_inlineChildren(node) + '*';
+      case 'code': return BT + (node.textContent || '') + BT;
+      case 'a':
+        var href = rt_attr(node, 'href') || '';
+        var title = rt_attr(node, 'title');
+        return '[' + rt_inlineChildren(node) + '](' + href + (title ? ' "' + title + '"' : '') + ')';
+      case 'del': case 's': return '~~' + rt_inlineChildren(node) + '~~';
+      case 'ins': return '++' + rt_inlineChildren(node) + '++';
+      case 'mark': return '==' + rt_inlineChildren(node) + '==';
+      case 'sub': return '~' + rt_inlineChildren(node) + '~';
+      case 'sup': return '^' + rt_inlineChildren(node) + '^';
+      case 'br': return '  \n';
+      case 'img': return rt_img(node);
+      case 'input': return '';
+      case 'span':
+        var spCls = (rt_attr(node, 'class') || '').trim();
+        return spCls ? '{{sp[' + spCls + '] ' + rt_inlineChildren(node) + '}}' : rt_inlineChildren(node);
+      default: return rt_inlineChildren(node);
+    }
+  }
+
+  function rt_align(cell) {
+    var style = (rt_attr(cell, 'style') || '').toLowerCase();
+    if (style.indexOf('center') !== -1) return 'center';
+    if (style.indexOf('right') !== -1) return 'right';
+    if (style.indexOf('left') !== -1) return 'left';
+    return '';
+  }
+
+  function rt_sep(align) {
+    if (align === 'center') return ':---:';
+    if (align === 'right') return '---:';
+    if (align === 'left') return ':---';
+    return '---';
+  }
+
+  function rt_tableRows(headRow, bodyRows) {
+    var rows = [];
+    var header = [];
+    var aligns = [];
+    if (headRow) {
+      var hc = headRow.children;
+      for (var i = 0; i < hc.length; i++) { header.push(rt_inlineChildren(hc[i]).trim()); aligns.push(rt_align(hc[i])); }
+    }
+    rows.push('| ' + header.join(' | ') + ' |');
+    var seps = [];
+    for (var s = 0; s < header.length; s++) seps.push(rt_sep(aligns[s]));
+    rows.push('| ' + seps.join(' | ') + ' |');
+    for (var r = 0; r < bodyRows.length; r++) {
+      var cells = [];
+      var tds = bodyRows[r].children;
+      for (var c = 0; c < tds.length; c++) cells.push(rt_inlineChildren(tds[c]).trim());
+      rows.push('| ' + cells.join(' | ') + ' |');
+    }
+    return rows.join('\n');
+  }
+
+  function rt_table(tbl) {
+    var headRow = tbl.querySelector ? tbl.querySelector('thead tr') : null;
+    var bodyRows = tbl.querySelectorAll ? tbl.querySelectorAll('tbody tr') : [];
+    return rt_tableRows(headRow, bodyRows);
+  }
+
+  // Reconstruct a table from bare table-internal nodes (thead/tbody/tr), e.g.
+  // when a selection inside a table loses its <table> wrapper.
+  function rt_tableFromParts(parts) {
+    var headRow = null;
+    var bodyRows = [];
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var tag = p.tagName.toLowerCase();
+      if (tag === 'thead') { var tr = p.querySelector ? p.querySelector('tr') : null; if (tr && !headRow) headRow = tr; }
+      else if (tag === 'tbody') { var trs = p.querySelectorAll ? p.querySelectorAll('tr') : []; for (var j = 0; j < trs.length; j++) bodyRows.push(trs[j]); }
+      else if (tag === 'tr') { if (!headRow) headRow = p; else bodyRows.push(p); }
+    }
+    return rt_tableRows(headRow, bodyRows);
+  }
+
+  function rt_codeBlock(pre) {
+    var code = pre.querySelector ? (pre.querySelector('code') || pre) : pre;
+    var lang = '';
+    var cls = rt_attr(code, 'class') || '';
+    var m = cls.match(/language-([A-Za-z0-9_+#-]+)/);
+    if (m) lang = m[1];
+    var text = (code.textContent || '').replace(/\n$/, '');
+    return FENCE + lang + '\n' + text + '\n' + FENCE;
+  }
+
+  function rt_list(node, ordered, depth) {
+    var items = [];
+    var idx = 1;
+    var kids = node.childNodes;
+    for (var i = 0; i < kids.length; i++) {
+      var li = kids[i];
+      if (li.nodeType !== 1 || li.tagName.toLowerCase() !== 'li') continue;
+      items.push(rt_listItem(li, ordered, idx, depth));
+      idx++;
+    }
+    return items.join('\n');
+  }
+
+  function rt_listItem(li, ordered, idx, depth) {
+    var indent = rt_repeat('  ', depth);
+    var marker = ordered ? (idx + '. ') : '- ';
+    var task = '';
+    var cb = li.querySelector ? li.querySelector('input[type="checkbox"]') : null;
+    if (cb) task = (cb.checked || rt_attr(cb, 'checked') != null) ? '[x] ' : '[ ] ';
+    var inlineParts = '';
+    var nested = '';
+    var kids = li.childNodes;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (c.nodeType === 1 && /^(ul|ol)$/.test(c.tagName.toLowerCase())) {
+        nested += '\n' + rt_list(c, c.tagName.toLowerCase() === 'ol', depth + 1);
+      } else {
+        inlineParts += rt_inlineNode(c);
+      }
+    }
+    inlineParts = inlineParts.replace(/\s+/g, ' ').trim();
+    return indent + marker + task + inlineParts + nested;
+  }
+
+  function rt_blockquote(node) {
+    var inner = rt_blockChildren(node);
+    var lines = inner.split('\n');
+    var out = [];
+    for (var i = 0; i < lines.length; i++) out.push(lines[i] ? '> ' + lines[i] : '>');
+    return out.join('\n');
+  }
+
+  function rt_blockChildren(node) {
+    var parts = [];
+    var kids = node.childNodes;
+    var i = 0;
+    while (i < kids.length) {
+      var k = kids[i];
+      // A selection can contain bare <li> elements (when the user selects a
+      // list's contents rather than the <ul>/<ol> wrapper). Group a run of them
+      // into a bullet list instead of emitting each as a separate block.
+      if (k.nodeType === 1 && k.tagName.toLowerCase() === 'li') {
+        var lis = [];
+        while (i < kids.length) {
+          var kk = kids[i];
+          if (kk.nodeType === 1 && kk.tagName.toLowerCase() === 'li') { lis.push(kk); i++; }
+          else if (kk.nodeType === 3 && !(kk.nodeValue || '').trim()) { i++; }
+          else break;
+        }
+        var items = [];
+        for (var j = 0; j < lis.length; j++) items.push(rt_listItem(lis[j], false, j + 1, 0));
+        parts.push(items.join('\n'));
+        continue;
+      }
+      // Bare table-internal nodes (selection inside a table that lost its
+      // <table> wrapper) — reconstruct a Markdown table.
+      if (k.nodeType === 1 && /^(thead|tbody|tr)$/.test(k.tagName.toLowerCase())) {
+        var trows = [];
+        while (i < kids.length) {
+          var tk = kids[i];
+          if (tk.nodeType === 1 && /^(thead|tbody|tr)$/.test(tk.tagName.toLowerCase())) { trows.push(tk); i++; }
+          else if (tk.nodeType === 3 && !(tk.nodeValue || '').trim()) { i++; }
+          else break;
+        }
+        parts.push(rt_tableFromParts(trows));
+        continue;
+      }
+      var s = rt_blockNode(k);
+      if (s && s.replace(/\s/g, '') !== '') parts.push(s.replace(/\s+$/, ''));
+      i++;
+    }
+    return parts.join('\n\n');
+  }
+
+  var rt_containerNames = ['info', 'success', 'warning', 'danger', 'left', 'right', 'center', 'cols', 'col', 'tabs', 'tab'];
+  // A markdown-it-container div.name (or details.spoil) -> its ::: name
+  // directive name, or null if the node is not a container.
+  function rt_containerName(node) {
+    if (node.nodeType !== 1 || !node.classList) return null;
+    var tag = node.tagName.toLowerCase();
+    if (tag === 'details' && node.classList.contains('spoil')) {
+      var sum = node.querySelector ? node.querySelector('summary') : null;
+      var title = sum ? (sum.textContent || '').trim() : '';
+      return title ? 'spoil ' + title : 'spoil';
+    }
+    if (tag !== 'div') return null;
+    for (var i = 0; i < rt_containerNames.length; i++) {
+      var n = rt_containerNames[i];
+      if (node.classList.contains(n)) {
+        if (n === 'tab') { var lbl = rt_attr(node, 'data-label'); return lbl ? 'tab ' + lbl : 'tab'; }
+        return n;
+      }
+    }
+    return null;
+  }
+  // Emit a ::: name ... ::: block, using a fence longer than any inner fence so
+  // nested containers (cols > col, tabs > tab) re-parse correctly.
+  function rt_containerMd(node, name) {
+    var parts = [];
+    var kids = node.childNodes;
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i];
+      if (k.nodeType === 1) {
+        var ktag = k.tagName.toLowerCase();
+        if (ktag === 'summary') continue; // spoil title, captured in the name
+        if (k.classList && k.classList.contains('tabs-bar')) continue; // JS-injected tab buttons
+      }
+      var m = rt_blockNode(k);
+      if (m && m.trim()) parts.push(m.trim());
+    }
+    var inner = parts.join('\n\n');
+    var maxFence = 2;
+    var lines = inner.split('\n');
+    for (var j = 0; j < lines.length; j++) {
+      var mm = lines[j].match(/^(:{3,})/);
+      if (mm && mm[1].length > maxFence) maxFence = mm[1].length;
+    }
+    var fence = rt_repeat(':', Math.max(3, maxFence + 1));
+    return fence + ' ' + name + '\n' + inner + '\n' + fence;
+  }
+
+  function rt_blockNode(node) {
+    if (node.nodeType === 3) {
+      var t = node.nodeValue;
+      return (t && t.trim()) ? t.replace(/\s+/g, ' ').trim() : '';
+    }
+    if (node.nodeType !== 1) return '';
+    var dm = rt_attr(node, 'data-md');
+    if (dm != null) return dm;
+    if (node.classList) {
+      // Display math: the katex-display span OR its katex-block <p> wrapper.
+      // Without this the wrapper is walked as a paragraph and the inner katex is
+      // emitted as inline math instead of a block equation.
+      if (node.classList.contains('katex-display') || node.classList.contains('katex-block')) {
+        var k = node.querySelector ? node.querySelector('.katex') : null;
+        return rt_katex(k || node, true);
+      }
+      if (node.classList.contains('mermaid')) return '{{mermaid\n' + (node.textContent || '').trim() + '\n}}';
+    }
+    var tag = node.tagName.toLowerCase();
+    var hm = tag.match(/^h([1-6])$/);
+    if (hm) return rt_repeat('#', parseInt(hm[1], 10)) + ' ' + rt_inlineChildren(node).trim();
+    switch (tag) {
+      case 'p': return rt_inlineChildren(node).trim();
+      case 'ul': return rt_list(node, false, 0);
+      case 'ol': return rt_list(node, true, 0);
+      case 'pre': return rt_codeBlock(node);
+      case 'blockquote': return rt_blockquote(node);
+      case 'table': return rt_table(node);
+      case 'hr': return '---';
+      case 'li': return rt_inlineChildren(node).trim();
+      case 'figure': case 'div': case 'section': case 'article': case 'details': case 'summary':
+        var cn = rt_containerName(node);
+        if (cn) return rt_containerMd(node, cn);
+        return rt_blockChildren(node);
+      default: return rt_inlineNode(node).trim();
+    }
+  }
+
+  function elementToMarkdown(root) {
+    if (!root) return '';
+    var hasBlock = false;
+    var kids = root.childNodes || [];
+    for (var i = 0; i < kids.length; i++) {
+      if (rt_isBlockElement(kids[i])) { hasBlock = true; break; }
+    }
+    var out = hasBlock ? rt_blockChildren(root) : rt_inlineChildren(root);
+    return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/^\s+|\s+$/g, '');
+  }
+
+  function rt_isEditable(node) {
+    while (node) {
+      if (node.nodeType === 1) {
+        var tag = node.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea') return true;
+        if (node.isContentEditable) return true;
+      }
+      node = node.parentNode;
+    }
+    return false;
+  }
+
+  function rt_isCopyRoot(node) {
+    return node.nodeType === 1 && node.classList &&
+      (node.classList.contains('markdown-body') || rt_attr(node, 'data-orz-copy') != null);
+  }
+  function rt_withinCopyRoot(node) {
+    while (node) {
+      if (rt_isCopyRoot(node)) return true;
+      node = node.parentNode;
+    }
+    return false;
+  }
+
+  // When a selection sits entirely within one table/blockquote/pre — or inside a
+  // ::: container — copy that whole block, so the wrapper is included (a partial
+  // table/quote fragment isn't valid Markdown, and a copied container should keep
+  // its ::: fence). Browsers often clone such selections without the wrapper.
+  // Tables/quotes/code don't nest, so the innermost wins; containers DO nest
+  // (cols > col, tabs > tab), so promote to the OUTERMOST one.
+  function rt_promotableBlock(node) {
+    var container = null;
+    while (node && !rt_isCopyRoot(node)) {
+      if (node.nodeType === 1) {
+        var tag = node.tagName.toLowerCase();
+        if (tag === 'table' || tag === 'blockquote' || tag === 'pre') return node;
+        // A selection inside a display equation copies the whole block equation;
+        // a partial KaTeX fragment is not valid Markdown.
+        if (node.classList &&
+            (node.classList.contains('katex-block') || node.classList.contains('katex-display'))) return node;
+        if (rt_containerName(node)) container = node;
+      }
+      node = node.parentNode;
+    }
+    return container;
+  }
+
+  function onCopy(event) {
+    if (!global.document) return;
+    var sel = global.getSelection ? global.getSelection()
+      : (global.document.getSelection ? global.document.getSelection() : null);
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    if (rt_isEditable(sel.anchorNode) || rt_isEditable(sel.focusNode)) return;
+    if (!rt_withinCopyRoot(sel.anchorNode) && !rt_withinCopyRoot(sel.focusNode)) return;
+
+    var md;
+    var range0 = sel.getRangeAt(0);
+    var common = range0.commonAncestorContainer;
+    var promoted = rt_promotableBlock(common.nodeType === 1 ? common : common.parentNode);
+    if (promoted && sel.rangeCount === 1) {
+      var pwrap = global.document.createElement('div');
+      pwrap.appendChild(promoted.cloneNode(true));
+      md = elementToMarkdown(pwrap);
+    } else {
+      var container = global.document.createElement('div');
+      for (var i = 0; i < sel.rangeCount; i++) container.appendChild(sel.getRangeAt(i).cloneContents());
+      md = elementToMarkdown(container);
+    }
+    if (!md) return;
+    var cd = event.clipboardData || global.clipboardData;
+    if (cd && cd.setData) {
+      cd.setData('text/plain', md);
+      if (event.preventDefault) event.preventDefault();
+    }
+  }
+
+  function bindGlobalHandlers() {
+    if (!global.document || global.__orzMarkdownRuntimeBound) return;
+    global.__orzMarkdownRuntimeBound = true;
+
+    global.document.addEventListener('click', function (event) {
+      if (expandedQr && !expandedQr.contains(event.target)) {
+        collapseQr();
+      }
+    });
+
+    global.document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        collapseQr();
+      }
+    });
+
+    // Copy rendered selections as Markdown source.
+    global.document.addEventListener('copy', onCopy);
+  }
+
+  global.OrzMarkdownRuntime = Object.assign({}, global.OrzMarkdownRuntime, {
+    init: init,
+    initQrCodes: initQrCodes,
+    initTabs: initTabs,
+    collapseQr: collapseQr,
+    elementToMarkdown: elementToMarkdown,
+  });
+
+  bindGlobalHandlers();
+
+  if (global.document) {
+    if (global.document.readyState === 'loading') {
+      global.document.addEventListener('DOMContentLoaded', function () {
+        init(global.document);
+      }, { once: true });
+    } else {
+      init(global.document);
+    }
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : window);
+</script>
+<script data-orz-asset="config">window.__ORZ_PAGED__ = {"mode":"cdn","katexCss":"https://cdn.jsdelivr.net/npm/katex@0.16.35/dist/katex.min.css","hljsCss":"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css","enhancers":{"mermaidJs":"https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js","smilesJs":"https://unpkg.com/smiles-drawer@1.0.10/dist/smiles-drawer.min.js","chartJs":"https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js","hljsJs":"https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"},"version":"0.7.3","templates":[{"id":"article-page","label":"Article — title page","description":"Academic paper with a dedicated title page, then abstract + body.","group":"Article","skeleton":"{{nyml\nkind: document\ntemplate: article-page\nfront_matter: clean\n}}\n\n{{nyml\nkind: article-title\ntitle: Your Article Title\nsubtitle: A Concise, Descriptive Subtitle\nauthors: |\n  First Author | 1,* | first.author@example.edu | 0000-0002-1825-0097\n  Second Author | 2 | second.author@example.org\n  Third Author | 1,2\naffiliations: |\n  1: Department of Example, University of Example\n  2: Institute of Example, Example City\nnotes: |\n  *: Corresponding author\ndate: Month Year\nplacement: page\n}}\n\n{{nyml\nkind: abstract\ntext: Briefly state the problem, what you did, and what you found. Summarize your main contribution in one or two sentences. Close with the significance of the result for the field.\nkeywords: keyword one, keyword two, keyword three\nplacement: page\n}}\n\n## Introduction\n\nOpen with the context and motivation for your work. State the gap your study\naddresses and the question you set out to answer. End the section with a short\nstatement of your contribution and an outline of what follows.\n\n## Methods\n\nDescribe your approach so that a reader could reproduce it. Summarize the key\nparameters of your setup in a compact table:\n\n| Parameter | Symbol | Value |\n|---|---|---|\n| Sample size | $n$ | 120 |\n| Trials per group | $k$ | 5 |\n| Significance level | $\\alpha$ | 0.05 |\n\nQuantities are reported with their uncertainties, and the mass–energy relation\n$E = mc^2$ is used where relevant. The core model is given by\n\n$$\n\\hat{y} = \\beta_0 + \\sum_{i=1}^{n} \\beta_i x_i + \\varepsilon\n$$\n\nwhere the residual term $\\varepsilon$ is assumed normally distributed.\n\n## Results\n\n- The primary measure improved by 18% over the baseline.\n- The effect held across all three experimental groups.\n- Results were statistically significant ($p < 0.05$).\n\n## Conclusion\n\nRestate the main finding, note its limitations, and point to one direction for\nfuture work.\n\n## References\n\n1. Author Name. *Title of the First Reference.* Journal Name, Year, pp. 1–10.\n2. Author Name. *Title of the Second Reference.* Publisher, Year.\n"},{"id":"article-section","label":"Article — title section","description":"Academic paper with an inline title block above the body.","group":"Article","skeleton":"{{nyml\nkind: document\ntemplate: article-section\n}}\n\n{{nyml\nkind: article-title\ntitle: Your Article Title Goes Here\nsubtitle: A short, descriptive subtitle for your paper\nauthors: |\n  First Author | 1,* | first.author@example.edu | 0000-0002-1825-0097\n  Second Author | 2\naffiliations: |\n  1: Department of Example, University of Example\n  2: Institute of Example, Example City\nnotes: |\n  *: Corresponding author\ndate: June 2026\nplacement: section\n}}\n\n{{nyml\nkind: abstract\ntext: |\n  Summarize your work in two or three sentences. State the problem you\n  address, the approach you took, and the headline result a reader should\n  remember. Keep it self-contained so it makes sense without the body.\nkeywords: keyword one, keyword two, keyword three\n}}\n\n## Introduction\n\nOpen with the context and motivation for your work. Describe the gap or open\nquestion your study addresses, and end the section by stating your contribution\nin one or two clear sentences. Replace this placeholder text with your own.\n\nYou can cite prior work informally here and expand on it in the References\nsection below. Aim for a paragraph or two that orients the reader before the\nmethods.\n\n## Methods\n\nDescribe your approach so that it could be reproduced. Inline math renders with\nsingle dollar signs — for example, the sample size $n = 120$ and a significance\nthreshold of $\\alpha = 0.05$.\n\nThe table below is a placeholder; replace the rows with your own conditions.\n\n| Condition | Parameter | Value |\n|-----------|-----------|-------|\n| Baseline  | rate      | 0.10  |\n| Treatment | rate      | 0.42  |\n| Control   | rate      | 0.09  |\n\nDisplay equations use double dollar signs and are centered on their own line:\n\n$$\n\\bar{x} = \\frac{1}{n} \\sum_{i=1}^{n} x_i\n$$\n\nExplain each symbol in the surrounding text so the equation is self-explanatory.\n\n## Results\n\nSummarize your findings as a short list, then expand on the most important ones\nin prose if needed.\n\n- The treatment condition outperformed the baseline by a wide margin.\n- The effect held across all three replicates.\n- No significant difference was observed between the control and baseline.\n\n## Conclusion\n\nRestate your main finding and its significance in plain language. Note the key\nlimitations of the study and suggest one or two concrete directions for future\nwork. Close with a sentence that leaves the reader with your central takeaway.\n\n## References\n\n1. Author, A. B., & Author, C. D. (Year). *Title of the first referenced work.*\n   Journal or Publisher, volume(issue), pages.\n2. Author, E. F. (Year). *Title of the second referenced work.* Journal or\n   Publisher, volume(issue), pages.\n"},{"id":"report-page","label":"Report — title page","description":"Business/technical report with a cover page, TOC, then body.","group":"Report","skeleton":"{{nyml\nkind: document\ntemplate: report-page\nheader_center: Report Title\nfooter_left: Confidential\npage_number_position: footer-right\npage_number_style: page-n-of-N\nfront_matter: clean\n}}\n\n{{nyml\nkind: report-title\ntitle: Report Title\nsubtitle: A short, descriptive subtitle\nauthor: Team / Author\ndate: Q3 2026\nplacement: page\n}}\n\n{{nyml\nkind: toc\ntitle: Contents\nmax_level: 2\nplacement: page\n}}\n\n## Executive Summary\n\nThis report summarizes the key findings and recommendations for the quarter. In\none or two sentences, state the headline outcome and the decision you are asking\nthe reader to make. Replace this paragraph with a concise overview that a busy\nstakeholder can read in under a minute.\n\n## Background\n\nDescribe the context and why this work was undertaken. Reference the original\ngoal, the time period covered, and any prior reports this one builds on. Keep it\nbrief — enough for a new reader to understand the rest of the document without\nprior knowledge.\n\n## Findings\n\nThe data below summarizes performance against the targets set at the start of\nthe period.\n\n| Metric          | Target | Actual | Status      |\n|-----------------|--------|--------|-------------|\n| Revenue         | $1.2M  | $1.35M | On track    |\n| New customers   | 250    | 218    | Below plan  |\n| Churn rate      | 4.0%   | 3.2%   | Ahead       |\n| Support tickets | 1,000  | 1,140  | Watch       |\n\nOverall results were mixed: revenue and retention exceeded expectations, while\nnew-customer acquisition fell short of plan. Summarize the most important\ntakeaway in a sentence here.\n\n::: page-break\n:::\n\n## Recommendations\n\nBased on the findings above, we recommend the following actions:\n\n1. Increase top-of-funnel marketing spend to close the new-customer gap.\n2. Invest in support tooling to absorb rising ticket volume without adding cost.\n3. Maintain the retention initiatives that drove the lower churn rate.\n\n## Next Steps\n\n- Assign an owner and a due date to each recommendation.\n- Review progress at the next quarterly checkpoint.\n- Circulate this report to stakeholders for feedback by end of week.\n"},{"id":"report-section","label":"Report — title section","description":"Business/technical report with an inline title block.","group":"Report","skeleton":"{{nyml\nkind: document\ntemplate: report-section\nheader_center: Report Title\npage_number_position: footer-right\npage_number_style: page-n-of-N\n}}\n\n{{nyml\nkind: report-title\ntitle: Report Title\nsubtitle: A Short, Descriptive Subtitle\nauthor: Author Name, Team or Department\ndate: Month Year\nplacement: section\n}}\n\n{{nyml\nkind: toc\ntitle: Contents\nmax_level: 2\n}}\n\n## Executive Summary\n\nSummarize the report in a few sentences for a reader who will not go further.\nState the purpose of the work, the most important finding, and the single action\nyou are recommending. Keep this to a short paragraph that a busy decision-maker\ncan absorb at a glance.\n\nThis section should make sense on its own. Lead with the conclusion, then let the\nrest of the report supply the supporting detail.\n\n## Background\n\nExplain the context that prompted this report. Describe the situation, the problem\nor opportunity, and why it matters now. Note any relevant history, prior decisions,\nor constraints that shape the analysis.\n\nState the scope clearly: what this report covers and, where useful, what it\ndeliberately leaves out. Briefly describe how the information was gathered (for\nexample, interviews, system metrics, or a review of existing documents).\n\n## Findings\n\nThe analysis surfaced the following key results. Each finding is stated with its\nobserved impact and current status.\n\n| # | Finding | Impact | Status |\n|---|---------|--------|--------|\n| 1 | Describe the first observation here. | High | Confirmed |\n| 2 | Describe the second observation here. | Medium | Confirmed |\n| 3 | Describe the third observation here. | Low | Needs review |\n\nAdd a sentence or two of interpretation after the table. Point out any patterns\nthat connect the findings, and flag anything that contradicts an initial\nassumption.\n\n## Recommendations\n\nBased on the findings above, we recommend the following actions, listed in\npriority order:\n\n1. **Recommendation one.** State the action and the outcome it is meant to\n   achieve. Name the owner if one is known.\n2. **Recommendation two.** Describe the change and the effort it requires.\n3. **Recommendation three.** Note any dependency on an earlier recommendation.\n\nEach recommendation should trace back to at least one finding so the reasoning is\neasy to follow.\n\n## Next Steps\n\nOutline how to move from recommendations to action over the coming weeks.\n\n- **This week:** Confirm priorities and assign an owner to each recommendation.\n- **This month:** Begin the highest-priority work and define success measures.\n- **Next quarter:** Review progress against the measures and adjust the plan.\n\nClose by naming a point of contact and the date of the next review.\n"},{"id":"exam-page","label":"Exam — cover page","description":"Exam with a cover/instructions page, then numbered questions.","group":"Exam","skeleton":"{{nyml\nkind: document\ntemplate: exam-page\npage_number_position: footer-center\npage_number_style: page-n-of-N\ndynamic_choices: |\n  answer-key: hide\n}}\n\n<!-- One source, two printouts: this is the student copy (answer-key: hide).\n     Switch to `answer-key: show` here — or use the editor's answer-key toggle —\n     to reveal the ✓ marks and model answers for the instructor key. -->\n\n\n{{nyml\nkind: exam-title\ntitle: Course Name — Exam 1\nsubtitle: Fall Term, October Date\nauthor: Instructor Name\nduration: 60 minutes\ntotal_points: 100 points\nstudent_fields: |\n  Name | Student ID | Score / 100\ninstructions: |\n  **Instructions.** Read each question carefully before answering.\n\n  - Answer all questions. Multiple-choice questions are worth 5 points each; open-response questions are worth the points indicated.\n  - For multiple-choice questions, circle the single best answer.\n  - For open-response questions, write your answer in the space provided. Show all work; partial credit is awarded for correct reasoning.\n  - No calculators, notes, or electronic devices are permitted unless otherwise stated. Do not turn the page until instructed.\nplacement: page\n}}\n\n{{nyml\nkind: question-mc\nn: 1\npts: 5 pts\nbody: Which of the following best describes the primary concept introduced in this unit?\noptions: |\n  A. The first plausible-sounding option.\n  B. The correct option that states the concept accurately.\n  C. A close but subtly incorrect option.\n  D. An option that is clearly unrelated.\nanswer: B\n}}\n\n{{nyml\nkind: question-mc\nn: 2\npts: 5 pts\nbody: Given the scenario above, what is the most likely outcome?\noptions: |\n  A. An outcome that contradicts the principle.\n  B. An outcome that ignores a key assumption.\n  C. The outcome consistent with the principle.\n  D. An outcome that is only true in a special case.\nanswer: C\n}}\n\n{{nyml\nkind: question-open\nn: 3\npts: 10 pts\nbody: Define the key term from this unit and explain, in two or three sentences, why it matters in practice.\nspace: 5cm\nanswer: A model answer briefly defines the term and gives one concrete reason it matters, demonstrating clear understanding of the concept.\n}}\n\n{{nyml\nkind: question-open\nn: 4\npts: 10 pts\nbody: Compare and contrast the two approaches discussed in class, giving one advantage and one limitation of each.\nspace: 5cm\nanswer: A model answer names both approaches, states one genuine advantage and one genuine limitation for each, and draws a clear comparison between them.\n}}\n"},{"id":"exam-section","label":"Exam — title section","description":"Exam with an inline header block, then numbered questions.","group":"Exam","skeleton":"{{nyml\nkind: document\ntemplate: exam-section\npage_number_position: footer-center\npage_number_style: page-n-of-N\ndynamic_choices: |\n  answer-key: hide\n}}\n\n{{nyml\nkind: exam-title\ntitle: Course Name — Midterm Exam\nsubtitle: Chapter 1–4 Assessment\nauthor: Instructor Name\nstudent_fields: |\n  Name | Student ID | Score / 100\nplacement: section\n}}\n\n<!-- This template leaves the exam-title `instructions:` field empty and puts the\n     instructions at the top of the content instead — either placement works. -->\n\n**Instructions.** Answer all questions in the space provided. Calculators are not\npermitted, and you have 60 minutes to complete this exam.\n\n{{nyml\nkind: question-mc\nn: 1\npts: 5 pts\nbody: Which of the following best describes the main concept covered in this section?\noptions: |\n  A. First plausible answer choice.\n  B. Second plausible answer choice.\n  C. Correct answer choice.\n  D. Fourth plausible answer choice.\nanswer: C\n}}\n\n{{nyml\nkind: question-mc\nn: 2\npts: 5 pts\nbody: Identify the term that matches the definition given in lecture.\noptions: |\n  A. Distractor term one.\n  B. Correct term.\n  C. Distractor term three.\n  D. Distractor term four.\nanswer: B\n}}\n\n{{nyml\nkind: question-open\nn: 3\npts: 10 pts\nbody: Explain the key idea in your own words and give one supporting example. Show all relevant reasoning.\nspace: 5cm\nanswer: A complete answer states the core principle, explains why it holds, and supports it with a concrete, correctly worked example. Full credit requires clear reasoning and an accurate example.\n}}\n"},{"id":"letter","label":"Letter","description":"Formal letter: letterhead, inside address, body, signature.","group":"Letter","skeleton":"{{nyml\nkind: document\ntemplate: letter\n}}\n\n{{nyml\nkind: letterhead\norganization: Your Organization\naddress: |\n  123 Main Street, Suite 400\n  Springfield, ST 00000\nemail: hello@your-organization.example\nphone: (555) 123-4567\n}}\n\nJune 29, 2026\n\n{{nyml\nkind: letter-inside-address\nto: Recipient Name\norganization: Recipient Organization\naddress: |\n  456 Market Avenue\n  Metropolis, ST 11111\n}}\n\nDear Recipient Name,\n\nI am writing to introduce Your Organization and to propose a brief conversation\nabout how we might work together. Open this paragraph by stating your purpose\nclearly and giving the reader a reason to keep reading.\n\nUse the middle of the letter to provide the supporting details. Explain the\nbackground, outline what you are asking for, and note any relevant dates or\ndeliverables. Keep each point concise so the entire letter fits comfortably on a\nsingle page.\n\nClose by stating the specific next step you would like the reader to take and\nhow best to reach you. Thank you for your time and consideration; I look forward\nto your reply.\n\n{{nyml\nkind: letter-signature\nfrom: Your Name\nclosing: Sincerely\ntitle: Your Title\n}}\n"},{"id":"cover-letter","label":"Cover letter","description":"Job cover letter: sender header, recipient, body, sign-off.","group":"Letter","skeleton":"{{nyml\nkind: document\ntemplate: cover-letter\n}}\n\n{{nyml\nkind: letterhead\norganization: Your Name\naddress: |\n  123 Main Street\n  Your City, ST 00000\nemail: your.name@email.com\nphone: (555) 123-4567\n}}\n\nJune 29, 2026\n\n{{nyml\nkind: letter-inside-address\nto: Hiring Manager\norganization: Company Name\naddress: |\n  456 Corporate Boulevard\n  Their City, ST 00000\n}}\n\nDear Hiring Manager,\n\nI am writing to apply for the Position Title role at Company Name, which I\ndiscovered through where you saw the listing. From the moment I read the job\ndescription, I was excited by the chance to bring my background in your field\nto a team known for what the company is known for. This opportunity aligns\nclosely with both my skills and the direction I want my career to take.\n\nIn my current role as Your Current Title at Current or Previous Employer, I\nhave delivered describe a concrete result or responsibility, sharpening my\nstrengths in skill one, skill two, and skill three. I am confident these\nexperiences map directly to what this position requires: name one or two key\nrequirements from the posting. I pride myself on trait or working style, and I\nconsistently turn ambiguous problems into measurable outcomes.\n\nI would welcome the opportunity to discuss how my experience can contribute to\nCompany Name's goals. Thank you for considering my application; I have attached\nmy resume for your review and would be glad to provide any additional\ninformation. I look forward to speaking with you and can be reached at the\nphone number or email above to arrange a conversation.\n\n{{nyml\nkind: letter-signature\nfrom: Your Name\nclosing: Sincerely\ntitle: Position Title or Profession\n}}\n"},{"id":"cv","label":"CV — classic","description":"Résumé: name/contact header and clean sectioned body.","group":"CV","skeleton":"{{nyml\nkind: document\ntemplate: cv\n}}\n\n{{nyml\nkind: cv-header\nfull_name: Your Name\ntitle: Job Title / Professional Tagline\ncontacts: |\n  you@example.com\n  City, Country\n  linkedin.com/in/you\n  +1 555 0100\n}}\n\n## Summary\n\nA short, punchy two-sentence pitch describing who you are and the value you\nbring. Highlight your specialty, years of experience, and the kind of impact you\nare known for.\n\n## Experience\n\n### Job Title — Company (2022–Present)\n\n- Led a key initiative that delivered a measurable result, e.g. increased\n  revenue, cut costs, or improved performance by a specific percentage.\n- Owned a project end to end, collaborating across teams to ship on time.\n- Mentored teammates and improved a process that the whole team relied on.\n\n### Previous Job Title — Earlier Company (2019–2022)\n\n- Built or maintained a core product or system used by many people.\n- Drove an improvement with a clear, quantified outcome.\n\n## Education\n\n### Degree, Field of Study — University Name (2019)\n\n## Skills\n\n- **Core:** Skill One, Skill Two, Skill Three\n- **Tools:** Tool One, Tool Two, Tool Three\n- **Other:** Languages, Certifications, Soft Skills\n"},{"id":"cv-modern","label":"CV — modern","description":"Accent name + rule, uppercase section labels, right-aligned dates, skill chips.","group":"CV","skeleton":"{{nyml\nkind: document\ntemplate: cv-modern\ncustom_css: |\n  /* CV — modern: left-aligned, accent-forward, right-aligned dates, skill chips.\n     Theme-aware via tokens (falls back when a token is unset). */\n  .orz-el-cv-header .orz-cv-header-inner.orz-bordered { border-bottom: 0; }\n  .orz-el-cv-header {\n    text-align: left;\n    border-bottom: 3px solid var(--accent, #2b6cb0);\n    padding-bottom: 0.5em;\n    margin-bottom: 1.2em;\n  }\n  .orz-el-cv-header .orz-cv-top { justify-content: flex-start; }\n  .orz-el-cv-header .orz-cv-name { font-size: 2.3em; letter-spacing: -0.015em; }\n  .orz-el-cv-header .orz-cv-title { color: var(--text-muted, #666); font-size: 1.05em; }\n  .orz-el-cv-header .orz-cv-contacts { justify-content: flex-start; gap: 0.3em 1.1em; }\n  .orz-doc.markdown-body h2 {\n    font-size: 0.9em;\n    text-transform: uppercase;\n    letter-spacing: 0.14em;\n    color: var(--accent, #2b6cb0);\n    border-bottom: 0;\n    margin: 1.5em 0 0.5em;\n  }\n  .orz-doc.markdown-body h3 {\n    font-size: 1.06em;\n    margin: 0.7em 0 0.05em;\n    border-bottom: 0;\n  }\n  .orz-doc.markdown-body h3 + p { color: var(--text-muted, #555); font-style: italic; margin: 0 0 0.35em; }\n  .cv-date {\n    float: right;\n    font-weight: 400;\n    color: var(--text-muted, #777);\n    font-size: 0.88em;\n  }\n  .cv-chip {\n    display: inline-block;\n    background: var(--surface-2, #f0f2f5);\n    border: 1px solid var(--border, #e2e6ea);\n    border-radius: 999px;\n    padding: 0.12em 0.7em;\n    margin: 0.18em 0.25em 0.18em 0;\n    font-size: 0.85em;\n  }\n}}\n\n{{nyml\nkind: cv-header\nfull_name: Your Name\ntitle: Job Title / Professional Tagline\ncontacts: |\n  you@example.com\n  City, Country\n  linkedin.com/in/you\n  +1 555 0100\nsummary: Two-sentence pitch — who you are and the value you bring. Lead with your specialty and the kind of impact you are known for.\n}}\n\n## Experience\n\n### Senior Role {{span[cv-date] 2022 – Present}}\n\nCompany Name, City\n\n- Led a key initiative that delivered a measurable result (e.g. +X% revenue, −Y% cost).\n- Owned a project end to end, collaborating across teams to ship on time.\n- Mentored teammates and improved a process the whole team relied on.\n\n### Earlier Role {{span[cv-date] 2019 – 2022}}\n\nPrevious Company, City\n\n- Built or maintained a core product used by many people.\n- Drove an improvement with a clear, quantified outcome.\n\n## Education\n\n### Degree, Field of Study {{span[cv-date] 2015 – 2019}}\n\nUniversity Name, City\n\n## Skills\n\n{{span[cv-chip] Skill One}} {{span[cv-chip] Skill Two}} {{span[cv-chip] Skill Three}} {{span[cv-chip] Skill Four}} {{span[cv-chip] Skill Five}} {{span[cv-chip] Skill Six}}\n"},{"id":"cv-elegant","label":"CV — elegant","description":"Centered, letter-spaced name, hairline rules, two-column \"ledger\" entries.","group":"CV","skeleton":"{{nyml\nkind: document\ntemplate: cv-elegant\ncustom_css: |\n  /* CV — elegant: centered, letter-spaced name between hairlines, centered\n     small-caps section headers, borderless two-column \"ledger\" entries (years |\n     detail) that flow across pages. Theme-aware via tokens. */\n  .orz-el-cv-header .orz-cv-header-inner.orz-bordered { border-bottom: 0; }\n  .orz-el-cv-header {\n    text-align: center;\n    border-top: 1px solid var(--border-soft, #ddd);\n    border-bottom: 1px solid var(--border-soft, #ddd);\n    padding: 0.8em 0;\n    margin-bottom: 1.4em;\n  }\n  .orz-el-cv-header .orz-cv-top { justify-content: center; }\n  .orz-el-cv-header .orz-cv-name {\n    font-weight: 400;\n    text-transform: uppercase;\n    letter-spacing: 0.16em;\n    font-size: 1.85em;\n    color: var(--text-main, #222);\n  }\n  .orz-el-cv-header .orz-cv-title { font-style: italic; color: var(--text-muted, #666); }\n  .orz-el-cv-header .orz-cv-contacts { justify-content: center; font-size: 0.85em; gap: 0.3em 1em; }\n  .orz-doc.markdown-body h2 {\n    text-align: center;\n    font-size: 1em;\n    font-weight: 600;\n    text-transform: uppercase;\n    letter-spacing: 0.2em;\n    color: var(--text-main, #222);\n    border-bottom: 0;\n    margin: 1.7em 0 0.7em;\n  }\n  .orz-doc.markdown-body h2::after {\n    content: \"\";\n    display: block;\n    width: 2.5em;\n    height: 1px;\n    background: var(--accent, #999);\n    margin: 0.5em auto 0;\n  }\n  .orz-doc.markdown-body table { width: 100%; border: 0; margin: 0.2em 0; }\n  .orz-doc.markdown-body thead { display: none; }\n  .orz-doc.markdown-body td {\n    border: 0;\n    border-bottom: 1px solid var(--border-soft, #eee);\n    padding: 0.5em 0.4em;\n    vertical-align: top;\n  }\n  .orz-doc.markdown-body td:first-child {\n    white-space: nowrap;\n    width: 9em;\n    text-align: right;\n    color: var(--text-muted, #777);\n    font-variant: small-caps;\n    font-size: 0.92em;\n  }\n  .orz-doc.markdown-body .cv-skills { text-align: center; font-size: 0.95em; line-height: 1.9; }\n}}\n\n{{nyml\nkind: cv-header\nfull_name: Your Name\ntitle: Job Title / Professional Tagline\ncontacts: |\n  you@example.com\n  City, Country\n  linkedin.com/in/you\n}}\n\nA one-sentence profile, set centered and understated, introducing who you are and the work you do.\n{{attrs[class=\"cv-skills\"]}}\n\n## Experience\n\n| Years | Detail |\n|---|---|\n| 2022 – Present | **Senior Role**, Company Name — led the team and shipped a measurable result. |\n| 2019 – 2022 | **Earlier Role**, Previous Company — built a core product used by many. |\n| 2016 – 2019 | **First Role**, First Employer — delivered an improvement with a clear outcome. |\n\n## Education\n\n| Years | Detail |\n|---|---|\n| 2015 – 2019 | **Degree, Field of Study** — University Name, City. |\n\n## Skills\n\nSkill One · Skill Two · Skill Three · Skill Four · Skill Five · Skill Six\n{{attrs[class=\"cv-skills\"]}}\n"},{"id":"note","label":"Note","description":"Clean readable note: minimal furniture on A4.","group":"Note","skeleton":"{{nyml\nkind: document\ntemplate: note\n}}\n\n# Note Title\n\nWrite a one-line statement of what this note is about. Keep the opening short\nso a reader knows the purpose before reaching the details below.\n\n## Section\n\nReplace this with the main point of the note in two or three sentences. Add any\ncontext a reader needs to follow along. Keep each idea tight and to the point.\n\n- First key item to remember.\n- Second key item, with a short detail.\n- Third key item.\n\n::: info\nA short note callout for a tip, reminder, or aside worth setting apart.\n:::\n\n## Next Steps\n\n- [ ] First action to take.\n- [ ] Second action to take.\n- [ ] Third action to take.\n"}]};</script>
+<script data-orz-asset="app">/* orz-paged in-file editor (A4). Plain browser JS, inlined into every
+ * .paged.html. The rendered pages are the live preview: editing re-assembles +
+ * re-paginates them (debounced). Save is self-reproducing — it serializes the
+ * whole document with the edited source baked back into #orz-src, stripping
+ * runtime-injected nodes ([data-orz-runtime]) and the rendered pages so the saved
+ * file re-renders cleanly on next open. Ported in spirit from orz-mdhtml/slides.
+ */
+(function () {
+  'use strict';
+  var CM_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16';
+  var cm = null;
+  var rerenderTimer = null;
+  var dirty = false; // edit-state, surfaced to an embedding host (orz-host-dirty)
+
+  function $(id) { return document.getElementById(id); }
+  function api() { return window.orzpaged; }
+  function srcEl() { return $('orz-src'); }
+  // The RAW source of record (with `{{md-include}}` directives). Captured lazily
+  // from #orz-src on first read — BEFORE syncSource() ever writes RESOLVED text
+  // into #orz-src for the engine — so currentSource()/save always stay raw.
+  var rawSource = null;
+  function currentSource() {
+    if (cm) return cm.getValue();
+    if (rawSource == null && srcEl()) rawSource = srcEl().textContent.replace(/^\n/, '').replace(/\n\s*$/, '');
+    return rawSource != null ? rawSource : '';
+  }
+
+  function toast(msg) {
+    var t = $('orz-toast'); if (!t) return;
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(function () { t.classList.remove('show'); }, 1800);
+  }
+
+  /* ---- load CodeMirror on demand ---- */
+  function loadCss(href) {
+    if (document.querySelector('link[href="' + href + '"]')) return;
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href;
+    l.setAttribute('data-orz-runtime', '1'); document.head.appendChild(l);
+  }
+  function loadJs(src) {
+    return new Promise(function (resolve, reject) {
+      if (document.querySelector('script[data-cm="' + src + '"]')) return resolve();
+      var s = document.createElement('script'); s.src = src; s.async = false;
+      s.setAttribute('data-cm', src); s.setAttribute('data-orz-runtime', '1');
+      s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
+    });
+  }
+  function ensureCodeMirror() {
+    if (window.CodeMirror) return Promise.resolve();
+    loadCss(CM_BASE + '/codemirror.min.css');
+    return loadJs(CM_BASE + '/codemirror.min.js')
+      .then(function () { return loadJs(CM_BASE + '/mode/markdown/markdown.min.js'); });
+  }
+
+  function pagesEl() { return $('orz-pages'); }
+  function isEdit() { return document.documentElement.getAttribute('data-mode') === 'edit'; }
+
+  /* ---- preview zoom-to-fit (side-by-side pane is narrower than an A4 page) ---- */
+  function fitPreview() {
+    var pages = pagesEl(); if (!pages) return;
+    var wrap = pages.querySelector('.pagedjs_pages'); if (!wrap) return;
+    if (!isEdit()) { wrap.style.zoom = ''; return; }
+    wrap.style.zoom = '';                       // measure natural page width
+    var page = pages.querySelector('.pagedjs_page');
+    var pageW = page ? page.getBoundingClientRect().width : 0;
+    if (!pageW) return;
+    wrap.style.zoom = Math.min(1, (pages.clientWidth - 28) / pageW);
+  }
+  window.__orzPagedAfterRender = function () { fitPreview(); buildDynControls(); }; // engine calls this after every render
+
+  /* ---- dynamic switch (live) — a control per key the document actually uses ---- */
+  function humanizeKey(k) { return String(k).replace(/_/g, ' '); }
+  function normKey(k) { return String(k).trim().toLowerCase().replace(/-/g, '_'); }
+
+  function buildDynControls() {
+    var host = $('orz-dyn'); if (!host) return;
+    if (!api() || !api().getDynamicState) { host.innerHTML = ''; host.removeAttribute('data-keys'); return; }
+    var st = api().getDynamicState();
+    var opts = st.options || {}, choices = st.choices || {};
+    // Only keys the CURRENT document actually uses (data-show-when / -hide-when),
+    // so the control disappears when you switch to a template that has none.
+    var keys = Object.keys(opts).sort();
+    if (!keys.length) { host.innerHTML = ''; host.removeAttribute('data-keys'); return; }
+    var sig = keys.join(',');
+    if (host.getAttribute('data-keys') === sig) {            // same keys → just sync values
+      keys.forEach(function (k) {
+        var s = host.querySelector('select[data-key="' + k + '"]');
+        if (s) s.value = choices[k] || '';
+      });
+      return;
+    }
+    host.setAttribute('data-keys', sig);
+    host.innerHTML = '';
+    keys.forEach(function (k) {
+      var vals = (opts[k] || []).slice();
+      var cur = choices[k] || '';
+      if (cur && vals.indexOf(cur) < 0) vals.unshift(cur);   // keep the current value selectable
+      var ctl = document.createElement('span'); ctl.className = 'orz-dyn-ctl';
+      var lab = document.createElement('label'); lab.textContent = humanizeKey(k); lab.htmlFor = 'orz-dyn-' + k;
+      var sel = document.createElement('select'); sel.id = 'orz-dyn-' + k; sel.setAttribute('data-key', k); sel.title = humanizeKey(k);
+      vals.forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+      sel.value = cur;
+      // Write the choice back into the source's `dynamic_choices` block so the
+      // dropdown and the nyml stay in sync (and editing the nyml drives the dropdown).
+      sel.addEventListener('change', function () { applyDynChoiceToSource(k, sel.value); });
+      ctl.appendChild(lab); ctl.appendChild(sel); host.appendChild(ctl);
+    });
+  }
+
+  /** Set `key: value` inside the document block's `dynamic_choices:` map, matching
+   *  the key by normalized form (so `answer-key` and `answer_key` are the same). */
+  function setSourceDynamicChoice(src, key, value) {
+    key = normKey(key);
+    var lines = src.split('\n');
+    var dcIdx = -1, dcIndent = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].match(/^(\s*)dynamic_choices\s*:/);
+      if (m) { dcIdx = i; dcIndent = m[1].length; break; }
+    }
+    if (dcIdx < 0) return null;                       // no block — nothing to sync
+    for (var j = dcIdx + 1; j < lines.length; j++) {
+      if (lines[j].trim() === '') continue;
+      var lm = lines[j].match(/^(\s*)([A-Za-z][\w-]*)\s*:\s*(.*)$/);
+      if (!lm || lm[1].length <= dcIndent) break;     // dedented / not a key → end of block
+      if (normKey(lm[2]) === key) { lines[j] = lm[1] + lm[2] + ': ' + value; return lines.join('\n'); }
+    }
+    var indent = ''; for (var s = 0; s < dcIndent + 2; s++) indent += ' ';
+    lines.splice(dcIdx + 1, 0, indent + key.replace(/_/g, '-') + ': ' + value);
+    return lines.join('\n');
+  }
+
+  function applyDynChoiceToSource(key, value) {
+    var next = setSourceDynamicChoice(currentSource(), key, value);
+    if (next == null) return;
+    setDirty(true);
+    if (cm) cm.setValue(next);
+    else { var ta = $('orz-ta'); if (ta) ta.value = next; }
+    syncSource();
+    if (api() && api().refresh) api().refresh();
+  }
+
+  /* ---- draggable divider (relative width) ---- */
+  function wireDivider() {
+    var d = $('orz-divider'); if (!d || d.__wired) return; d.__wired = true;
+    var dragging = false;
+    d.addEventListener('mousedown', function (e) {
+      dragging = true; d.classList.add('dragging'); e.preventDefault();
+      document.body.style.userSelect = 'none';
+    });
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      var pct = Math.max(20, Math.min(78, (e.clientX / window.innerWidth) * 100));
+      document.documentElement.style.setProperty('--orz-split', pct + '%');
+    });
+    document.addEventListener('mouseup', function () {
+      if (!dragging) return;
+      dragging = false; d.classList.remove('dragging'); document.body.style.userSelect = '';
+      if (cm) cm.refresh(); fitPreview();
+    });
+  }
+
+  /* ---- proportional editor <-> preview scroll sync (toggleable) ---- */
+  var syncLock = false;
+  var syncEnabled = true;
+  try { syncEnabled = localStorage.getItem('orz-paged-sync') !== '0'; } catch (e) {}
+  function setSync(on) {
+    syncEnabled = !!on;
+    try { localStorage.setItem('orz-paged-sync', syncEnabled ? '1' : '0'); } catch (e) {}
+    var b = $('orz-sync'); if (b) b.setAttribute('aria-pressed', syncEnabled ? 'true' : 'false');
+  }
+  function wireSync() {
+    if (!cm || cm.__sync) return; cm.__sync = true;
+    cm.on('scroll', function () {
+      if (!syncEnabled || syncLock || !isEdit()) return;
+      var info = cm.getScrollInfo(); var max = info.height - info.clientHeight;
+      if (max <= 0) return;
+      var pages = pagesEl(); var pmax = pages.scrollHeight - pages.clientHeight;
+      syncLock = true; pages.scrollTop = (info.top / max) * pmax;
+      setTimeout(function () { syncLock = false; }, 24);
+    });
+    pagesEl().addEventListener('scroll', function () {
+      if (!syncEnabled || syncLock || !isEdit()) return;
+      var pages = pagesEl(); var pmax = pages.scrollHeight - pages.clientHeight;
+      if (pmax <= 0) return;
+      var info = cm.getScrollInfo(); var max = info.height - info.clientHeight;
+      syncLock = true; cm.scrollTo(null, (pages.scrollTop / pmax) * max);
+      setTimeout(function () { syncLock = false; }, 24);
+    });
+  }
+
+  /* ---- edit mode ---- */
+  function enterEdit() {
+    document.documentElement.setAttribute('data-mode', 'edit');
+    checkVersion(); // edit view only — broad viewers never see the update banner
+    wireDivider();
+    // reflect the theme actually in effect (document theme or a prior override)
+    var th = $('orz-theme');
+    if (th && api() && api().getTheme) { var cur = api().getTheme(); if (cur) th.value = cur; }
+    ensureCodeMirror().then(function () {
+      if (!cm) {
+        var ta = $('orz-ta');
+        ta.value = currentSource();
+        cm = window.CodeMirror.fromTextArea(ta, {
+          mode: 'markdown', lineNumbers: true, lineWrapping: true, theme: 'default',
+        });
+        cm.on('change', scheduleRerender);
+      }
+      wireSync();
+      setTimeout(function () { if (cm) { cm.refresh(); cm.focus(); } fitPreview(); }, 30);
+      setTimeout(fitPreview, 260); // re-fit once the slide-in transition settles
+    }).catch(function () { toast('Could not load the editor (offline?)'); });
+  }
+  function exitEdit() {
+    document.documentElement.removeAttribute('data-mode');
+    fitPreview();                  // clear zoom immediately
+    setTimeout(fitPreview, 260);   // and again after the slide-out settles
+  }
+
+  function scheduleRerender() {
+    setDirty(true);
+    if (rerenderTimer) clearTimeout(rerenderTimer);
+    rerenderTimer = setTimeout(function () {
+      syncSource();
+      if (api() && api().refresh) api().refresh();
+    }, 500);
+  }
+
+  /** Keep #orz-src in sync with the editor for the ENGINE — with web includes
+   *  RESOLVED (serialize() writes the raw source into the saved file). */
+  function syncSource() {
+    var el = srcEl(); if (!el) return;
+    ensureIncludes(currentSource());
+    el.textContent = '\n' + applyIncludes(currentSource()) + '\n';
+  }
+
+  /* ---- self-reproducing save ---- */
+  function serialize() {
+    syncSource(); // keep the LIVE #orz-src resolved for the engine
+    var clone = document.documentElement.cloneNode(true);
+    clone.removeAttribute('data-mode');
+    // The SAVED file keeps the RAW source (its `{{md-include}}` directives), not
+    // the resolved preview — resolution is a host-only, view-time concern.
+    var savedSrc = clone.querySelector('#orz-src');
+    if (savedSrc) savedSrc.textContent = '\n' + currentSource() + '\n';
+    // strip runtime-injected nodes (fonts, libs, katex, CodeMirror assets)
+    var rt = clone.querySelectorAll('[data-orz-runtime]');
+    for (var i = 0; i < rt.length; i++) rt[i].parentNode.removeChild(rt[i]);
+    // clear the rendered pages (the engine re-renders on load)
+    var pages = clone.querySelector('#orz-pages'); if (pages) pages.innerHTML = '';
+    // never bake in the (edit-only) update banner so a viewer can't see it
+    var ub = clone.querySelector('#orz-update'); if (ub) { ub.classList.remove('show'); ub.removeAttribute('data-latest'); }
+    // reset the editor host to a bare textarea (drop CodeMirror DOM)
+    var host = clone.querySelector('#orz-editor-host');
+    if (host) host.innerHTML = '<textarea id="orz-ta" spellcheck="false"></textarea>';
+    // guard against a closing script tag inside the source breaking the file
+    var src = clone.querySelector('#orz-src');
+    if (src) src.textContent = src.textContent.replace(/<\/(script)/gi, '<\\/$1');
+    return '<!DOCTYPE html>\n' + clone.outerHTML;
+  }
+
+  function suggestedName() {
+    var t = (document.title || 'document').replace(/[^\w.-]+/g, '-');
+    return t.replace(/\.paged$/, '') + '.paged.html';
+  }
+
+  /** Write `html` to disk; resolves true if saved in place (FS-Access), false if downloaded. */
+  function persist(html) {
+    if (window.showSaveFilePicker) {
+      return window.showSaveFilePicker({
+        suggestedName: suggestedName(),
+        types: [{ description: 'paged HTML', accept: { 'text/html': ['.paged.html', '.html'] } }],
+      }).then(function (handle) {
+        return handle.createWritable().then(function (w) {
+          return w.write(html).then(function () { return w.close(); });
+        });
+      }).then(function () { return true; });
+    }
+    downloadFile(html);
+    return Promise.resolve(false);
+  }
+  function save() {
+    // A hosting platform (verified handshake) receives the save instead of the
+    // file system; the host acknowledges with orz-host-saved (see PROTOCOL.md).
+    if (isHosted()) { hostSave(currentSource(), serialize()); return; }
+    persist(serialize()).then(function (inPlace) { if (inPlace) { setDirty(false); toast('Saved'); } })
+      .catch(function (e) { if (e && e.name !== 'AbortError') downloadFile(serialize()); });
+  }
+  function downloadFile(html) {
+    var blob = new Blob([html], { type: 'text/html' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = suggestedName();
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast('Downloaded a copy');
+  }
+
+  /* ---- host embedding (orz-host-save@1) ----
+   * When a platform embeds this file in an iframe and announces the
+   * orz-host-save protocol (spec: PROTOCOL.md in the orz-mdhtml repo), Save
+   * posts the document to the host instead of touching the file system. Never
+   * enabled without the host's hello; protocol messages are accepted only from
+   * window.parent, and after the handshake only from the recorded host origin.
+   * Message content is read as data, never evaluated. Export/PDF keeps working. */
+  var HOST_PROTOCOL = 'orz-host-save';
+  var HOST_VERSION = 1;
+  var hostOrigin = null;    // recorded at handshake; null = unhosted
+  var hostSaveTimer = null; // watchdog for a save awaiting acknowledgement
+
+  function isHosted() { return hostOrigin !== null; }
+  // An opaque embedder (sandboxed/srcdoc host) serializes as the string 'null',
+  // which postMessage rejects as a targetOrigin — fall back to '*' (the payload
+  // contains nothing the host doesn't already have).
+  function hostTarget() { return hostOrigin && hostOrigin !== 'null' ? hostOrigin : '*'; }
+  function hostPost(msg) { try { window.parent.postMessage(msg, hostTarget()); } catch (e) {} }
+  function setDirty(d) {
+    d = !!d;
+    if (dirty === d) return;
+    dirty = d;
+    if (isHosted()) hostPost({ type: 'orz-host-dirty', protocol: HOST_PROTOCOL, version: HOST_VERSION, dirty: d });
+  }
+  function hostSave(src, html) {
+    if (hostSaveTimer) return; // one save in flight at a time
+    hostSaveTimer = setTimeout(function () {
+      hostSaveTimer = null;
+      toast('Save failed — no response from the host'); // document intact, still dirty
+    }, 10000);
+    hostPost({ type: 'orz-host-save', protocol: HOST_PROTOCOL, version: HOST_VERSION, source: src, html: html });
+  }
+  /* ---- host-provided includes (orz-host-include@1) ----
+   * A trusted host resolves `{{md-include URL}}` / `{{markdown URL}}` for the
+   * PREVIEW (paginated into #orz-src). The saved source keeps the directive;
+   * standalone the file never resolves and never auto-fetches. See PROTOCOL.md. */
+  var INCLUDE_PROTOCOL = 'orz-host-include';
+  var INCLUDE_VERSION = 1;
+  var includeOrigin = null, includeSeq = 0, includePending = {}, includeCache = {}, includeInflight = {}, includeRerenderTimer = null;
+  function includeTarget() { return includeOrigin && includeOrigin !== 'null' ? includeOrigin : '*'; }
+  function includePost(msg) { try { window.parent.postMessage(msg, includeTarget()); } catch (e) {} }
+  function includeRequest(url) {
+    return new Promise(function (resolve) {
+      var id = 'inc' + (++includeSeq);
+      includePending[id] = resolve;
+      includePost({ type: 'orz-host-include-request', protocol: INCLUDE_PROTOCOL, version: INCLUDE_VERSION, requestId: id, url: url });
+      setTimeout(function () { if (includePending[id]) { delete includePending[id]; resolve(null); } }, 30000);
+    });
+  }
+  function applyIncludes(src) {
+    if (!includeOrigin) return src;
+    return src.replace(/\{\{(?:markdown|md-include)\s+(https?:\/\/[^\s}]+)\}\}/g, function (whole, url) {
+      var v = includeCache[url]; return (typeof v === 'string') ? v : whole;
+    });
+  }
+  function ensureIncludes(src) {
+    if (!includeOrigin) return;
+    var re = /\{\{(?:markdown|md-include)\s+(https?:\/\/[^\s}]+)\}\}/g, m, seen = {};
+    while ((m = re.exec(src))) {
+      var url = m[1];
+      if (seen[url]) continue; seen[url] = true;
+      if (Object.prototype.hasOwnProperty.call(includeCache, url) || includeInflight[url]) continue;
+      includeInflight[url] = true;
+      (function (u) { includeRequest(u).then(function (md) { includeCache[u] = (typeof md === 'string') ? md : null; delete includeInflight[u]; scheduleIncludeRerender(); }); })(url);
+    }
+  }
+  function scheduleIncludeRerender() {
+    if (includeRerenderTimer) clearTimeout(includeRerenderTimer);
+    includeRerenderTimer = setTimeout(function () { syncSource(); if (api() && api().refresh) api().refresh(); }, 80);
+  }
+
+  function onHostMessage(event) {
+    // only the embedding parent may speak the protocol
+    if (window.parent === window || event.source !== window.parent) return;
+    var d = event.data;
+    if (!d || typeof d !== 'object') return;
+    // after the handshake, hold the parent to the origin it introduced itself with
+    if (isHosted() && hostOrigin !== 'null' && event.origin !== hostOrigin) return;
+    if (d.type === 'orz-host-hello' && d.protocol === HOST_PROTOCOL && typeof d.version === 'number' && d.version >= 1) {
+      hostOrigin = event.origin;
+      // reply with the highest version we support ≤ the host's (we speak only 1)
+      hostPost({ type: 'orz-host-ready', protocol: HOST_PROTOCOL, version: HOST_VERSION, kind: 'paged' });
+      if (dirty) hostPost({ type: 'orz-host-dirty', protocol: HOST_PROTOCOL, version: HOST_VERSION, dirty: true });
+    } else if (d.type === 'orz-host-saved' && hostSaveTimer) {
+      clearTimeout(hostSaveTimer); hostSaveTimer = null;
+      if (d.ok) { setDirty(false); toast('Saved'); }
+      else { toast('Save failed' + (d.error ? ' — ' + String(d.error) : '')); }
+    } else if (d.type === 'orz-host-include-hello' && d.protocol === INCLUDE_PROTOCOL && typeof d.version === 'number' && d.version >= 1) {
+      includeOrigin = event.origin;
+      includePost({ type: 'orz-host-include-ready', protocol: INCLUDE_PROTOCOL, version: INCLUDE_VERSION, kind: 'paged' });
+      scheduleIncludeRerender(); // request + re-paginate now that includes can resolve
+    } else if (d.type === 'orz-host-include-result' && d.requestId && includePending[d.requestId]) {
+      var incRes = includePending[d.requestId]; delete includePending[d.requestId];
+      incRes(d.ok ? d.markdown : null);
+    }
+  }
+  // listen from script load so an early hello isn't missed
+  window.addEventListener('message', onHostMessage);
+
+  /* ---- framework self-update (checked only in edit view) ---- */
+  // SECURITY: the update source is HARDCODED here, never read from the file's
+  // config — so a tampered/forged file cannot redirect "Update" to fetch
+  // attacker-controlled code. The host is fixed to jsDelivr over HTTPS, and the
+  // exact URLs are shown to the user for confirmation before anything is fetched.
+  // (This protects genuine files; a wholly-malicious file controls this code too —
+  // see the security note in the README. Clicking Update trusts npm + jsDelivr.)
+  var UPD = {
+    host: 'https://cdn.jsdelivr.net/npm/',
+    manifest: 'https://data.jsdelivr.com/v1/packages/npm/orz-paged-browser/resolved',
+    enginePkg: 'orz-paged-browser',
+    engineFile: 'orz-paged.browser.js',
+    appPkg: 'orz-paged'
+  };
+  function CFG() { return window.__ORZ_PAGED__ || {}; }
+  function isNewer(a, b) {
+    var pa = String(a).split('.'), pb = String(b).split('.');
+    for (var i = 0; i < 3; i++) { var x = parseInt(pa[i], 10) || 0, y = parseInt(pb[i], 10) || 0; if (x > y) return true; if (x < y) return false; }
+    return false;
+  }
+  var versionChecked = false;
+  function checkVersion() {
+    if (versionChecked) return; versionChecked = true;
+    var c = CFG(); if (!c.version) return;
+    fetch(UPD.manifest).then(function (r) { return r.json(); }).then(function (j) {
+      var latest = j && j.version;
+      if (latest && isNewer(latest, c.version)) showUpdate(latest);
+    }).catch(function () {});
+  }
+  function showUpdate(latest) {
+    var bar = $('orz-update'); if (!bar) return;
+    bar.querySelector('.upd-text').textContent =
+      'Framework ' + latest + ' available (this file uses ' + CFG().version + ').';
+    bar.setAttribute('data-latest', latest);
+    bar.classList.add('show');
+  }
+  /** One-click update: re-fetch the engine bundle + app.js from the lockstep CDN
+   *  at the latest version, re-inline them, bump the version, save, and reload. */
+  function applyUpdate() {
+    var bar = $('orz-update'); var latest = bar && bar.getAttribute('data-latest'); if (!latest) return;
+    var engineUrl = UPD.host + UPD.enginePkg + '@' + latest + '/' + UPD.engineFile;
+    var appUrl = UPD.host + UPD.appPkg + '@' + latest + '/assets/app.js';
+    if (!window.confirm('Update the framework to ' + latest + '?\n\nThis downloads and runs code from:\n  ' + engineUrl + '\n  ' + appUrl + '\n\nOnly proceed if you trust this document and its publisher.')) return;
+    toast('Downloading framework ' + latest + '…');
+    Promise.all([
+      fetch(engineUrl).then(function (r) { if (!r.ok) throw new Error('engine'); return r.text(); }),
+      fetch(appUrl).then(function (r) { if (!r.ok) throw new Error('app'); return r.text(); }),
+    ]).then(function (res) {
+      var es = document.querySelector('script[data-orz-asset="engine"]');
+      if (es) { if (es.getAttribute('src')) es.setAttribute('src', engineUrl); else es.textContent = res[0]; }
+      var as = document.querySelector('script[data-orz-asset="app"]');
+      if (as) as.textContent = res[1];
+      var cs = document.querySelector('script[data-orz-asset="config"]');
+      if (cs) { c.version = latest; cs.textContent = 'window.__ORZ_PAGED__ = ' + JSON.stringify(c) + ';'; }
+      bar.classList.remove('show');
+      return persist(serialize());
+    }).then(function (inPlace) {
+      if (inPlace === undefined) return;
+      if (inPlace) { toast('Updated to ' + latest + ' — reloading…'); setTimeout(function () { location.reload(); }, 700); }
+      else { toast('Updated copy downloaded — reopen it to use the new framework.'); }
+    }).catch(function () { toast('Update failed — check your connection.'); });
+  }
+
+  /* ---- template picker ---- */
+  function templates() { return (window.__ORZ_PAGED__ && window.__ORZ_PAGED__.templates) || []; }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  var TPL_ACCENT = { Article: '#2962a4', Report: '#2f6fe0', Exam: '#9a2820', Letter: '#2e7d32', CV: '#7a3f9a', Note: '#b7791f' };
+  function buildTemplateMenu() {
+    var menu = $('orz-template-menu'); if (!menu || menu.getAttribute('data-built')) return;
+    var list = templates(); if (!list.length) return;
+    var html = '', lastGroup = '';
+    for (var i = 0; i < list.length; i++) {
+      var t = list[i];
+      if (t.group !== lastGroup) { lastGroup = t.group; html += '<div class="tpl-group">' + esc(t.group) + '</div>'; }
+      html += '<button type="button" class="tpl" data-i="' + i + '" style="--tpl-accent:' + (TPL_ACCENT[t.group] || '#2f6fe0') + '">'
+        + '<span class="tpl-ic"></span>'
+        + '<span class="tpl-meta"><span class="tpl-label">' + esc(t.label) + '</span>'
+        + '<span class="tpl-desc">' + esc(t.description) + '</span></span></button>';
+    }
+    menu.innerHTML = html;
+    menu.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.tpl') : null;
+      if (!b) return;
+      applyTemplate(list[+b.getAttribute('data-i')]);
+      menu.hidden = true;
+    });
+    menu.setAttribute('data-built', '1');
+  }
+  function toggleTemplateMenu(show) {
+    var menu = $('orz-template-menu'); if (!menu) return;
+    if (show === undefined) show = menu.hidden;
+    if (show) buildTemplateMenu();
+    menu.hidden = !show;
+  }
+  function applyTemplate(t) {
+    if (!t || !t.skeleton) return;
+    var cur = currentSource().trim();
+    var next = t.skeleton;
+    // Preserve the old content in a comment so it's kept but inert (nyml blocks
+    // inside a comment don't render). Neutralize any `-->` in it first, else the
+    // first one would close the wrapper early and leak the rest back in.
+    if (cur) next += '\n\n<!-- Previous content (kept below — edit or delete):\n\n'
+      + cur.replace(/--+>/g, '--​>') + '\n-->\n';
+    setDirty(true);
+    if (cm) { cm.setValue(next); cm.focus(); }
+    else { var ta = $('orz-ta'); if (ta) ta.value = next; syncSource(); if (api() && api().refresh) api().refresh(); }
+    toast('Started from "' + t.label + '"');
+  }
+
+  /* ---- wire up ---- */
+  function init() {
+    var fab = $('orz-edit-fab'); if (fab) fab.addEventListener('click', enterEdit);
+    var close = $('orz-close'); if (close) close.addEventListener('click', exitEdit);
+    var exp = $('orz-export'); if (exp) exp.addEventListener('click', function () { if (api()) api().exportPdf(); });
+    var sav = $('orz-save'); if (sav) sav.addEventListener('click', save);
+    var tpl = $('orz-template'); if (tpl) tpl.addEventListener('click', function (e) { e.stopPropagation(); toggleTemplateMenu(); });
+    document.addEventListener('click', function (e) {
+      var menu = $('orz-template-menu'), btn = $('orz-template');
+      if (menu && !menu.hidden && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) menu.hidden = true;
+    });
+    var theme = $('orz-theme');
+    if (theme) theme.addEventListener('change', function () { if (api() && api().setTheme) api().setTheme(theme.value); });
+    var sync = $('orz-sync');
+    if (sync) { setSync(syncEnabled); sync.addEventListener('click', function () { setSync(!syncEnabled); }); }
+    var updApply = $('orz-upd-apply'); if (updApply) updApply.addEventListener('click', applyUpdate);
+    var updDismiss = $('orz-upd-dismiss');
+    if (updDismiss) updDismiss.addEventListener('click', function () { var u = $('orz-update'); if (u) u.classList.remove('show'); });
+    var rz; window.addEventListener('resize', function () {
+      if (!isEdit()) return; clearTimeout(rz);
+      rz = setTimeout(function () { if (cm) cm.refresh(); fitPreview(); }, 120);
+    });
+    document.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); save(); }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>

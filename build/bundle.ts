@@ -1,71 +1,60 @@
 /**
  * Bundles src/browser-entry.ts (+ orz-markdown, paged.js, the document layer and
- * assembler) into a single browser IIFE at dist/orz-paged.browser.js — the
+ * renderer) into a single browser IIFE at dist/orz-paged.browser.js — the
  * in-file paged-document engine.
  *
  * It is either inlined into each .paged.html (`--inline`) or published to npm as
- * `orz-paged-browser` and served from jsDelivr (`--cdn`). Mirrors orz-slides'
- * build/bundle.ts (reveal.js → paged.js).
+ * `orz-paged-browser` and served from jsDelivr (`--cdn`).
+ *
+ * orz-markdown ≥ 2 is browser-clean (no `fs`, `path` or `process` at import),
+ * so no shims, aliases or injected globals are needed (rebuild step 1; D-40,
+ * D-44, D-45). The engine's version is src/version.ts (generated from
+ * package.json by scripts/sync-version.ts), not a define.
+ *
+ * Usable as a module (tests/global-setup.ts calls {@link buildBrowser}) and as
+ * a script (`npm run bundle`).
  */
 import { build } from 'esbuild';
-import { createRequire } from 'node:module';
-import { mkdirSync, readFileSync, copyFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { VERSION as ORZ_MARKDOWN_VERSION } from 'orz-markdown/version';
+import { VERSION } from '../src/version.js';
 
-const require = createRequire(import.meta.url);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 
-/** orz-paged's own version pins the engine into each generated file. */
-const selfVersion: string =
-  JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version || '0.0.0';
+/** The engine bundle's file name (dist/ and the orz-paged-browser package). */
+export const BUNDLE_FILE = 'orz-paged.browser.js';
 
-mkdirSync(join(ROOT, 'dist'), { recursive: true });
+/** Build the browser engine in memory. */
+export async function buildBrowser(): Promise<string> {
+  const out = await build({
+    entryPoints: [join(ROOT, 'src', 'browser-entry.ts')],
+    bundle: true,
+    format: 'iife',
+    platform: 'browser',
+    target: ['es2020'],
+    minify: true,
+    sourcemap: false,
+    write: false,
+    charset: 'utf8',
+    logLevel: 'warning',
+  });
+  return out.outputFiles[0].text;
+}
 
-/** Redirect markdown-it-imsize's fs/dynamic-require image reader to a stub. */
-const stubImsizeFsReader = {
-  name: 'stub-imsize-fs-reader',
-  setup(b: import('esbuild').PluginBuild) {
-    b.onResolve({ filter: /(^|[\\/])imsize$/ }, (args) => {
-      if (args.importer.includes('markdown-it-imsize')) {
-        return { path: join(HERE, 'shims', 'imsize.cjs') };
-      }
-      return undefined;
-    });
-  },
-};
+/** Write the engine to dist/ (where the 0.x library inlines it) and stage it into browser/ (published to the CDN). */
+export function writeBrowser(code: string): void {
+  mkdirSync(join(ROOT, 'dist'), { recursive: true });
+  writeFileSync(join(ROOT, 'dist', BUNDLE_FILE), code, 'utf8');
+  mkdirSync(join(ROOT, 'browser'), { recursive: true });
+  writeFileSync(join(ROOT, 'browser', BUNDLE_FILE), code, 'utf8');
+}
 
-await build({
-  entryPoints: [join(ROOT, 'src', 'browser-entry.ts')],
-  bundle: true,
-  format: 'iife',
-  platform: 'browser',
-  target: ['es2020'],
-  outfile: join(ROOT, 'dist', 'orz-paged.browser.js'),
-  minify: true,
-  sourcemap: false,
-  plugins: [stubImsizeFsReader],
-  // Filesystem-only orz-markdown features don't apply in the browser: give
-  // `path` a real browser impl and `fs` a graceful stub.
-  alias: {
-    fs: join(HERE, 'shims', 'fs.cjs'),
-    path: 'path-browserify',
-  },
-  inject: [join(HERE, 'shims', 'process.js')],
-  define: {
-    __ORZPAGED_VERSION__: JSON.stringify(selfVersion),
-    'process.env.NODE_ENV': '"production"',
-  },
-  logLevel: 'info',
-});
-
-// Stage the bundle into the orz-paged-browser package (published to CDN).
-const browserPkgDir = join(ROOT, 'browser');
-mkdirSync(browserPkgDir, { recursive: true });
-copyFileSync(
-  join(ROOT, 'dist', 'orz-paged.browser.js'),
-  join(browserPkgDir, 'orz-paged.browser.js')
-);
-
-console.log(`Bundled orz-paged@${selfVersion} → dist/orz-paged.browser.js (+ browser/)`);
+const isMain = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
+if (isMain) {
+  const code = await buildBrowser();
+  writeBrowser(code);
+  console.log(`Bundled orz-paged@${VERSION} (orz-markdown@${ORZ_MARKDOWN_VERSION}) → dist/${BUNDLE_FILE} (+ browser/), ${(code.length / 1024).toFixed(0)} kB`);
+}

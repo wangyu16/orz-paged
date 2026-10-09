@@ -2,6 +2,8 @@
 
 Guidance for AI agents working in this repository.
 
+> **orz family:** this repo is one member of the orz family — before changing anything another member depends on, read the family docs via [`../CLAUDE.md`](../CLAUDE.md) (contracts, shared rules, release order, and drift ledger in `../docs/`).
+
 ## What this is
 
 `orz-paged` generates a single, self-contained, **editable** `.paged.html` — a
@@ -13,10 +15,17 @@ in [orz-markdown](../orz-markdown).
 
 **[DESIGN.md](./DESIGN.md) is the source of truth.** Read it first.
 
-> **Status: published (v0.6.1) and browser-verified.** The full pipeline works
-> (generate → paginate → edit → print); `tsc` clean, vitest 133/133. The
-> `orz-paged` CLI and `orz-paged-browser` engine are published in lockstep.
-> See `PLAN.md` for module status and deferred items.
+> **Status: published (v0.7.3); rebuild 1.0 in progress on branch
+> `rebuild/1.0`** (family plan `../docs/REBUILD.md` §3b, mirroring orz-mdhtml
+> 1.0). Steps 1–2 done: orz-markdown `^2.2.0` without shims; text format 1
+> (FC-18) — the document header is the settings source (`src/doc/settings.ts`
+> on the kit's `readHeader`); the isomorphic assembler `src/assemble.ts`
+> (`assemble`, `extract`, `readDocument`, `newDocument` from the template
+> skeletons), `src/inspect.ts`, `src/legacy.ts` (`upgrade` of 0.x files);
+> claims in `notes/CLAIMS.md` (bound by `tests/claims.test.ts`). The 0.x shell
+> (`src/template.ts`, `assets/app.js`, the CLI) still builds files until the
+> engine, `carrier/app` and CLI steps replace it. `KIT GAP` markers name code
+> that belongs in orz-markdown/carrier.
 
 ## The big idea (don't re-derive it)
 

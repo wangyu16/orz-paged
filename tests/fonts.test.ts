@@ -15,7 +15,7 @@ const NON_SYSTEM: FontPresetName[] = [
   'courier-prime',
 ];
 
-describe('FONT_PRESETS', () => {
+describe('[T.5] FONT_PRESETS', () => {
   it('covers every curated preset name', () => {
     const names = Object.keys(FONT_PRESETS).sort();
     expect(names).toEqual(
@@ -50,7 +50,7 @@ describe('FONT_PRESETS', () => {
   });
 });
 
-describe('fontPreset()', () => {
+describe('[T.5] fontPreset()', () => {
   it('returns the matching preset for a known name', () => {
     expect(fontPreset('lora')).toBe(FONT_PRESETS.lora);
     expect(fontPreset('lora').cssUrl).toContain('@fontsource/lora@5');

@@ -12,7 +12,7 @@ const SRC = [
   'Some **body** text.',
 ].join('\n');
 
-describe('buildPagedHtml', () => {
+describe('[L.1] buildPagedHtml', () => {
   const html = buildPagedHtml({ markdown: SRC, title: 'My Doc' });
 
   it('embeds the carrier source island', () => {

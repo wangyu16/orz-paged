@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { lintHeader } from 'orz-markdown/carrier';
 import {
   DEFAULTS,
-  parseDocSettings,
+  readSettings,
+  resolveSettings,
   normalizeRawToLayer,
   mergeSettings,
 } from '../src/doc/settings.js';
 
-describe('DEFAULTS', () => {
+describe('[S.5] DEFAULTS', () => {
   it('uses the documented defaults', () => {
     expect(DEFAULTS.pageSize).toBe('A4');
     expect(DEFAULTS.marginTop).toBe(20);
@@ -40,15 +42,16 @@ describe('DEFAULTS', () => {
   });
 });
 
-describe('parseDocSettings', () => {
-  it('returns empty raw and unchanged body when no document block', () => {
+describe('readSettings (the FC-18 header is the settings source)', () => {
+  it('[S.1] returns empty raw and the whole text as body when there is no header', () => {
     const src = '# Hello\n\nSome content.';
-    const { raw, body } = parseDocSettings(src);
+    const { raw, body, header } = readSettings(src);
     expect(raw).toEqual({});
     expect(body).toBe(src);
+    expect(header).toBeNull();
   });
 
-  it('parses a document block and strips it from the body', () => {
+  it('[S.1] reads the header and gives the body after it', () => {
     const src = [
       '{{nyml',
       'kind: document',
@@ -61,17 +64,14 @@ describe('parseDocSettings', () => {
       'Body text.',
     ].join('\n');
 
-    const { raw, body } = parseDocSettings(src);
+    const { raw, body } = readSettings(src);
     expect(raw.page_size).toBe('letter');
     expect(raw.font_size).toBe('11');
     expect(raw.kind).toBeUndefined(); // kind line is skipped
-    expect(body).not.toContain('{{nyml');
-    expect(body).not.toContain('kind: document');
-    expect(body).toContain('# Title');
-    expect(body).toContain('Body text.');
+    expect(body).toBe('\n\n# Title\n\nBody text.');
   });
 
-  it('ignores a non-document nyml block', () => {
+  it('[S.1] ignores a non-document nyml block', () => {
     const src = [
       '{{nyml',
       'kind: element',
@@ -80,12 +80,12 @@ describe('parseDocSettings', () => {
       '',
       'content',
     ].join('\n');
-    const { raw, body } = parseDocSettings(src);
+    const { raw, body } = readSettings(src);
     expect(raw).toEqual({});
     expect(body).toBe(src);
   });
 
-  it('finds the document block even when a non-document block precedes it', () => {
+  it('[S.2] a document block that does not lead the text is not the settings source (0.x read it anywhere; lint names it)', () => {
     const src = [
       '{{nyml',
       'kind: element',
@@ -99,14 +99,13 @@ describe('parseDocSettings', () => {
       '',
       'body',
     ].join('\n');
-    const { raw, body } = parseDocSettings(src);
-    expect(raw.theme).toBe('light-neat-1');
-    // the element block survives, the document block is removed
-    expect(body).toContain('kind: element');
-    expect(body).not.toContain('kind: document');
+    const { raw, body } = readSettings(src);
+    expect(raw).toEqual({});
+    expect(body).toBe(src);
+    expect(lintHeader(src, 'paged').map((l) => l.code)).toContain('stray-document-block');
   });
 
-  it('parses a `|` multiline block as the field value', () => {
+  it('[S.1] parses a `|` multiline block as the field value', () => {
     const src = [
       '{{nyml',
       'kind: document',
@@ -119,12 +118,12 @@ describe('parseDocSettings', () => {
       'body',
     ].join('\n');
 
-    const { raw } = parseDocSettings(src);
+    const { raw } = readSettings(src);
     expect(raw.custom_css).toBe('.foo { color: red; }\n.bar { color: blue; }');
     expect(raw.font_size).toBe('14');
   });
 
-  it('strips surrounding quotes from scalar values', () => {
+  it('[S.1] strips surrounding quotes from scalar values', () => {
     const src = [
       '{{nyml',
       'kind: document',
@@ -132,12 +131,18 @@ describe('parseDocSettings', () => {
       '}}',
       'body',
     ].join('\n');
-    const { raw } = parseDocSettings(src);
+    const { raw } = readSettings(src);
     expect(raw.decoration_color).toBe('#2962a4');
+  });
+
+  it('[S.2] the flat reader ignores keys indented under a scalar key (0.x read them; lint warns)', () => {
+    const src = '{{nyml\nkind: document\npage_size: A5\n  font_size: 15\n}}\n\nbody\n';
+    expect(readSettings(src).raw).toEqual({ page_size: 'A5' });
+    expect(lintHeader(src, 'paged').map((l) => l.code)).toContain('ignored-line');
   });
 });
 
-describe('normalizeRawToLayer', () => {
+describe('[S.5] normalizeRawToLayer', () => {
   it('normalizes page_size aliases case-insensitively', () => {
     expect(normalizeRawToLayer({ page_size: 'a4' }).pageSize).toBe('A4');
     expect(normalizeRawToLayer({ page_size: 'A4' }).pageSize).toBe('A4');
@@ -212,7 +217,7 @@ describe('normalizeRawToLayer', () => {
   });
 });
 
-describe('mergeSettings', () => {
+describe('[S.5] mergeSettings', () => {
   it('fills every field from DEFAULTS', () => {
     const merged = mergeSettings(DEFAULTS);
     expect(merged).toEqual(DEFAULTS);
@@ -244,8 +249,9 @@ describe('mergeSettings', () => {
       '}}',
       'body',
     ].join('\n');
-    const { raw } = parseDocSettings(src);
+    const { raw } = readSettings(src);
     const merged = mergeSettings(DEFAULTS, normalizeRawToLayer(raw));
+    expect(resolveSettings(src)).toEqual(merged);
     expect(merged.pageSize).toBe('Letter');
     expect(merged.fontSize).toBe(11);
     expect(merged.headerRule).toBe(false);

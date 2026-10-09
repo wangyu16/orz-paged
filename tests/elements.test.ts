@@ -33,7 +33,9 @@ const settings: DocSettings = {
   keepImageTogether: true,
   repeatTableHeader: true,
   avoidTableRowBreaks: true,
+  frontMatterClean: false,
   theme: 'none',
+  dynamicChoices: {},
 };
 
 /* Fake ctx: identity inline, naive block wrapper. */
@@ -47,7 +49,7 @@ function spec(kind: ElementSpec['kind'], fields: Record<string, string>, extra?:
   return { kind, fields, ...extra };
 }
 
-describe('renderElement — wrappers & basics', () => {
+describe('[T.1] renderElement — wrappers & basics', () => {
   it('wraps every styled kind in orz-el-<kind> with non-empty css', () => {
     const kinds: ElementSpec['kind'][] = [
       'article-title',
@@ -78,7 +80,7 @@ describe('renderElement — wrappers & basics', () => {
   });
 });
 
-describe('article-title', () => {
+describe('[T.1] article-title', () => {
   it('renders title/subtitle/author and defaults to section placement', () => {
     const r = renderElement(
       spec('article-title', {
@@ -153,7 +155,7 @@ describe('article-title', () => {
   });
 });
 
-describe('exam-title', () => {
+describe('[T.1] exam-title', () => {
   it('includes course / duration / total points', () => {
     const r = renderElement(
       spec('exam-title', {
@@ -208,7 +210,7 @@ describe('exam-title', () => {
   });
 });
 
-describe('question answer reveal (dynamic switch)', () => {
+describe('[T.1] question answer reveal (dynamic switch)', () => {
   it('question-mc marks the correct option with a show-when ✓', () => {
     const r = renderElement(
       spec('question-mc', { n: '1', body: 'Q?', options: 'A. one\nB. two', answer: 'B' }),
@@ -242,7 +244,7 @@ describe('question answer reveal (dynamic switch)', () => {
   });
 });
 
-describe('abstract', () => {
+describe('[T.1] abstract', () => {
   it('renders text via block ctx and shows keywords', () => {
     const r = renderElement(
       spec('abstract', { text: 'This is the abstract.', keywords: 'a, b, c' }),
@@ -254,7 +256,7 @@ describe('abstract', () => {
   });
 });
 
-describe('letterhead', () => {
+describe('[T.1] letterhead', () => {
   it('splits a pipe-separated address into multiple lines', () => {
     const r = renderElement(
       spec('letterhead', {
@@ -277,7 +279,7 @@ describe('letterhead', () => {
   });
 });
 
-describe('letter-inside-address', () => {
+describe('[T.1] letter-inside-address', () => {
   it('splits pipe fields and uses an <address> element', () => {
     const r = renderElement(
       spec('letter-inside-address', {
@@ -293,7 +295,7 @@ describe('letter-inside-address', () => {
   });
 });
 
-describe('letter-signature', () => {
+describe('[T.1] letter-signature', () => {
   it('defaults closing to "Sincerely" and renders from', () => {
     const r = renderElement(spec('letter-signature', { from: 'Jane Doe' }), ctx);
     expect(r.html).toContain('Sincerely');
@@ -310,7 +312,7 @@ describe('letter-signature', () => {
   });
 });
 
-describe('toc', () => {
+describe('[T.1] toc', () => {
   it('emits a heading and an empty nav placeholder with data-max-level', () => {
     const r = renderElement(spec('toc', { title: 'Contents', max_level: '2' }), ctx);
     expect(r.html).toContain('Contents');
@@ -325,7 +327,7 @@ describe('toc', () => {
   });
 });
 
-describe('cv-header', () => {
+describe('[T.1] cv-header', () => {
   it('renders name, title and pipe-separated contacts', () => {
     const r = renderElement(
       spec('cv-header', {
@@ -344,7 +346,7 @@ describe('cv-header', () => {
   });
 });
 
-describe('question-mc', () => {
+describe('[T.1] question-mc', () => {
   it('renders each option and marks the answer with data-answer', () => {
     const r = renderElement(
       spec('question-mc', {
@@ -388,7 +390,7 @@ describe('question-mc', () => {
   });
 });
 
-describe('question-open', () => {
+describe('[T.1] question-open', () => {
   it('renders body and a blank writing space with default height', () => {
     const r = renderElement(
       spec('question-open', { n: '3', pts: '10', body: 'Explain.' }),
@@ -408,7 +410,7 @@ describe('question-open', () => {
   });
 });
 
-describe('timestamp', () => {
+describe('[T.1] timestamp', () => {
   it('defaults label to "Last updated" and renders a date', () => {
     const r = renderElement(spec('timestamp', { date: '2026-01-01' }), ctx);
     expect(r.html).toContain('Last updated');
@@ -417,7 +419,7 @@ describe('timestamp', () => {
   });
 });
 
-describe('escaping', () => {
+describe('[T.1] escaping', () => {
   it('escapes user text that lands in attributes/plain fields', () => {
     const r = renderElement(
       spec('question-open', { n: '1', body: 'Q', space: '"><script>' }),

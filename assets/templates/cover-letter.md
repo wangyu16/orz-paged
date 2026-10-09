@@ -1,5 +1,6 @@
 {{nyml
 kind: document
+title: Cover Letter
 template: cover-letter
 }}
 

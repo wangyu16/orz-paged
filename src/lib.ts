@@ -23,12 +23,27 @@ import { getBrowserRuntimeScript } from 'orz-markdown/runtime';
 import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
 import { buildHtml, type ThemeAsset, type RendererSpec, type TemplateAsset } from './template.js';
 import { templateList } from './doc/templates.js';
+import { VERSION } from './version.js';
+
+// The 1.0 format-1 API (isomorphic; FC-18 text format 1, kind `paged`). The
+// 0.x composition below (buildPagedHtml, composeInlineHtml) is the old runtime
+// path, replaced by the engine, the paged kind on carrier/app and the CLI in
+// later rebuild steps; nothing new may depend on it.
+export { assemble, extract, readDocument, newDocument, storedText, shellParts, cdnBundleUrl, BUNDLE_FILE, FORMATS, PAGES_ID, DEFAULT_TEMPLATE, TEMPLATE_IDS, type AssembleOptions, type NewDocumentOptions, type Extracted, type DocumentInfo, type Kind } from './assemble.js';
+export { inspect, type InspectReport, type InspectOptions } from './inspect.js';
+export { upgrade, readLegacy, headerFromLegacySource, type LegacyFile, type LegacySourceResult, type UpgradeResult, type UpgradeOptions } from './legacy.js';
+export { readSettings, resolveSettings, DEFAULTS as SETTING_DEFAULTS } from './doc/settings.js';
+export { THEMES, DEFAULT_THEME, isThemeId } from './themes.js';
+export { VERSION } from './version.js';
+export { sha256 } from './sha256.js';
+/** The orz-markdown version this release renders with. */
+export { VERSION as ORZ_MARKDOWN_VERSION } from 'orz-markdown/version';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 
-export const selfVersion: string =
-  JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version || '0.0.0';
+/** orz-paged's own version (src/version.ts, generated from package.json). */
+export const selfVersion: string = VERSION;
 
 /** Pinned CDN assets used at view time — sourced from orz-markdown's shared
  *  preview-frame helper so every host app loads identical, tested versions.

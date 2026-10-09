@@ -1,13 +1,16 @@
 /**
- * Assembler — A1.
+ * Document renderer.
  *
- * `assemble(source)` turns a Markdown source into a {@link PagedAssembly}: pure
- * data (CSS, font URLs, theme, body HTML, resolved settings) that the browser
- * engine then hands to paged.js for pagination. No DOM here.
+ * `renderDocument(text)` turns a paged text (FC-18 text format 1) into a
+ * {@link PagedAssembly}: pure data (CSS, font URLs, theme, body HTML, resolved
+ * settings) that the browser engine then hands to paged.js for pagination. No
+ * DOM here. (Named `assemble` before rebuild step 2; `assemble` now means the
+ * FC-18 file assembler, src/assemble.ts.)
  *
  * Pipeline (DESIGN §3/§6):
- *   1. `parseDocSettings` extracts + strips the `{{nyml kind: document}}` block.
- *   2. Merge DEFAULTS ← template layer ← user overrides → resolved settings.
+ *   1. The FC-18 header is the settings source (`readSettings`: the kit's
+ *      `readHeader`); the body is the text after it (`withoutHeader`).
+ *   2. Merge DEFAULTS ← template layer ← header → resolved settings.
  *   3. Scan the remaining body for concrete element-kind blocks, render each
  *      via `renderElement`, and replace it with a placeholder token.
  *   4. Render the placeholdered body Markdown, then swap each placeholder for
@@ -47,7 +50,7 @@ const ELEMENT_KINDS = new Set<ElementKind>([
 ]);
 import {
   DEFAULTS,
-  parseDocSettings,
+  readSettings,
   normalizeRawToLayer,
   mergeSettings,
 } from './doc/settings.js';
@@ -63,11 +66,11 @@ function placeholderFor(index: number): string {
 }
 
 /**
- * Assemble a Markdown source into a {@link PagedAssembly}.
+ * Render a paged text into a {@link PagedAssembly}.
  */
-export function assemble(source: string): PagedAssembly {
-  // 1. Document settings — strips the `kind: document` block from the body.
-  const { raw, body } = parseDocSettings(source);
+export function renderDocument(source: string): PagedAssembly {
+  // 1. Document settings — the FC-18 header; the body is the text after it.
+  const { raw, body } = readSettings(source);
 
   // 2. Resolve settings: DEFAULTS ← template defaults ← user overrides.
   const templateLayer = resolveTemplate(String(raw.template ?? '') as TemplateName);

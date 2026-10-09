@@ -1,5 +1,6 @@
 {{nyml
 kind: document
+title: Your Article Title
 template: article-page
 front_matter: clean
 }}

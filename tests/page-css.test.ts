@@ -39,12 +39,14 @@ function makeSettings(over: Partial<DocSettings> = {}): DocSettings {
     repeatTableHeader: true,
     avoidTableRowBreaks: true,
 
+    frontMatterClean: false,
     theme: 'none',
+    dynamicChoices: {},
     ...over,
   };
 }
 
-describe('buildPageCss — @page size & margins', () => {
+describe('[T.2] buildPageCss — @page size & margins', () => {
   it('emits size and 4-value margin in mm (top right bottom left)', () => {
     const css = buildPageCss(makeSettings());
     expect(css).toContain('size: A4;');
@@ -57,7 +59,7 @@ describe('buildPageCss — @page size & margins', () => {
   });
 });
 
-describe('buildPageCss — page numbers', () => {
+describe('[T.2] buildPageCss — page numbers', () => {
   it('places the page-n-of-N expr in @bottom-center for footer-center', () => {
     const css = buildPageCss(makeSettings());
     expect(css).toMatch(/@bottom-center\s*\{[^}]*content:\s*"Page " counter\(page\) " of " counter\(pages\)/);
@@ -89,7 +91,7 @@ describe('buildPageCss — page numbers', () => {
   });
 });
 
-describe('buildPageCss — running headers/footers', () => {
+describe('[T.2] buildPageCss — running headers/footers', () => {
   it('puts static header text in the right box with its font size', () => {
     const css = buildPageCss(makeSettings({ headerCenter: 'My Document' }));
     expect(css).toMatch(/@top-center\s*\{[^}]*content:\s*"My Document"/);
@@ -117,7 +119,7 @@ describe('buildPageCss — running headers/footers', () => {
   });
 });
 
-describe('buildPageCss — :root tokens', () => {
+describe('[T.2] buildPageCss — :root tokens', () => {
   it('emits the dom-contract CSS variables', () => {
     const css = buildPageCss(makeSettings({ pageBackground: '#fdf8f0' }));
     expect(css).toContain('--font-size: 12pt;');
@@ -138,7 +140,7 @@ describe('buildPageCss — :root tokens', () => {
   });
 });
 
-describe('buildPageCss — front matter clean', () => {
+describe('[T.2] buildPageCss — front matter clean', () => {
   it('off by default: native counters, no front-matter hide', () => {
     const css = buildPageCss(makeSettings());
     expect(css).not.toContain('pagedjs_orz-front_page');
@@ -157,7 +159,7 @@ describe('buildPageCss — front matter clean', () => {
   });
 });
 
-describe('buildPageCss — layout behavior', () => {
+describe('[T.2] buildPageCss — layout behavior', () => {
   it('emits all enabled layout rules', () => {
     const css = buildPageCss(makeSettings());
     expect(css).toContain('img { max-width: 100%; max-height: 100%; }');
@@ -180,7 +182,7 @@ describe('buildPageCss — layout behavior', () => {
   });
 });
 
-describe('buildPageCss — first-page suppression', () => {
+describe('[T.2] buildPageCss — first-page suppression', () => {
   it('hides header boxes on @page:first when firstPageHideHeader', () => {
     const css = buildPageCss(makeSettings({ firstPageHideHeader: true }));
     expect(css).toMatch(/@page:first\s*\{[^]*@top-center\s*\{\s*content:\s*none/);

@@ -10,14 +10,14 @@
  * heights) → paginate with paged.js into `.orz-pages` → fill TOC page numbers.
  * Export = the browser's own print.
  */
-import { assemble } from './render-paged.js';
+import { renderDocument } from './render-paged.js';
 import { paginate, printDocument, type PagedStylesheet } from './paged.js';
 import { fontPreset } from './doc/fonts.js';
 import { THEME_FONTS } from './doc/theme-fonts.js';
 import { applyDynamicChoices, collectDynamicChoices } from './doc/dynamic.js';
 import type { PagedAssembly, ThemeName } from './types.js';
+import { VERSION } from './version.js';
 
-const VERSION = typeof __ORZPAGED_VERSION__ !== 'undefined' ? __ORZPAGED_VERSION__ : '0.0.0';
 
 /* ---------- config (provided by the template) ---------- */
 
@@ -191,7 +191,7 @@ function stylesheetsFor(a: PagedAssembly): PagedStylesheet[] {
 
 /** Assemble `source`, render async content, and paginate into `.orz-pages`. */
 async function render(source: string): Promise<void> {
-  const a = assemble(source);
+  const a = renderDocument(source);
   lastAssembly = a;
 
   // Stylesheets the document needs in <head> for fonts + math (and staging measurement).
@@ -281,7 +281,8 @@ function fillToc(): void {
 
 const api = {
   version: VERSION,
-  assemble,
+  /** Render a text to its paged assembly (CSS, body HTML, settings) — no pagination. */
+  assemble: renderDocument,
   /** Re-render from a (possibly edited) source. */
   render: (source: string) => render(source),
   /** Re-render from the embedded source. */

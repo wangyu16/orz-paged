@@ -20,18 +20,12 @@ import type {
   ElementKind,
   Placement,
 } from '../types.js';
+import { escapeAttr } from 'orz-markdown/carrier/read';
 
 /* ─────────────────────────── helpers ─────────────────────────── */
 
-/** Escape text destined for an HTML attribute value (and general text). */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+/** Escape text destined for an HTML attribute value (and general text): the kit's `escapeAttr`. */
+const escapeHtml = escapeAttr;
 
 /** Read a field, trimmed; returns '' when absent. */
 function field(spec: ElementSpec, key: string): string {

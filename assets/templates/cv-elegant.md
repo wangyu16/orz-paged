@@ -1,5 +1,6 @@
 {{nyml
 kind: document
+title: Your Name — CV
 template: cv-elegant
 custom_css: |
   /* CV — elegant: centered, letter-spaced name between hairlines, centered

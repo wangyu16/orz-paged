@@ -1,5 +1,6 @@
 {{nyml
 kind: document
+title: Note Title
 template: note
 }}
 

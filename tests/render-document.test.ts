@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { assemble } from '../src/render-paged.js';
+import { renderDocument as assemble } from '../src/render-paged.js';
 import { scanNymlBlocks } from '../src/doc/nyml.js';
 
 /* ─────────────────────────── scanNymlBlocks ─────────────────────────── */
 
-describe('scanNymlBlocks', () => {
+describe('[T.6] scanNymlBlocks', () => {
   it('finds every block with its kind, fields, and char offsets', () => {
     const source = [
       'intro text',
@@ -76,7 +76,7 @@ const SOURCE = [
   'Some **body** text.',
 ].join('\n');
 
-describe('scanNymlBlocks — comments', () => {
+describe('[T.6] scanNymlBlocks — comments', () => {
   it('skips nyml blocks inside an HTML comment', () => {
     const src = '{{nyml\nkind: article-title\ntitle: Live\n}}\n\n<!--\n{{nyml\nkind: question-mc\nn: 1\n}}\n-->\n';
     const kinds = scanNymlBlocks(src).map((b) => b.kind);
@@ -85,14 +85,14 @@ describe('scanNymlBlocks — comments', () => {
   });
 });
 
-describe('assemble — commented elements', () => {
+describe('[T.6] renderDocument — commented elements', () => {
   it('does not render a commented-out element', () => {
     const src = '{{nyml\nkind: document\ntemplate: note\n}}\n\n# Hi\n\n<!--\n{{nyml\nkind: question-mc\nn: 1\nbody: Q\nanswer: A\n}}\n-->\n';
     expect(assemble(src).bodyHtml).not.toContain('orz-el-question-mc');
   });
 });
 
-describe('assemble', () => {
+describe('[T.6] renderDocument', () => {
   const out = assemble(SOURCE);
 
   it('reflects the merged settings (template + user overrides)', () => {

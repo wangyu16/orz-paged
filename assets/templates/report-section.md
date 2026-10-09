@@ -1,5 +1,6 @@
 {{nyml
 kind: document
+title: Report Title
 template: report-section
 header_center: Report Title
 page_number_position: footer-right

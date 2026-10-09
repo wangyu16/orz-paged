@@ -12,6 +12,8 @@
  * orz-slides' template (live preview = the real rendered pages).
  */
 
+import { escapeAttr as escapeHtml } from 'orz-markdown/carrier/read';
+
 export type RendererSpec = { mode: 'inline'; js: string } | { mode: 'cdn'; src: string };
 
 export interface ThemeAsset { id: string; css: string }
@@ -44,10 +46,12 @@ export interface BuildOptions {
   metaIsland?: string;
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-/** Prevent an embedded `</script>` in the source from closing the block. */
+/**
+ * Prevent an embedded `</script>` in the source from closing the block — the
+ * 0.x runtime's own convention for `#orz-src` (src/legacy.ts reads it back),
+ * so it stays with this old path until the engine step replaces it. New code
+ * uses orz-markdown's `escapeScriptText` through the kit envelope.
+ */
 function escapeForScript(s: string): string {
   return s.replace(/<\/(script)/gi, '<\\/$1');
 }

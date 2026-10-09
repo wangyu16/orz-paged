@@ -1,5 +1,6 @@
 {{nyml
 kind: document
+title: Your Article Title Goes Here
 template: article-section
 }}
 

@@ -16,7 +16,7 @@ const ALL: TemplateName[] = [
   'letter', 'cover-letter', 'cv', 'cv-modern', 'cv-elegant', 'note',
 ];
 
-describe('TEMPLATES', () => {
+describe('[T.3] TEMPLATES', () => {
   it('defines all 12 curated templates', () => {
     expect(Object.keys(TEMPLATES).sort()).toEqual([...ALL].sort());
   });
@@ -48,7 +48,7 @@ describe('TEMPLATES', () => {
   });
 });
 
-describe('canonicalTemplate / legacy aliases', () => {
+describe('[T.3] canonicalTemplate / legacy aliases', () => {
   it('passes canonical names through', () => {
     expect(canonicalTemplate('exam-page')).toBe('exam-page');
   });
@@ -62,7 +62,7 @@ describe('canonicalTemplate / legacy aliases', () => {
   });
 });
 
-describe('resolveTemplate', () => {
+describe('[T.3] resolveTemplate', () => {
   it('returns the settings layer for a known name', () => {
     expect(resolveTemplate('article-page')).toBe(TEMPLATES['article-page'].settings);
   });
@@ -87,7 +87,7 @@ describe('resolveTemplate', () => {
   });
 });
 
-describe('templateSkeletonName / templateList', () => {
+describe('[T.3] templateSkeletonName / templateList', () => {
   it('returns the skeleton stem for canonical + legacy names', () => {
     expect(templateSkeletonName('cv')).toBe('cv');
     expect(templateSkeletonName('exam')).toBe('exam-section');

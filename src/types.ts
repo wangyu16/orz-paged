@@ -188,9 +188,3 @@ export interface PagedAssembly {
   settings: DocSettings;
 }
 
-/* ─────────────────────────── build-time global ─────────────────────────── */
-
-declare global {
-  /** Injected by esbuild at bundle time (build/bundle.ts). */
-  const __ORZPAGED_VERSION__: string;
-}

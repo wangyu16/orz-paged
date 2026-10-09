@@ -1,15 +1,23 @@
 /**
- * Document settings — M1.
+ * Document settings.
  *
- * Reads the single `{{nyml kind: document}}` block from a Markdown source,
- * normalizes its snake_case keys into a {@link DocSettingsLayer}, and merges
+ * The settings source is the FC-18 document header (orz-markdown's
+ * `readHeader`, the one flat nyml reader every carrier shares; keys
+ * `KIND_HEADER_KEYS.paged` plus the common `theme`). This module normalizes the
+ * header's snake_case keys into a {@link DocSettingsLayer} and merges
  * template + user layers over {@link DEFAULTS} into a fully-resolved
- * {@link DocSettings}.
+ * {@link DocSettings}: defaults ← template layer ← header.
+ *
+ * Text format 1 (rebuild step 2): the 0.x raw-string `parseDocSettings` and its
+ * private nyml parser are gone. A `kind: document` block that is not the header
+ * (not leading the text) is no settings source; lint reports it
+ * (`stray-document-block`), and `upgrade` moves a 0.x file's block to the top.
  *
  * Source of truth for defaults and aliases: `docs/document-model.md`
  * (the curated subset; see DESIGN.md §8).
  */
 
+import { readHeader, withoutHeader, type Header } from 'orz-markdown/carrier';
 import type {
   DocSettings,
   RawDocSettings,
@@ -21,6 +29,7 @@ import type {
   ThemeName,
   TemplateName,
 } from '../types.js';
+import { resolveTemplate } from './templates.js';
 
 /* ─────────────────────────── defaults ─────────────────────────── */
 
@@ -74,143 +83,28 @@ export const DEFAULTS: DocSettings = {
   dynamicChoices: {},
 };
 
-/* ─────────────────────────── parsing ─────────────────────────── */
+/* ─────────────────────────── reading ─────────────────────────── */
 
 /**
- * Locate the first `{{nyml ... }}` block whose body declares `kind: document`,
- * parse its `key: value` lines (including `key: |` multiline blocks) into a
- * {@link RawDocSettings}, and return the source with that block removed so it
- * is not rendered as content. No document block → `{ raw: {}, body: source }`.
+ * The settings of a text: its FC-18 header's fields (`raw`, read by the kit's
+ * flat nyml reader: `kind` excluded, quotes removed, `|` values dedented; a
+ * legacy `kind: meta` header or meta+document pair is read as the kit reads it)
+ * and the body to render (`withoutHeader(text).body`). A text without a header
+ * gives `{ raw: {}, body: text, header: null }`.
  */
-export function parseDocSettings(source: string): {
-  raw: RawDocSettings;
-  body: string;
-} {
-  let searchFrom = 0;
-
-  while (searchFrom < source.length) {
-    const open = source.indexOf('{{nyml', searchFrom);
-    if (open === -1) break;
-
-    // Find the matching closing `}}` for this block, allowing `}` inside the
-    // body as long as it is not the `}}` terminator.
-    const close = findClosing(source, open + '{{nyml'.length);
-    if (close === -1) break;
-
-    const inner = source.slice(open + '{{nyml'.length, close);
-    if (isDocumentBlock(inner)) {
-      const raw = parseNymlBody(inner);
-      const body = stripLeadingBlank(source, open, close);
-      return { raw, body };
-    }
-
-    searchFrom = close + 2;
-  }
-
-  return { raw: {}, body: source };
-}
-
-/** Find the index of the `}}` that closes a `{{nyml` opened at/after `from`. */
-function findClosing(source: string, from: number): number {
-  for (let i = from; i < source.length - 1; i++) {
-    if (source[i] === '}' && source[i + 1] === '}') return i;
-  }
-  return -1;
-}
-
-/** Remove the block `[open, close+2)` and collapse a resulting blank gap. */
-function stripLeadingBlank(
-  source: string,
-  open: number,
-  close: number,
-): string {
-  const before = source.slice(0, open);
-  let after = source.slice(close + 2);
-
-  // If the block sat on its own line(s), drop one trailing newline pair so we
-  // don't leave a large blank hole where it was.
-  if (/\n[ \t]*$/.test(before) || before === '') {
-    after = after.replace(/^[ \t]*\n/, '');
-  }
-  return before + after;
-}
-
-/** True if the nyml body contains a `kind: document` declaration. */
-function isDocumentBlock(inner: string): boolean {
-  return /(^|\n)\s*kind\s*:\s*document\s*(\n|$)/.test(inner);
+export function readSettings(text: string): { raw: RawDocSettings; body: string; header: Header | null } {
+  const header = readHeader(text);
+  if (!header) return { raw: {}, body: text, header: null };
+  return { raw: { ...header.fields }, body: withoutHeader(text).body, header };
 }
 
 /**
- * Parse a nyml body into a flat `key: value` map. Supports `key: |` multiline
- * blocks: subsequent lines indented more than the key are joined (newline
- * separated) as that key's value. The `kind:` line itself is skipped.
+ * The resolved settings of a text: DEFAULTS ← the layer of the header's
+ * `template` (layout defaults only) ← the header's own keys.
  */
-function parseNymlBody(inner: string): RawDocSettings {
-  const raw: RawDocSettings = {};
-  const lines = inner.split('\n');
-
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    const m = /^(\s*)([A-Za-z0-9_]+)\s*:\s?(.*)$/.exec(line);
-    if (!m) {
-      i++;
-      continue;
-    }
-
-    const indent = m[1].length;
-    const key = m[2];
-    let value = m[3];
-
-    if (key === 'kind') {
-      i++;
-      continue;
-    }
-
-    if (value.trim() === '|') {
-      // Multiline block: gather following lines indented more than this key.
-      // Dedent by the indentation of the first content line (block style).
-      const collected: string[] = [];
-      let blockIndent = -1;
-      i++;
-      while (i < lines.length) {
-        const next = lines[i];
-        if (next.trim() === '') {
-          collected.push('');
-          i++;
-          continue;
-        }
-        const nextIndent = next.match(/^[ \t]*/)?.[0].length ?? 0;
-        if (nextIndent <= indent) break;
-        if (blockIndent === -1) blockIndent = nextIndent;
-        collected.push(next.slice(Math.min(blockIndent, nextIndent)));
-        i++;
-      }
-      // Drop trailing blank lines from the collected block.
-      while (collected.length && collected[collected.length - 1] === '') {
-        collected.pop();
-      }
-      raw[key] = collected.join('\n');
-      continue;
-    }
-
-    raw[key] = stripQuotes(value.trim());
-    i++;
-  }
-
-  return raw;
-}
-
-/** Strip a single pair of matching surrounding quotes, if present. */
-function stripQuotes(s: string): string {
-  if (s.length >= 2) {
-    const first = s[0];
-    const last = s[s.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return s.slice(1, -1);
-    }
-  }
-  return s;
+export function resolveSettings(text: string): DocSettings {
+  const { raw } = readSettings(text);
+  return mergeSettings(DEFAULTS, resolveTemplate(String(raw.template ?? '') as TemplateName), normalizeRawToLayer(raw));
 }
 
 /* ─────────────────────────── normalization ─────────────────────────── */
@@ -249,7 +143,8 @@ function toStr(v: string | number | boolean): string {
 /**
  * Map snake_case raw keys → camelCase {@link DocSettings} fields, coercing
  * types and normalizing aliases. Only keys present in `raw` are included;
- * unknown keys are ignored.
+ * unknown keys (DocMeta, host keys, misspellings — lint names the latter) are
+ * ignored.
  */
 export function normalizeRawToLayer(raw: RawDocSettings): DocSettingsLayer {
   const out: DocSettingsLayer = {};

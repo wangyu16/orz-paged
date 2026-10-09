@@ -27,13 +27,13 @@ function makeRoot(els: ReturnType<typeof makeEl>[]) {
   };
 }
 
-describe('normalizeChoiceKey', () => {
+describe('[T.4] normalizeChoiceKey', () => {
   it('lowercases and turns hyphens into underscores', () => {
     expect(normalizeChoiceKey('Answer-Key')).toBe('answer_key');
   });
 });
 
-describe('applyDynamicChoices', () => {
+describe('[T.4] applyDynamicChoices', () => {
   it('show-when: keeps + strips when matched, removes otherwise', () => {
     const keep = makeEl({ 'data-show-when': 'answer-key=show' });
     const drop = makeEl({ 'data-show-when': 'answer-key=show' });
@@ -64,7 +64,7 @@ describe('applyDynamicChoices', () => {
   });
 });
 
-describe('collectDynamicChoices', () => {
+describe('[T.4] collectDynamicChoices', () => {
   it('returns each key with the sorted set of values it is used with', () => {
     const root = makeRoot([
       makeEl({ 'data-show-when': 'answer-key=show' }),

@@ -1,5 +1,6 @@
 {{nyml
 kind: document
+title: Report Title
 template: report-page
 header_center: Report Title
 footer_left: Confidential
