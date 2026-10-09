@@ -1,0 +1,36 @@
+/* light-playful-1 on paper: the exercise book becomes the page itself.
+   The source rules running text with a line per body line and draws a pink
+   margin line down the article; on a screen both sit inside the article's
+   padding. On a page there is no such padding, so:
+   - the ruling follows the page's leading (font_size / line_height from the
+     header), so the lines stay under the words, and runs to the paper edges
+     like a real exercise book;
+   - the margin line is drawn on the page sheet, top to bottom of every page,
+     just left of the text block. */
+
+:root {
+  --rule: calc(var(--line-height, 1.5) * 1em);
+  --rule-drop: calc(var(--rule) / 2 - 0.36em);
+}
+
+.markdown-body > p::before,
+.markdown-body > ul:not(.toc-list)::before,
+.markdown-body > ol::before {
+  inset: 0 calc(-1 * var(--margin-r, 20mm)) 0 calc(-1 * var(--margin-l, 20mm));
+}
+
+.pagedjs_page {
+  background-image: linear-gradient(to right,
+    transparent calc(var(--margin-l, 20mm) - 1.1rem),
+    var(--margin-ink) calc(var(--margin-l, 20mm) - 1.1rem),
+    var(--margin-ink) calc(var(--margin-l, 20mm) - 1.1rem + 1.5px),
+    transparent calc(var(--margin-l, 20mm) - 1.1rem + 1.5px));
+  background-repeat: no-repeat;
+}
+
+/* The pink title is display text on cream paper (4.4:1 on screen, where the
+   large size carries it); on paper, a shade deeper reaches 5:1 and still
+   follows decoration_color. */
+.markdown-body h1 {
+  color: color-mix(in srgb, var(--accent) 92%, #000);
+}

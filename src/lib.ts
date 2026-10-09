@@ -134,7 +134,7 @@ export function composeInlineHtml(
         }
       : {
           mode: 'inline',
-          js: readFileSync(findAsset('dist/orz-paged.browser.js'), 'utf8'),
+          js: readFileSync(findAsset('dist/orz-paged.legacy.js'), 'utf8'), // the 0.x engine (window.orzpaged), build/bundle.ts
         };
 
   const known = theme && themes.some((t) => t.id === theme);

@@ -12,7 +12,6 @@
  */
 import { renderDocument } from './render-paged.js';
 import { paginate, printDocument, type PagedStylesheet } from './paged.js';
-import { fontPreset } from './doc/fonts.js';
 import { THEME_FONTS } from './doc/theme-fonts.js';
 import { applyDynamicChoices, collectDynamicChoices } from './doc/dynamic.js';
 import type { PagedAssembly, ThemeName } from './types.js';
@@ -201,7 +200,7 @@ async function render(source: string): Promise<void> {
   // URL is in a.fontCssUrls and page CSS emits --font-body to override the theme).
   const activeTheme = (themeOverride || a.theme) as ThemeName;
   const tf = THEME_FONTS[activeTheme];
-  if (tf) { ensureLink(fontPreset(tf.body).cssUrl); ensureLink(fontPreset(tf.heading).cssUrl); }
+  if (tf) tf.css.forEach((u) => ensureLink(u));
   a.fontCssUrls.forEach((u) => ensureLink(u));
   if (cfg().katexCss) ensureLink(cfg().katexCss!, 'orz-katex');
   if (cfg().hljsCss) ensureLink(cfg().hljsCss!, 'orz-hljs');

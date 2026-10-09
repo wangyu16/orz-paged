@@ -34,6 +34,7 @@ import {
 } from 'orz-markdown/carrier';
 import { bundleUrl, isScriptSafe } from 'orz-markdown/carrier/shell';
 import { canonicalTemplate, TEMPLATES } from './doc/templates.js';
+import { presentationOf, readViewMarkup, shellHead, type Presentation } from './presentation.js';
 import { STARTERS } from './starters.js';
 import { isThemeId } from './themes.js';
 import { VERSION } from './version.js';
@@ -87,26 +88,20 @@ export interface AssembleOptions {
   includes?: Record<string, string>;
 }
 
-/** The id of the element the pages are rendered into (the read view, print-ready). */
-export const PAGES_ID = 'orz-pages';
+export { PAGES_ID } from './presentation.js';
 
-/**
- * The 1.0 shell's head part. PLACEHOLDER (rebuild step 2): the chrome, the
- * page and theme styles and the runtime come with the engine and the paged
- * kind on `carrier/app` (later steps).
- */
-const SHELL_HEAD = '<meta name="viewport" content="width=device-width, initial-scale=1">';
-
-/**
- * The 1.0 shell's body part around the engine. PLACEHOLDER (rebuild step 2):
- * the read view the engine paginates the document into (print view, in the
- * page).
- */
-const SHELL_BODY = `<div id="${PAGES_ID}" class="orz-pages" aria-live="polite"></div>`;
+/** The id of the chrome's mount point (the kit's app renders its shadow root there). */
+export const CHROME_MOUNT_ID = 'orz-chrome';
 
 /**
  * Assemble the `.paged.html` file of a text (FC-18 §8): the kit's envelope
- * with kind `paged`, shell version {@link VERSION}, and the 1.0 shell parts.
+ * with kind `paged`, shell version {@link VERSION}, and the 1.0 shell parts —
+ * in `<head>` the viewport, colour scheme and the stylesheets the header asks
+ * for (KaTeX, highlight.js, the webfonts of its theme and font presets;
+ * non-blocking, `media="not all"` until the read view switches them on); in
+ * `<body>` the read view (`#orz-view` / `#orz-pages`, holding a quiet
+ * fallback line until the engine lays out the pages), the chrome mount point
+ * (`#orz-chrome`) and the engine (`#orz-engine`, inline or from jsDelivr).
  *
  * Deterministic: the same text, options and version give the same bytes.
  * Throws for a text the envelope refuses (NUL, a lone surrogate, a header
@@ -114,17 +109,19 @@ const SHELL_BODY = `<div id="${PAGES_ID}" class="orz-pages" aria-live="polite"><
  * `engineSource` for inline delivery.
  */
 export function assemble(text: string, options: AssembleOptions = {}): string {
-  return assembleEnvelope(text, shellParts(options));
+  return assembleEnvelope(text, shellParts(options, presentationOf(text)));
 }
 
 /**
  * The shell parts {@link assemble} hands to the kit's `assembleEnvelope`: kind
  * `paged`, shell version {@link VERSION}, delivery, head and body parts, and
- * the includes. They depend on the options only, never on the text (FC-18 law
- * 4, no document data in the shell). Throws as {@link assemble} does for the
+ * the includes. They depend on the options and on the presentation (the
+ * header's theme, font presets and page size, resolved by `presentationOf`)
+ * only — never on other document data (FC-18 §8.1: presentation is applied by
+ * the shell parts, not the envelope). Throws as {@link assemble} does for the
  * options.
  */
-export function shellParts(options: AssembleOptions = {}): ShellParts {
+export function shellParts(options: AssembleOptions = {}, presentation: Presentation = presentationOf('')): ShellParts {
   const delivery = options.delivery ?? 'inline';
   let engine: string;
   if (delivery === 'inline') {
@@ -142,8 +139,8 @@ export function shellParts(options: AssembleOptions = {}): ShellParts {
     kind: 'paged',
     shellVersion: VERSION,
     delivery,
-    headHtml: SHELL_HEAD,
-    bodyHtml: `${SHELL_BODY}\n${engine}`,
+    headHtml: shellHead(presentation, { deferred: true }),
+    bodyHtml: `${readViewMarkup(presentation, delivery)}\n<div id="${CHROME_MOUNT_ID}"></div>\n${engine}`,
     ...(includes ? { includes } : {}),
   };
 }
@@ -156,7 +153,7 @@ export function shellParts(options: AssembleOptions = {}): ShellParts {
  */
 export function storedText(text: string): string {
   try {
-    return extract(assembleEnvelope(text, shellParts({ delivery: 'cdn' })))?.text ?? text;
+    return extract(assembleEnvelope(text, shellParts({ delivery: 'cdn' }, presentationOf(''))))?.text ?? text;
   } catch {
     return text;
   }

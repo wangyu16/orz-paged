@@ -1,19 +1,58 @@
 {
   "name": "orz-paged-browser",
   "version": "0.7.3",
-  "description": "Prebuilt in-browser paged-document engine for orz-paged .paged.html files (paged.js + orz-markdown + the orz-paged document layer/assembler)",
+  "description": "The orz-paged browser engine and editor component (FC-19): globalThis.OrzCarrier (IIFE) or ES module exports — mountEditor, assemble, extract, readDocument, renderPreview — with Paged.js 0.4.3 print pages. Served via jsDelivr for .paged.html files; embeddable in web apps.",
   "main": "orz-paged.browser.js",
+  "module": "esm/orz-paged.browser.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./esm/orz-paged.browser.mjs",
+      "require": "./require.cjs",
+      "default": "./orz-paged.browser.js"
+    },
+    "./orz-paged.browser.js": "./orz-paged.browser.js",
+    "./esm": {
+      "types": "./index.d.ts",
+      "default": "./esm/orz-paged.browser.mjs"
+    },
+    "./release.json": "./release.json",
+    "./package.json": "./package.json",
+    "./docs/embedding.md": "./docs/embedding.md"
+  },
   "files": [
     "orz-paged.browser.js",
-    "README.md"
+    "esm/orz-paged.browser.mjs",
+    "index.d.ts",
+    "release.json",
+    "require.cjs",
+    "docs/embedding.md",
+    "README.md",
+    "LICENSE"
   ],
+  "scripts": {
+    "prepublishOnly": "node scripts/check-release.mjs"
+  },
+  "keywords": [
+    "orz-markdown",
+    "orz-paged",
+    "markdown",
+    "paged",
+    "pagedjs",
+    "print",
+    "editor",
+    "browser",
+    "cdn"
+  ],
+  "author": "Yu Wang <yuwang@orz.how>",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wangyu16/orz-paged.git"
   },
   "homepage": "https://markdown.orz.how/family.html#paged",
   "bugs": "https://github.com/wangyu16/orz-paged/issues",
-  "license": "MIT",
   "publishConfig": {
     "access": "public"
   }

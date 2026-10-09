@@ -17,7 +17,7 @@ const sources = (dir: string): string[] =>
 describe('base', () => {
   it('[B.1] depends on orz-markdown ^2.2.0 and pagedjs 0.4.3 with no shims, aliases, injected globals or package.json walk', async () => {
     expect(pkg.dependencies['orz-markdown']).toBe('^2.2.0');
-    expect(pkg.dependencies['pagedjs']).toBe('^0.4.3');
+    expect(pkg.dependencies['pagedjs']).toBe('0.4.3'); // pinned exactly: the two-column handler is tested against it
     expect(existsSync('build/shims')).toBe(false);
     expect({ ...pkg.dependencies, ...pkg.devDependencies }).not.toHaveProperty('path-browserify');
     for (const file of [...sources('src'), ...sources('build')]) {
@@ -28,7 +28,7 @@ describe('base', () => {
     expect(readFileSync('src/lib.ts', 'utf8')).toMatch(/from 'orz-markdown\/version'/);
     expect(readFileSync('build/bundle.ts', 'utf8')).toMatch(/from 'orz-markdown\/version'/);
     // the engine bundles for the browser as it is, and needs no Node module at run time
-    const code = await buildBrowser();
+    const code = (await buildBrowser()).iife;
     expect(code).not.toMatch(/require\("(fs|path|os|crypto|url|module)"\)/);
     expect(code.length).toBeGreaterThan(100_000);
   }, 60_000);

@@ -17,15 +17,17 @@
   "files": [
     "dist",
     "assets",
+    "docs/embedding.md",
     "orz-paged-skills"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && npm run bundle",
-    "prebuild": "tsx scripts/sync-version.ts && tsx scripts/sync-templates.ts",
+    "prebuild": "tsx scripts/sync-version.ts && tsx scripts/sync-templates.ts && tsx scripts/build-themes.ts",
     "bundle": "tsx build/bundle.ts",
     "gen": "tsx src/cli.ts",
     "test": "vitest run",
-    "pretest": "tsx scripts/sync-version.ts && tsx scripts/sync-templates.ts",
+    "pretest": "tsx scripts/sync-version.ts && tsx scripts/sync-templates.ts && tsx scripts/build-themes.ts",
+    "themes": "tsx scripts/build-themes.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
@@ -51,7 +53,7 @@
   "bugs": "https://github.com/wangyu16/orz-paged/issues",
   "dependencies": {
     "orz-markdown": "^2.2.0",
-    "pagedjs": "^0.4.3"
+    "pagedjs": "0.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

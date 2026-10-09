@@ -43,7 +43,8 @@ export type ThemeName =
   | 'none'
   | 'light-academic-1' | 'light-academic-2'
   | 'light-neat-1' | 'light-neat-2' | 'light-neat-3'
-  | 'beige-decent-1' | 'beige-decent-2';
+  | 'beige-decent-1' | 'beige-decent-2'
+  | 'light-playful-1' | 'light-playful-2';
 
 /** Curated CDN font presets (DESIGN §4, §8). */
 export type FontPresetName =

@@ -1,0 +1,127 @@
+/* orz-paged structure — part 2 of base.css (part 1 is orz-markdown's common.css,
+   adapted). Theme-agnostic: pages, page breaks, paged's document elements and
+   TOC, and what print needs that a screen theme does not say. No decoration.
+
+   Tokens (docs/dom-contract.md; page CSS sets them last, a theme sets the
+   defaults): --page-bg, --accent, --font-body, --font-heading, --font-size,
+   --line-height, --text-main, --text-muted. */
+
+/* ---- the page sheet is the paper -------------------------------------------
+   The paper colour shows on screen and prints as it is shown (WYSIWYG): the
+   PDF looks like the preview. `page_background: white` gives white paper. */
+.pagedjs_page {
+  background: var(--page-bg, #ffffff);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+/* ---- the article is the page's text block -----------------------------------
+   A theme's article frame (measure, padding, card, backdrop) is a screen thing:
+   on paper the page margins are the frame. Decoration inside prints as designed
+   (tints, ornaments), whatever the print dialog's "background graphics" says. */
+.orz-doc.markdown-body {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.orz-doc.markdown-body::before,
+.orz-doc.markdown-body::after { content: none; }
+.orz-doc.markdown-body > :first-child { margin-top: 0; }
+.markdown-body .header-anchor { display: none; }
+
+/* ---- paper cannot scroll ----------------------------------------------------
+   Long code lines wrap instead of being cut off; highlight.js's inner box
+   (its own padding and white ground) gives way to the theme's code panel. */
+.markdown-body pre,
+.markdown-body pre code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.markdown-body pre code.hljs {
+  padding: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+/* ---- keep things together ---------------------------------------------------- */
+.markdown-body :is(h1, h2, h3, h4, h5, h6) {
+  break-after: avoid;
+  break-inside: avoid;
+}
+.markdown-body p {
+  orphans: 2;
+  widows: 2;
+}
+.markdown-body :is(.info, .success, .warning, .danger, .left, figure, .orz-chart) {
+  break-inside: avoid;
+}
+
+/* ---- spoilers print open (paper cannot be clicked) ----------------------------- */
+.markdown-body details.spoil::details-content {
+  content-visibility: visible;
+  display: contents;
+}
+.markdown-body details.spoil > :not(summary) { display: block; }
+
+/* ---- page break ( ::: page-break ) --------------------------------------------- */
+.page-break {
+  break-before: page;
+  page-break-before: always;
+}
+
+/* ---- document elements (.orz-element.orz-el-<kind>) -----------------------------
+   Base spacing only; each kind's own CSS comes from the engine, its look from
+   the theme's tokens and heading styles. */
+.orz-element { margin: 0 0 1.4em; }
+.orz-element:last-child { margin-bottom: 0; }
+.orz-element.orz-place-page {
+  break-after: page;
+  page-break-after: always;
+}
+
+/* ---- table of contents (.orz-toc) ---------------------------------------------
+   Dotted leaders and right-aligned page numbers (the engine fills them after
+   pagination). A theme's list decoration (leaf bullets, markers) stays out. */
+.orz-toc { margin: 1.4em 0; }
+.markdown-body .orz-toc ul,
+.markdown-body .orz-toc ol {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+.markdown-body .orz-toc ul ul,
+.markdown-body .orz-toc ol ol { padding-left: 1.4em; }
+.markdown-body .orz-toc li { margin: 0.25em 0; padding-left: 0; }
+.markdown-body .orz-toc li::before { content: none; display: none; }
+.markdown-body .orz-toc li::marker { content: none; }
+.markdown-body .orz-toc a,
+.markdown-body .orz-toc .orz-toc-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  color: var(--text-main, #1a1a1a);
+  text-decoration: none;
+  border-bottom: 0;
+}
+.markdown-body .orz-toc a::after,
+.markdown-body .orz-toc .orz-toc-entry .orz-toc-leader {
+  content: "";
+  flex: 1 1 auto;
+  align-self: stretch;
+  margin: 0 0.25em;
+  border-bottom: 1px dotted var(--toc-leader, var(--text-muted, #999));
+  transform: translateY(-0.25em);
+}
+.markdown-body .orz-toc .orz-toc-page,
+.markdown-body .orz-toc [data-page]::after {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted, #555);
+}
+.markdown-body .orz-toc [data-page]::after { content: attr(data-page); }

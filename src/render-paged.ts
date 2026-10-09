@@ -19,8 +19,11 @@
  */
 
 import { md } from 'orz-markdown';
+import { withoutHeader } from 'orz-markdown/carrier';
+import { renderMarkdownPreviewWithIncludes } from 'orz-markdown/carrier/editor';
 
 import type {
+  DocSettings,
   PagedAssembly,
   ElementSpec,
   ElementCtx,
@@ -66,9 +69,32 @@ function placeholderFor(index: number): string {
 }
 
 /**
- * Render a paged text into a {@link PagedAssembly}.
+ * The n-th element's placeholder that keeps the text's line numbers (the
+ * preview's `data-src-line` anchors): the token on the block's first line,
+ * then as many line breaks as the block held. The token is an HTML comment at
+ * a line start, so it is an HTML block of its own (it may interrupt a
+ * paragraph) that ends on its line.
  */
-export function renderDocument(source: string): PagedAssembly {
+function linePlaceholderFor(index: number, block: string): string {
+  const breaks = (block.match(/\r\n?|\n/g) ?? []).length;
+  return `<!--ORZEL-${index}-->${'\n'.repeat(breaks)}`;
+}
+
+/** What {@link prepareDocument} gives the two renderers. */
+interface Prepared {
+  settings: DocSettings;
+  /** The body with every element block replaced by its placeholder. */
+  body: string;
+  /** The text before the body (the header and its line break), so a renderer can keep line numbers. */
+  head: string;
+  /** Each element's HTML, by index. */
+  htmlByIndex: string[];
+  /** Element CSS, deduplicated by kind. */
+  elementCss: string;
+}
+
+/** Settings, element blocks rendered and replaced by placeholders (shared by both renderers). */
+function prepareDocument(source: string, keepLines: boolean): Prepared {
   // 1. Document settings — the FC-18 header; the body is the text after it.
   const { raw, body } = readSettings(source);
 
@@ -99,7 +125,7 @@ export function renderDocument(source: string): PagedAssembly {
   let cursor = 0;
   blocks.forEach((block, index) => {
     bodyWithPlaceholders += body.slice(cursor, block.start);
-    bodyWithPlaceholders += placeholderFor(index);
+    bodyWithPlaceholders += keepLines ? linePlaceholderFor(index, body.slice(block.start, block.end)) : placeholderFor(index);
     cursor = block.end;
 
     const placement: Placement | undefined =
@@ -118,19 +144,22 @@ export function renderDocument(source: string): PagedAssembly {
     }
   });
   bodyWithPlaceholders += body.slice(cursor);
+  const head = source.slice(0, withoutHeader(source).offset);
+  return { settings, body: bodyWithPlaceholders, head, htmlByIndex, elementCss: [...cssByKind.values()].join('\n') };
+}
 
-  // 4. Render the placeholdered body, then swap placeholders → element HTML.
-  let contentHtml = md.render(bodyWithPlaceholders);
-  htmlByIndex.forEach((html, index) => {
-    // The token survives Markdown rendering as an HTML comment; replace it.
-    contentHtml = contentHtml.replace(`<!--ORZEL-${index}-->`, html ?? '');
+/** Steps 4–7: placeholders → element HTML, CSS, fonts, the assembly. */
+function finishDocument(p: Prepared, contentHtml: string): PagedAssembly {
+  const { settings } = p;
+  // The token survives Markdown rendering as an HTML comment; replace it (a function, so `$` in the HTML stays as written).
+  p.htmlByIndex.forEach((html, index) => {
+    contentHtml = contentHtml.replace(`<!--ORZEL-${index}-->`, () => html ?? '');
   });
 
   // 5. CSS: page CSS + deduped element CSS + custom CSS.
-  const elementCss = [...cssByKind.values()].join('\n');
   const css =
     buildPageCss(settings) +
-    (elementCss ? '\n' + elementCss : '') +
+    (p.elementCss ? '\n' + p.elementCss : '') +
     (settings.customCss ? '\n' + settings.customCss : '');
 
   // 6. Fonts: unique non-empty stylesheet URLs across the active presets.
@@ -156,4 +185,46 @@ export function renderDocument(source: string): PagedAssembly {
     bodyHtml: '<main class="orz-doc markdown-body">' + contentHtml + '</main>',
     settings,
   };
+}
+
+/**
+ * Render a paged text into a {@link PagedAssembly} (synchronous; no
+ * includes, no source anchors).
+ */
+export function renderDocument(source: string): PagedAssembly {
+  const p = prepareDocument(source, false);
+  // 4. Render the placeholdered body, then swap placeholders → element HTML.
+  return finishDocument(p, md.render(p.body));
+}
+
+/** What {@link renderDocumentAsync} may use besides the text (the kit's `MarkdownPreviewOptions`). */
+export interface RenderDocumentOptions {
+  /** Resolved includes (an assembled file's `#orz-includes`): target as written → text. */
+  includes?: Readonly<Record<string, string>>;
+  /** A host's include resolution (URL, or a file include's path as written) → text or null. */
+  fetchInclude?(target: string): Promise<string | null>;
+  /** `false`: links as written; default `true` (links to text twins point at their `.html` form). */
+  twinLinks?: boolean;
+  /** A cache for fetched includes (the editor shell's `ctx.cache`). */
+  cache?: Map<string, unknown>;
+}
+
+/**
+ * Render a paged text as the read view and the editor preview do: like
+ * {@link renderDocument}, but the body Markdown goes through the kit's
+ * `renderMarkdownPreviewWithIncludes` — includes from the file's record and
+ * the host (a missing one is the quiet "Included file not available" note),
+ * twin links, and every block stamped with `data-src-line` (its 0-based line
+ * in the whole text: element placeholders keep the line count, so the
+ * editor's scroll sync maps lines to pages).
+ */
+export async function renderDocumentAsync(source: string, options: RenderDocumentOptions = {}): Promise<PagedAssembly> {
+  const p = prepareDocument(source, true);
+  const html = await renderMarkdownPreviewWithIncludes(p.head + p.body, {
+    ...(options.includes ? { includes: options.includes } : {}),
+    ...(options.fetchInclude ? { fetchInclude: options.fetchInclude } : {}),
+    ...(options.twinLinks === false ? { twinLinks: false } : {}),
+    ...(options.cache ? { cache: options.cache } : {}),
+  });
+  return finishDocument(p, html);
 }

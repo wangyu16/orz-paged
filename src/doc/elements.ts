@@ -236,15 +236,12 @@ function renderTitle(kind: TitleKind, spec: ElementSpec, ctx: ElementCtx): Eleme
   text-align: center;
   margin: 0 0 1.5rem;
 }
+/* The title is an <h1> styled by the theme (its size, colour and decoration —
+   an underline, a printer's rule — are the theme's h1); the element only
+   starts it at the top of its block. */
 .orz-el-${kind} .orz-title {
-  margin: 0 0 0.25em;
-  font-size: 1.9em;
-  line-height: 1.2;
-  color: var(--accent, #000);
+  margin-top: 0;
 }
-/* The title is an <h1>; neutralize any theme h1 underline — the rule under a
-   title block is owned by the element wrapper, not the heading. */
-.orz-doc.markdown-body .orz-el-${kind} .orz-title { border-bottom: 0; padding-bottom: 0; }
 .orz-doc.markdown-body .orz-el-${kind} .orz-subtitle {
   margin: 0 0 0.75em;
   font-size: 1.2em;

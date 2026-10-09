@@ -26,7 +26,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 
 | ID | Claim | Oracle |
 |---|---|---|
-| B.1 | The package depends on orz-markdown `^2.2.0` and pagedjs `^0.4.3` and builds without shims or aliases: no `build/shims`, no `path-browserify`, no injected `process`, no version `define`; the orz-markdown version comes from `orz-markdown/version` and orz-paged's from `src/version.ts`, never from a `package.json` walk; the engine bundles for the browser as it is. | conformance |
+| B.1 | The package depends on orz-markdown `^2.2.0` and pagedjs `0.4.3` (pinned exactly: the two-column handler is tested against it) and builds without shims or aliases: no `build/shims`, no `path-browserify`, no injected `process`, no version `define`; the orz-markdown version comes from `orz-markdown/version` and orz-paged's from `src/version.ts`, never from a `package.json` walk; the engine bundles for the browser as it is. | conformance |
 | B.2 | There is one paged theme list (`src/themes.ts`): the stylesheets in `assets/themes` plus `none`, the same ids as the theme fonts, and the default theme is one of them. | conformance |
 | B.3 | `VERSION` (src/version.ts, the shell version every file records) equals the package version. | conformance |
 | B.4 | No escape helper is copied into the TypeScript sources: they use the kit's `escapeHtml` / `escapeAttr` (`orz-markdown/carrier/read`). (The 0.x file-side `assets/app.js` and the 0.x island escape in `src/template.ts` stay until the engine step replaces them.) | conformance |
@@ -57,7 +57,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 
 | ID | Claim | Oracle |
 |---|---|---|
-| L.1 | The 0.x composition (`buildPagedHtml`, `composeInlineHtml`, the CLI) still builds files on orz-markdown 2.2.0, so the repository keeps building between rebuild steps. | scenario |
+| L.1 | The 0.x composition (`buildPagedHtml`, `composeInlineHtml`, the CLI) still builds files on orz-markdown 2.2.0, inlining the 0.x engine (`dist/orz-paged.legacy.js`, built from `src/browser-entry.ts`), so the repository keeps building between rebuild steps; nothing of the 1.0 engine depends on it. | scenario |
 
 ## A — the isomorphic assembler (FC-18 §2, §8)
 
@@ -66,12 +66,12 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | A.1 | Round trip: `extract(assemble(T, o)).text === T` exactly, for every `paged` corpus file, the 12 template skeletons and every hazard text (CR LF, CR, BOM, astral characters, `</script>` and `<script` in body, header and `custom_css`, element blocks, a settings block in a code fence, `<!--`, no final newline, a 100 kB line, the empty text), for inline and CDN delivery, with and without includes. | corpus |
 | A.2 | Determinism: `assemble(T, o)` gives the same bytes on every call and after a fresh module load; the assembler modules use no clock, randomness or environment. | corpus |
 | A.3 | Idempotence: `assemble(extract(F).text, o) === F` for every file `F` made with options `o`. | corpus |
-| A.4 | Content independence: the shell parts are the same for every text (no document data — no settings, template or page size — in the shell), and the document parts are the same for every delivery and engine. | corpus |
-| A.5 | The envelope is the kit's: `#orz-shell` is `{kind: "paged", format: 1, shell: VERSION, delivery}`, the generator is `orz-paged VERSION`, `data-orz-kind="paged"`, the agent banner names `#orz-src` and the orz-paged skill, `#orz-includes` holds exactly the includes given, `<title>`, `lang` and `#orz-meta` come from the header, and the output equals `assembleEnvelope` with this shell's parts (placeholder head and body until the engine step: the `#orz-pages` read view and `#orz-engine`). | scenario |
+| A.4 | Content independence: the shell parts depend only on the options and on the header's presentation (theme, font presets and page size, resolved by `presentationOf` through `resolveSettings`; never read from the body) — texts with the same presentation get the same shell parts, which hold no other document data — and the document parts are the same for every delivery and engine. | corpus |
+| A.5 | The envelope is the kit's: `#orz-shell` is `{kind: "paged", format: 1, shell: VERSION, delivery}`, the generator is `orz-paged VERSION`, `data-orz-kind="paged"`, the agent banner names `#orz-src` and the orz-paged skill, `#orz-includes` holds exactly the includes given, `<title>`, `lang` and `#orz-meta` come from the header, and the output equals `assembleEnvelope` with this shell's parts — head: viewport, colour scheme, `#orz-katex`, `#orz-hljs` and the presentation's webfont links (written `media="not all"`: switched on by the read view); body: `#orz-view` > `#orz-pages` (holding one constant fallback line of the delivery), `#orz-chrome`, `#orz-engine`. | scenario |
 | A.6 | Delivery: inline puts the given engine source in the file once; CDN references `https://cdn.jsdelivr.net/npm/orz-paged-browser@<VERSION>/orz-paged.browser.js` (the kit's `bundleUrl`) and holds no engine code. | scenario |
 | A.7 | `assemble` refuses (throws) a text with NUL or a lone surrogate, a header `format` above 1, an unknown delivery, inline delivery without an engine source, and an engine source that is not script-safe. | scenario |
 | A.8 | The assembler modules (`assemble`, `inspect`, `legacy`, `themes`, `version`, `starters`, `sha256`, `doc/settings`, `doc/templates`) import no Node built-in: they bundle for `platform: browser` with nothing external. | conformance |
-| A.9 | Browser parity: the assembler bundled for the browser and run in real Chrome writes byte-identical files to Node for every paged corpus file, template and hazard text. | real |
+| A.9 | Browser parity: the assembler bundled for the browser — and the real bundle's `OrzCarrier.assemble` (inline with the bundle given and defaulted, cdn, with and without includes) — run in real Chrome writes byte-identical files to Node for every paged corpus file, template and hazard text. | real |
 | A.10 | `extract` is the kit's own function; `readDocument` is the kit's with this carrier's default kind (`opts.kind`, else the file name's, else the header `carrier`, else `paged`). | conformance |
 | A.11 | The title (FC-18 §8.1, paged): the header `title`, else the first top-level level-1 heading, else the `title` (else `text`) of strictly the first `*-title` element, else `Untitled` — for every corpus document as the manifest derives it. | corpus |
 
@@ -105,3 +105,72 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | U.4 | The upgrade's file is the text's assembly and extracts back exactly; a format-1 file is re-assembled with its text and includes unchanged; upgrading twice changes nothing more. | scenario |
 | U.5 | A `}}` inside a settings value (which ended the block early, in 0.x too) is written `} }` — the same CSS in `custom_css` — when the block evidently goes on to a lone `}}` line, and reported; a `}}` that really ends the block is left alone. | scenario |
 | U.6 | Nothing unrecognised is dropped silently: an island without the 0.x wrapper, restored `<\/script` escapes, a meta value the header cannot hold, an invalid uid, a block that cannot move exactly (it stays), a second settings block (it stays), an unreadable config are kept or noted; inline 0.x files read like CDN ones; non-orz input and other carriers' files are refused. | scenario |
+
+## P — the print themes (REBUILD §3b guide 3, D-42)
+
+| ID | Claim | Oracle |
+|---|---|---|
+| P.1 | There is one print theme per light orz-markdown theme, with the same id and in orz-markdown's picker order, plus `none`; each is generated by `scripts/build-themes.ts` from the installed orz-markdown's theme file (base.css from its `common.css`), and the committed files are what the script writes now; the 0.x ids stay valid and the default theme is one of them. | conformance |
+| P.2 | No print theme (nor base.css) carries a screen-only construct: no `@media` or `@import`, no hover/focus/active/visited states, selection or scrollbar styling, no transition, animation, cursor, scroll or user-select property, no fixed or sticky position, no viewport unit, no blurred shadow, no `html`/`body` rule, no QR overlay. | conformance |
+| P.3 | Every print theme is safe for paged.js and the browser: no comma inside `:is()`/`:where()`/`:has()`/`:not()` (paged.js splits selectors on commas), and Chrome parses every rule the build wrote. | real |
+| P.4 | Each print theme sets the paged tokens from its source (`--page-bg`, `--accent`, `--font-body`, `--font-heading`, `--font-code`, `--text-main`, `--heading-color`) and re-points the source's own variables at them, so the header's `page_background`, `decoration_color` and font settings restyle it. | real |
+| P.5 | Each theme paginates a rich sample (headings, lists, table, code, quote, callouts, math, two columns, badges, footnote) in real Chrome through paged.js without an error, with its webfonts loaded; the first page is written to `/tmp/paged-themes/<id>.png`. | real |
+| P.6 | Body text and headings on the first page reach 4.5:1 against what they are printed on, in colour and in greyscale. | real |
+| P.7 | Each theme's webfonts (`src/doc/theme-fonts.ts`) are exactly the stylesheets its source theme imports, and its families are the source's. | unit |
+| P.8 | The derivation's transforms keep what prints and drop what does not: blurred shadow layers go and hard ones stay; viewport clamps take their upper bound; px/rem font sizes become em of the theme's body size; comma lists in functional pseudo-classes expand without changing meaning. | unit |
+
+## W — the browser engine and its package (rebuild step 3)
+
+| ID | Claim | Oracle |
+|---|---|---|
+| W.1 | The bundle rule: the IIFE `orz-paged.browser.js`, the ESM build and the paged runtime hold no `<script` / `</script` (any case, after backslashes), no CR, no NUL, only ASCII; the build rewrites `<` as `\x3C` and checks before computing the integrity. | conformance |
+| W.2 | One KaTeX (with mhchem) in the bundle; Paged.js 0.4.3 (locked) is in the bundle once — inside the paged runtime, which the engine carries as a string for the read view and the preview frame. | conformance |
+| W.3 | `release.json` is a valid manifest of this release (`kind: paged`, version, formats, notes) whose integrity is the SHA-384 of the bundle's exact bytes; `browser/` and the library's `dist/` hold the same bytes; a build of another version writes that version. | conformance |
+| W.4 | In real Chrome the bundle sets `globalThis.OrzCarrier` per FC-19 §2 (`kind: 'paged'`, version, formats `[1]`, `assemble` a promise rejecting what Node throws for, `extract` and `readDocument` the kit's, `mountEditor`, `renderPreview`, `standalone` null) and touches nothing outside a file (no runtime, no storage, no chrome); in the quiet update's sandbox it re-assembles the Node bytes. | real |
+| W.5 | The `orz-paged-browser` package: `import` → the ES module, default → the IIFE, `require` → a clear error; its files, `index.d.ts` declaring every runtime export of the ES module and the IIFE's `standalone` handle, and the version in lockstep with `orz-paged`. | conformance |
+| W.6 | `renderPreview(text)` gives the content's HTML (the header's version applied, twin links, includes from a record or the app, source anchors), `{ document: true }` a script-free, unpaginated document with the print theme and the page CSS. | real |
+| W.7 | Publishing safety: `prepublishOnly` refuses a package whose `release.json` does not match its files (version, kind, integrity). | scenario |
+| W.8 | The standalone startup is the kit's `carrier/app`: the entry captures its engine source, then `startCarrier(PAGED_KIND)`; the kind supplies the paged side of the seam (renderer, read view, settings, actions, `newDocument` from a template, repo); the 1.0 code depends on nothing of the 0.x shell (`template.ts`, `app.js`, `browser-entry.ts`, `paged.ts`). | conformance |
+
+## C — the two-column handler (REBUILD §3b decision 1, D-48: the hybrid)
+
+| ID | Claim | Oracle |
+|---|---|---|
+| C.1 | Over the prototype's 8 documents, laid out by the real engine in real Chrome: every column's text is on the pages in order (continuations included), every option grid whole, the columns side by side, no blank page, nothing below a page bottom except an over-tall image forced onto its page (the documented limit), long blocks split column by column and a short block near a page bottom moved whole; no page errors. | real |
+| C.2 | The handler is the prototype's hybrid, ported: registered by the paged runtime, no mode switch, the page area's `column-width` set to `auto` while measuring, a runaway guard (2000 cuts), an over-tall first block forced; a cut is planned on a copy of the source and the kept head checked against the page bottom before it is applied (a theme's frame and trailing space accounted for). | conformance |
+
+## R — the read view: Paged.js pages in the page (rebuild step 4)
+
+| ID | Claim | Oracle |
+|---|---|---|
+| R.1 | An inline and a cdn file of each of six templates, over `file:` and http, lays the document out as Paged.js pages in `#orz-pages` (in the page, no frame) with the header's page size and title; the paged runtime is injected once; the deferred stylesheets are switched on; no page errors. | real |
+| R.2 | Page furniture: running headers and footers and page numbers in the margin boxes; clean front matter (its pages bare, the body renumbered from 1, `--orz-body-pages`); the TOC lists the sections (not the cover's title) with the body number of each heading's page. | real |
+| R.3 | Print (the handle's item right after Edit) prints the read view after its layout settles; in print the chrome, the desk, the shadows and the reader's zoom are gone and the pages print as laid out. | real |
+| R.4 | A re-render is double-buffered: the old pages stay until the new ones are laid out (never an empty view), the scroll position is kept, the measuring stage goes, and only the latest pagination's styles remain. | real |
+| R.5 | The header's `dynamic_choices` decide what the pages show (content for another version is removed before the layout). | real |
+
+## K — the paged items of the handle (spec/carrier-app.md §3.4, REBUILD §3b decisions 2, 3, 6)
+
+| ID | Claim | Oracle |
+|---|---|---|
+| K.1 | At rest the page shows one control (the pencil); its list: Edit, Print, Save, Download a copy, New document, Save as new copy, Theme, Page size, Template, Page numbers, Number style, New document from template…, Version… (only while the document offers versions, following its text), Page zoom…. | real |
+| K.2 | A setting writes the header (one undoable edit per choice, the document unsaved) and the pages follow (a page size change re-paginates); the saved file is the text's assembly. | real |
+| K.3 | New document from template… lists the 12 templates and saves a fresh file of the chosen one through the kit's New document (its skeleton via `newDocument`, `carrier: paged`, a new uid, lint clean, the opened file's delivery); the current text is never replaced. | real |
+| K.4 | Version… offers each choice key's values and "(not set)"; choosing writes the header's `dynamic_choices` (one undoable edit) and the pages follow. | real |
+| K.5 | Page zoom… (Automatic, Fit width, 100 %, 125 %) is a reader preference by uid: the pages scale, the document stays saved and untouched, the choice persists across a reload, Automatic shrinks a page to a narrow window; a save writes the text's assembly only. | real |
+
+## E — the editor with a Paged.js preview (FC-19 §8.4)
+
+| ID | Claim | Oracle |
+|---|---|---|
+| E.1 | Edit mounts the kit's editor whose sandboxed preview frame runs the paged runtime (`__orzPreviewApply`: pages in `#orz-doc`, scaled to the pane, renders acknowledged when laid out); its toolbar has the paged settings and Version; edit mode links the repository; typing re-paginates, a block keeps its source line inside its page (line → page), a theme change rebuilds the frame. | real |
+| E.2 | Edit → type → Save writes exactly `assemble(text)` with the file's delivery and includes — never the live DOM, never a laid-out page — and the file reopens with the text. | real |
+| E.3 | Done leaves edit mode and the read view lays out the edited text. | real |
+
+## X — web apps (FD-06)
+
+| ID | Claim | Oracle |
+|---|---|---|
+| X.1 | The example app (`examples/webapp/index.html`) mounts two paged editors with every FC-19 hook under a nonce CSP: Paged.js pages in the preview frame (the runtime's and Paged.js' styles nonce-stamped), save, undo per instance, resolveAsset, fetchInclude, resolveLink, uploadAsset, ai, mintUid, chrome none driven by the app; no CSP violation, no page error, no update check. | real |
+| X.2 | The ES module build mounts the same editor with its Paged.js preview, sets no global, and assembles the Node bytes (inline by default, the engine fetched from jsDelivr). | real |
+| X.3 | `docs/embedding.md` covers install and import (ESM and IIFE), every export (with `newDocument`), every hook, the Paged.js preview frame, the CSP recipe (fonts and style attributes included), `renderPreview` not paginated, and versions. | conformance |

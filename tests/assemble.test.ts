@@ -6,9 +6,11 @@
 import { describe, it, expect, vi, afterAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as kit from 'orz-markdown/carrier';
+import { escapeAttr } from 'orz-markdown/carrier/read';
 import { bundleUrl } from 'orz-markdown/carrier/shell';
 import { assemble, extract, readDocument, shellParts, storedText, cdnBundleUrl, BUNDLE_FILE, type AssembleOptions } from '../src/assemble.js';
 import { VERSION } from '../src/version.js';
+import { FALLBACK_LINE, FALLBACK_LINE_CDN, presentationOf } from '../src/presentation.js';
 import { corpus, HAZARDS, ENGINE, TEMPLATE_TEXTS, launchChrome } from './helpers.js';
 
 const CORPUS = corpus('paged');
@@ -80,7 +82,7 @@ describe('FC-18 laws', () => {
     }
   });
 
-  it('[A.4] content independence: the shell parts do not depend on the text, the document parts not on the delivery', () => {
+  it('[A.4] content independence: the shell parts depend only on the options and the header\'s presentation (theme, font presets, page size); the document parts not on the delivery', () => {
     const headPart = (html: string): string => /id="orz-shell">[^<]*<\/script>\n([\s\S]*?)\n<\/head>/.exec(html)![1]!;
     const tail = (html: string): string => {
       const island = html.indexOf('id="orz-src"');
@@ -88,14 +90,29 @@ describe('FC-18 laws', () => {
       if (html.startsWith('\n<script type="application/json" id="orz-includes">', end)) end = html.indexOf('</script>', end + 1) + '</script>'.length;
       return html.slice(end);
     };
+    const presKey = (t: string): string => JSON.stringify(presentationOf(t));
     for (const [, o] of OPTION_SETS) {
-      const heads = new Set(TEXTS.map(([, t]) => headPart(assemble(t, o))));
-      const tails = new Set(TEXTS.map(([, t]) => tail(assemble(t, o))));
-      expect(heads.size).toBe(1);
-      expect(tails.size).toBe(1);
-      expect([...heads, ...tails].join('')).not.toMatch(/doc-[0-9a-z]{10}|Annual Report|Buffers|Letter|A4|template/);
+      const groups = new Map<string, Set<string>>();
+      for (const [, t] of TEXTS) {
+        const html = assemble(t, o);
+        const k = presKey(t);
+        if (!groups.has(k)) groups.set(k, new Set());
+        groups.get(k)!.add(`${headPart(html)}\u0000${tail(html)}`);
+        // exactly the parts of shellParts for the text's presentation
+        const parts = shellParts(o, presentationOf(t));
+        expect(headPart(html)).toBe(parts.headHtml);
+        expect(tail(html)).toBe(`\n${parts.bodyHtml}\n</body>\n</html>\n`);
+      }
+      for (const [k, set] of groups) expect(set.size, k).toBe(1);
+      // and they carry nothing of a document (uid, title, body, settings other than the presentation)
+      expect([...groups.values()].flatMap((g) => [...g]).join('')).not.toMatch(/doc-[0-9a-z]{10}|Annual Report|Buffers|template|page_number|header_left/);
     }
-    const docPart = (html: string): string => html.replace(/"delivery":"(inline|cdn)"/, '"delivery":"*"').replace(/<script id="orz-engine"[^>]*>[\s\S]*?<\/script>/, '<engine>');
+    // the presentation comes from the header only: a body that says "theme: …" changes nothing
+    expect(presentationOf('# T\n\ntheme: light-neat-2\npage_size: A3\n')).toEqual(presentationOf(''));
+    const themed = assemble('{{nyml\nkind: document\ntheme: light-neat-2\nfont_preset: lora\n}}\n\n# T\n', { delivery: 'cdn' });
+    for (const u of presentationOf('{{nyml\nkind: document\ntheme: light-neat-2\nfont_preset: lora\n}}\n').fontUrls) expect(themed).toContain(`<link rel="stylesheet" data-orz-font href="${escapeAttr(u)}" media="not all">`);
+    expect(themed).toContain('https://cdn.jsdelivr.net/npm/@fontsource/lora@5/index.css');
+    const docPart = (html: string): string => html.replace(/"delivery":"(inline|cdn)"/, '"delivery":"*"').replace(/<script id="orz-engine"[^>]*>[\s\S]*?<\/script>/, '<engine>').replace(/<p class="orz-fallback"[^>]*>[^<]*<\/p>/, '<fallback>');
     for (const [id, text] of TEXTS) {
       const a = docPart(assemble(text, { engineSource: ENGINE }));
       expect(docPart(assemble(text, { delivery: 'cdn' })), id).toBe(a);
@@ -110,7 +127,7 @@ describe('the envelope and the shell parts', () => {
       for (const [, o] of OPTION_SETS) {
         const opts = withOwn(o, own);
         const html = assemble(text, opts);
-        expect(html, id).toBe(kit.assembleEnvelope(text, shellParts(opts)));
+        expect(html, id).toBe(kit.assembleEnvelope(text, shellParts(opts, presentationOf(text))));
         const delivery = opts.delivery ?? 'inline';
         expect(html).toContain(`<script type="application/json" id="orz-shell">{"kind":"paged","format":1,"shell":"${VERSION}","delivery":"${delivery}"}</script>`);
         expect(html).toContain(`<meta name="generator" content="orz-paged ${VERSION}">`);
@@ -119,7 +136,13 @@ describe('the envelope and the shell parts', () => {
         expect(html.startsWith('<!doctype html>\n<html lang="')).toBe(true);
         expect(html).toMatch(/<html lang="[^"]*" data-orz-kind="paged">/);
         expect(html.includes('id="orz-includes"'), id).toBe(!!opts.includes);
-        expect(html).toContain('<div id="orz-pages" class="orz-pages" aria-live="polite"></div>');
+        // head: viewport, colour scheme, KaTeX, highlight.js and the webfonts, switched off until the read view presents
+        expect(html).toContain('<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="color-scheme" content="light">\n<link rel="stylesheet" id="orz-katex" href="https://cdn.jsdelivr.net/npm/katex@');
+        expect(html).toMatch(/<link rel="stylesheet" id="orz-hljs" href="[^"]+" media="not all">/);
+        // body: the read view (one constant fallback line of the delivery), the chrome mount, the engine
+        const line = delivery === 'cdn' ? FALLBACK_LINE_CDN : FALLBACK_LINE;
+        expect(html).toContain(`<div id="orz-pages" class="orz-pages" data-orz-copy><p class="orz-fallback" style="opacity:.6;font:14px/1.5 system-ui,sans-serif;max-width:40em;margin:2em auto;padding:0 1em">${line}</p></div></main>\n<div id="orz-chrome"></div>\n<script id="orz-engine"`);
+        expect(html).toMatch(/<main id="orz-view" class="orz-view" data-orz-theme="[a-z0-9-]+">/);
       }
     }
     const parts = shellParts({ engineSource: ENGINE });
