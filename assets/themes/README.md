@@ -3,8 +3,9 @@
 Nine print themes, one per light orz-markdown theme and with the same id
 (REBUILD §3b guide 3: "each non-dark theme from orz-markdown derives into one
 paged theme; as long as the elements suit printed paper, the decoration is
-preserved"), plus `none`. Draft notes for the docs step; the API is documented
-at the top of `src/themes.ts`.
+preserved"), plus `none`. The API is documented at the top of `src/themes.ts`;
+the themes ship inside the browser engine (`build/bundle.ts`), so an inline
+and a `--cdn` file style the same.
 
 | id | label (orz-markdown's) | paper | typefaces |
 |---|---|---|---|
@@ -101,11 +102,25 @@ Adapted:
 
 Per-theme layers (`layers/<id>.css`):
 
-- `light-playful-1`: the exercise book becomes the page. The ruling follows
-  the page's leading (so the lines stay under the words at any `font_size` /
-  `line_height`) and runs to the paper edges; the pink margin line is drawn on
+- `light-playful-1`: the exercise book becomes the page, and the ruled lines
+  follow the text (owner decision 2026-10-09). Each page's content box is
+  ruled from its top, out to the paper edges, at the body leading in absolute
+  units (`--orz-grid` = the header's `font_size` × `line_height`), at the
+  height where the body font's baseline falls (`--orz-rule-at`, measured by
+  the paged runtime's baseline-grid handler, `src/paged/baseline-grid.ts`, so
+  any body font and size sits on the lines). Running text (top-level
+  paragraphs and lists) is set with exactly that leading and one blank ruled
+  line after each block; the handler starts every top-level block on the grid,
+  so after a heading, table, callout, code block, formula or image the text is
+  back on the lines on every page. Everything else sits on its own paper (an
+  opaque background): the rules run behind it, never through its glyphs.
+  Inline marks (footnote numbers, sub/superscripts) do not grow a line; a
+  paragraph whose line still grows (a tall inline formula) is marked
+  `.orz-off-grid` and hides the ruling too. The pink margin line is drawn on
   the page sheet, top to bottom of every page. The title's pink is a shade
-  deeper (5:1 instead of 4.4:1 on the cream paper).
+  deeper (5:1 instead of 4.4:1 on the cream paper). Checked by
+  `tests/ruled-paper.test.ts` (P.9: sampled baselines on three pages against
+  the rules; screenshots `/tmp/paged-themes/light-playful-1-aligned-p<n>.png`).
 
 ## Decisions
 
@@ -134,6 +149,12 @@ Per-theme layers (`layers/<id>.css`):
 - Playful 1's ruling and Academic 1's callout marks reach into the page
   margin by design; a margin narrower than ~1.5 cm clips them at the sheet
   edge.
+- Playful 1's ruling sits under running text only: headings, tables,
+  callouts, code, display math, images, columns and lists inside other blocks
+  stand on their own paper, so the ruling shows around them, not through them.
+  Snapping a block onto the grid adds up to one line of space below the block
+  before it. Lines inside one paragraph keep the grid only while no inline
+  content grows a line box.
 - Orchard's text face is the system UI font, so its line breaks differ by
   platform (as in orz-markdown).
 

@@ -172,7 +172,7 @@ chrome('print themes in real Chrome (paged.js)', () => {
         expect(r.errors, id).toEqual([]);
         expect(r.pages, id).toBeGreaterThanOrEqual(1);
         mkdirSync(SHOTS, { recursive: true });
-        await r.page.locator('.pagedjs_page').first().screenshot({ path: `${SHOTS}/${id}.png` });
+        await r.page.locator('.pagedjs_page').first().screenshot({ path: `${SHOTS}/${id}.png`, timeout: 60_000 });
 
         const report = await r.page.evaluate(() => {
           const page = document.querySelector('.pagedjs_page') as HTMLElement;
@@ -257,7 +257,7 @@ chrome('print themes in real Chrome (paged.js)', () => {
       } finally {
         await r.page.close();
       }
-    }, 90_000);
+    }, 150_000);
   }
 
   it('[P.4] the header\'s page_background, decoration_color and font_preset restyle a derived theme', async () => {

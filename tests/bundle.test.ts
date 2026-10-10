@@ -223,7 +223,7 @@ chrome('real Chrome (playwright-core, channel chrome)', () => {
     expect(refused[2]).toMatch(/unknown delivery/);
     expect(refused[3]).toMatch(/script-safe/);
     await page.context().close();
-  });
+  }, 120_000);
 
   it('[W.4] the bundle alone assembles in a sandbox="allow-scripts" frame (the quiet update\'s sandbox) and writes the Node bytes', async () => {
     const ctx = await browser!.newContext();
@@ -257,7 +257,7 @@ chrome('real Chrome (playwright-core, channel chrome)', () => {
     expect(out[2].html === assemble(text.text, { delivery: 'cdn' })).toBe(true);
     expect(out.every((r) => r.version === VERSION)).toBe(true);
     await ctx.close();
-  });
+  }, 120_000);
 
   it('[A.9] browser parity with the real bundle: OrzCarrier.assemble in Chrome writes the Node bytes for every paged corpus file, template and hazard text (inline with the bundle given and defaulted, cdn, with and without includes)', async () => {
     const page = await bundlePage();

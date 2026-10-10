@@ -1,7 +1,7 @@
 {
   "name": "orz-paged",
   "version": "0.7.3",
-  "description": "Single-file, self-editing Markdown documents laid out as print-ready pages and exported to PDF from the browser.",
+  "description": "Markdown that edits itself, laid out as print-ready pages: text twins (x.paged.md) and their single-file, self-editing x.paged.html (orz text format 1) — CLI and Node library.",
   "type": "module",
   "main": "./dist/lib.js",
   "types": "./dist/lib.d.ts",
@@ -9,21 +9,25 @@
     ".": {
       "types": "./dist/lib.d.ts",
       "default": "./dist/lib.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "bin": {
     "orz-paged": "dist/cli.js"
   },
   "files": [
     "dist",
-    "assets",
+    "assets/themes",
+    "assets/templates",
+    "orz-paged-skills",
     "docs/embedding.md",
-    "orz-paged-skills"
+    "PROTOCOL.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && npm run bundle",
     "prebuild": "tsx scripts/sync-version.ts && tsx scripts/sync-templates.ts && tsx scripts/build-themes.ts",
     "bundle": "tsx build/bundle.ts",
+    "examples": "tsx scripts/examples.ts",
     "gen": "tsx src/cli.ts",
     "test": "vitest run",
     "pretest": "tsx scripts/sync-version.ts && tsx scripts/sync-templates.ts && tsx scripts/build-themes.ts",

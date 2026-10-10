@@ -2,7 +2,7 @@
    adapted). Theme-agnostic: pages, page breaks, paged's document elements and
    TOC, and what print needs that a screen theme does not say. No decoration.
 
-   Tokens (docs/dom-contract.md; page CSS sets them last, a theme sets the
+   Tokens (archive/dom-contract.md; page CSS sets them last, a theme sets the
    defaults): --page-bg, --accent, --font-body, --font-heading, --font-size,
    --line-height, --text-main, --text-muted. */
 

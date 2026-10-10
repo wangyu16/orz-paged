@@ -3,6 +3,113 @@
 All notable changes to **orz-paged** are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### 1.0.0 (prepared on branch `rebuild/1.0`)
+
+A rebuild on the orz-markdown carrier kit (orz text format 1), the shape of
+orz-mdhtml 1.0 with pages added. Requires `orz-markdown ^2.2.0`; Paged.js
+pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
+
+#### Breaking
+
+- The 0.x files, Node API and CLI shape are replaced. 0.x files are not
+  opened as they are: `orz-paged upgrade old.paged.html` writes a format-1
+  file and its text twin — the settings block (wherever 0.x found it) and a
+  `kind: meta` block become one header at the top with `carrier: paged` and a
+  `uid`; `#orz-meta` and the title move in; the settings mean what they meant.
+  `orz-paged inspect` says what any file is and what to do.
+- The header is the settings source: a `{{nyml kind: document}}` block that
+  does not lead the text is no longer read (lint `stray-document-block`).
+- Removed: `buildPagedHtml`, `composeInlineHtml`, `loadThemes`,
+  `loadTemplates`, `pickDefaultTheme`, `findAsset`, `stripBaseImport`,
+  `selfVersion`, `CDN`; the 0.x runtime (`assets/app.js`, `src/template.ts`,
+  `src/browser-entry.ts`, the legacy bundle); the CLI's `--template`, `--new`,
+  `--list-templates` and `--title` (refused with the 1.0 command that does the
+  same: `orz-paged new --template`, `orz-paged templates`; content comes only
+  from the text's header).
+- The 7 vendored themes are replaced by 9 print themes derived from
+  orz-markdown's light themes (plus `none`); the 0.x ids stay valid; the
+  default stays `light-academic-1`.
+
+#### The new file
+
+- A document is its **text twin** `x.paged.md` and its **self-editing file**
+  `x.paged.html` = `assemble(text)`: the exact text in the `#orz-src` island,
+  an agent banner, `#orz-shell`, `#orz-meta` and head metadata from the
+  header, `#orz-includes`, and a regenerable shell. Node and the browser write
+  the same bytes.
+- **Pages in the page** (no frame): Paged.js lays the document out in the read
+  view with the header's page size, margins, theme and typography; running
+  headers and footers, page numbers, TOC page numbers, clean front matter;
+  re-renders are double-buffered (never an empty view).
+- **One quiet control**, the pencil: Edit, **Print**, Save, Download a copy,
+  New document, Save as new copy, the settings Theme, Page size, Template,
+  Page numbers, Number style (header edits, undoable), **New document from
+  template…** (a fresh file; the current text is never replaced),
+  **Version…** (the header's `dynamic_choices`) and **Page zoom…** (Automatic,
+  Fit width, 100 %, 125 %; the reader's, never saved).
+- **Editor** (the kit's editor shell) with a Paged.js page preview in a
+  sandboxed frame; the paged settings and Version in its bar.
+- Saves write `assemble(text)`, never the laid-out pages; a save over a file
+  changed on disk asks (*Replace it* / *Download a copy instead*); the quiet
+  update (SHA-384-verified `release.json`); the host protocols
+  (`orz-host-save@1`, `orz-host-ai@1`, `orz-host-include@1`; PROTOCOL.md is a
+  pointer to orz-markdown `spec/host-protocols.md`, shipped).
+- **Two columns across a page break** (the owner's hybrid): a short `.cols`
+  block moves whole to the next page, a long one is split column by column;
+  limits documented.
+- **Print themes**: one per light orz-markdown theme, keeping its decoration
+  where it suits paper, shipped inside the engine so `--cdn` files style the
+  same. `light-playful-1`'s ruled paper follows the text: the page ruling is
+  set at the body leading and the body font's baseline, and every block starts
+  on the grid (the paged runtime's baseline-grid handler); other blocks hide
+  the ruling behind their own paper.
+
+#### CLI and library
+
+- `orz-paged new | assemble | extract | upgrade | inspect | themes |
+  templates` (`orz-paged x.paged.md` = assemble; a plain `x.md` assembles to
+  `x.paged.html`), inline by default, `--cdn` for the web, `--json`
+  everywhere with stable `reason` codes and `next`, the `sha256` /
+  `--replaces` compare-and-swap, known earlier states (git, the CLI's pair
+  record), backups `<file>~` / `~1`…, overwrite guards, `--resolve-includes`,
+  the delivery kept on re-assembly — orz-mdhtml 1.0's rules.
+- The Node library (`assemble`, `extract`, `readDocument`, `newDocument`,
+  `upgrade`, `inspect`, templates, themes, settings) inlines this release's
+  verified engine: callers pass no engine source.
+- The browser package `orz-paged-browser` (IIFE + ESM, `globalThis.OrzCarrier`,
+  `mountEditor` with a Paged.js preview, `renderPreview`, `release.json`) and
+  `docs/embedding.md` for web apps.
+- Tests: orz-markdown's carrier conformance harness (all 46 checks, no skips),
+  the corpus round trip, the CLI spawned with golden outputs and the "follow
+  every next verbatim" matrix, real Chrome for pages, print, columns, themes
+  and the ruled paper; examples kept fresh by a test.
+
+## [0.7.3] — 2026-07-17
+
+### Changed
+
+- Depends on `orz-markdown ^1.6.3` (was `^1.4.1`).
+- Package metadata: a new description ("Single-file, self-editing Markdown
+  documents laid out as print-ready pages…"), `homepage`
+  (https://markdown.orz.how/family.html#paged) and `bugs` for both packages;
+  "self-contained" reworded as "single-file" in the skill.
+
+## [0.7.2] — 2026-07-16
+
+### Changed
+
+- Package description rewritten around the self-editing file (published
+  metadata only; no code change).
+
+## [0.7.1] — 2026-07-16
+
+### Changed
+
+- README leads with "Markdown that edits itself" (the family's positioning);
+  a stale version reference fixed. No code change.
+
 ## [0.7.0] — 2026-07-11
 
 ### Added

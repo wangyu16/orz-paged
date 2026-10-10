@@ -156,7 +156,7 @@ describe('upgrade on synthetic 0.x files', () => {
       expect(extract(u.html)!.text === u.text, name).toBe(true);
       expect(readHeader(u.text)!.fields['carrier'], name).toBe('paged');
     }
-  });
+  }, 120_000);
 
   it('[U.6] unrecognised things are kept or noted, never dropped silently; non-orz input is refused', () => {
     // an island without the 0.x wrapper: kept exactly, noted

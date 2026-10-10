@@ -7,7 +7,7 @@
  * DOM here. (Named `assemble` before rebuild step 2; `assemble` now means the
  * FC-18 file assembler, src/assemble.ts.)
  *
- * Pipeline (DESIGN §3/§6):
+ * Pipeline (archive/DESIGN.md §3/§6):
  *   1. The FC-18 header is the settings source (`readSettings`: the kit's
  *      `readHeader`); the body is the text after it (`withoutHeader`).
  *   2. Merge DEFAULTS ← template layer ← header → resolved settings.

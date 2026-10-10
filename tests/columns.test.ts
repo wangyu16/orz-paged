@@ -21,7 +21,7 @@ describe('the handler (Node)', () => {
   it('[C.2] the hybrid handler is the prototype\'s, ported: registered by the paged runtime, hybrid only (no mode switch), the page area\'s column-width auto while measuring, a runaway guard, the over-tall first block forced', () => {
     const src = readFileSync('src/paged/cols-flow.ts', 'utf8');
     const runtime = readFileSync('src/paged/runtime.ts', 'utf8');
-    expect(runtime).toContain('registerHandlers(ColsFlowHandler)');
+    expect(runtime).toMatch(/registerHandlers\((?:BaselineGridHandler, )?ColsFlowHandler\)/);
     expect(src).not.toMatch(/__COLS_MODE__|mode\(\)|__COLS_DEBUG__/);
     expect(src).toMatch(/area\.style\.columnWidth = 'auto';[\s\S]*finally \{\s*area\.style\.columnWidth = prev;/);
     expect(src).toContain('if (this.stats.split + this.stats.moved > MAX_CUTS) return;');

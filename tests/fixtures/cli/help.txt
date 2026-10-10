@@ -1,0 +1,55 @@
+orz-paged {{VERSION}} — Markdown that edits itself, laid out as print-ready pages.
+A document is its text twin (x.paged.md); its self-editing file (x.paged.html) is assembled from it.
+
+Usage:
+  orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn]
+  orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn] [--resolve-includes | --no-includes] [--replaces sha256]
+  orz-paged <file.paged.md> [-o out.paged.html] [--cdn]          same as assemble
+  orz-paged extract <file.paged.html> [-o out.paged.md] [--replaces sha256]
+  orz-paged upgrade <old.paged.html> [-o out.paged.html] [--text out.paged.md | --no-text] [--cdn | --inline]
+  orz-paged inspect <file> [--json]
+  orz-paged themes
+  orz-paged templates
+
+Commands:
+  new        write a new text twin from a template (header with a fresh uid); --html also
+             assembles it; without a file the text goes to stdout
+  assemble   write the .paged.html of a text twin (x.paged.md -> x.paged.html); inline by default;
+             keeps the includes the existing file holds
+  extract    write the exact text twin of a .paged.html (x.paged.html -> x.paged.md)
+  upgrade    turn an old file (0.x, or an older 1.x shell) into a file of this version,
+             in place by default, and write its text twin (x.paged.md) unless --no-text
+  inspect    diagnose a text or a file: kind, format, shell, delivery, uid, lint, advice
+  themes     list the theme ids a header may name
+  templates  list the document templates (new --template; the header's template key)
+
+Options:
+  -o, --out <path>  output path ("-" = stdout for assemble and extract)
+  --cdn             load the engine from jsDelivr (small files, for the web); default: inline
+  --inline          the default delivery: the engine inside the file (no engine download)
+  --force           overwrite even when that could lose work (see below); the replaced
+                    file is kept as <file>~ (or <file>~1, ~2, ... — a backup is never replaced)
+  --replaces <sha>  (assemble, extract) replace an existing, different output only if its
+                    text has this SHA-256 (the "sha256" inspect, extract, assemble and
+                    upgrade print) — works with no cache, no git, in a shallow clone
+  --json            print one JSON object (the result, or {"ok": false, "error", "reason",
+                    "next"}) for agents
+  -h, --help        help (also: orz-paged <command> --help)
+  -v, --version     the version
+
+Content (title, theme, template, page settings, metadata) comes only from the text's
+{{nyml}} header; assemble has no content options (0.x --title, --template, --new and
+--list-templates: see `orz-paged new --help` and `orz-paged templates`).
+Without --force nothing is overwritten that could hold other work: an output that is
+not an orz file, a .paged.html (or -o output) that holds a different text than the one
+assembled, an x.paged.md that differs from the text extracted (unless the text replaced
+is a known state: what orz-paged itself last wrote or read for the pair, a committed,
+staged or recent version of the twin in git, or the text whose SHA-256 --replaces
+gives; an x.paged.md is replaced as a known state only when it and the file's text
+carry the same uid), a file made by a newer orz-paged, another document (upgrade -o),
+or (new) any existing file. The robust way: pass the sha256 the last command printed
+as --replaces.
+Before editing x.paged.md, `orz-paged inspect x.paged.md` says whether x.paged.html
+holds other work (saved in the browser); `orz-paged extract x.paged.html -o
+x.browser.paged.md` brings it out for a merge.
+Exit status: 0 done, 1 refused or failed, 2 usage error.

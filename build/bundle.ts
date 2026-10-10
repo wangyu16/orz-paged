@@ -34,10 +34,7 @@
  * directory), so `\ce{…}` is registered on the KaTeX that renders.
  *
  * The same IIFE and `release.json` are also staged into `dist/` (the
- * `orz-paged` package), where the Node library reads them (src/engine.ts). The
- * 0.x engine (src/browser-entry.ts, `window.orzpaged`) is built as
- * `dist/orz-paged.legacy.js` for the 0.x composition (src/template.ts,
- * src/lib.ts `buildPagedHtml`, the 0.x CLI) until the CLI step replaces it.
+ * `orz-paged` package), where the Node library reads them (src/engine.ts).
  *
  * `buildBrowser({ version })` builds in memory (tests; a `next` release with a
  * higher version for the conformance harness): the version replaces
@@ -58,8 +55,6 @@ import { BASE_STYLESHEET, THEME_INFO, themeStylesheet } from '../src/themes.js';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const BUNDLE_FILE = 'orz-paged.browser.js';
 export const ESM_FILE = 'esm/orz-paged.browser.mjs';
-/** The 0.x engine (`window.orzpaged`) the 0.x composition inlines (dist/ only, never published as the browser package). */
-export const LEGACY_FILE = 'orz-paged.legacy.js';
 
 /**
  * What esbuild's `charset: 'ascii'` leaves (it does not escape inside regular
@@ -175,12 +170,6 @@ export async function buildBrowser(o: { version?: string } = {}): Promise<Browse
   return { version, runtime, iife, esm, release, integrity };
 }
 
-/** Build the 0.x engine (src/browser-entry.ts, `window.orzpaged`) for the 0.x composition. */
-export async function buildLegacyBrowser(): Promise<string> {
-  const out = await build({ ...common(undefined), entryPoints: ['src/browser-entry.ts'], format: 'iife' });
-  return out.outputFiles![0].text;
-}
-
 /** Write a build into a package folder (default browser/), with the app author's guide (docs/embedding.md, shipped in the package). */
 export function writeBrowser(b: BrowserBuild, dir = join(ROOT, 'browser')): { bundle: string; esm: string; release: string; guide: string } {
   mkdirSync(join(dir, 'esm'), { recursive: true });
@@ -202,27 +191,17 @@ export function writeLibEngine(b: BrowserBuild, dir = join(ROOT, 'dist')): { bun
   return paths;
 }
 
-/** Write the 0.x engine to dist/ (the 0.x composition inlines it). */
-export function writeLegacy(code: string, dir = join(ROOT, 'dist')): string {
-  mkdirSync(dir, { recursive: true });
-  const path = join(dir, LEGACY_FILE);
-  writeFileSync(path, code, 'utf8');
-  return path;
-}
-
 const kb = (s: string): string => `${(Buffer.byteLength(s, 'utf8') / 1024).toFixed(1)} KiB (gzip ${(gzipSync(s).length / 1024).toFixed(1)} KiB)`;
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const b = await buildBrowser();
   const paths = writeBrowser(b);
   const lib = writeLibEngine(b);
-  const legacy = writeLegacy(await buildLegacyBrowser());
   console.log(`orz-paged-browser ${b.version} (orz-markdown ${ORZ_MARKDOWN_VERSION}):`);
   console.log(`  ${paths.bundle}  ${kb(b.iife)}  ${b.integrity}`);
-  console.log(`    of which the paged runtime (Paged.js, columns): ${kb(b.runtime)}`);
+  console.log(`    of which the paged runtime (Paged.js, baseline grid, columns): ${kb(b.runtime)}`);
   console.log(`  ${paths.esm}  ${kb(b.esm)}`);
   console.log(`  ${paths.release}`);
   console.log(`  ${paths.guide} (docs/embedding.md, shipped)`);
   console.log(`  ${lib.bundle} + ${lib.release} (the Node library's engine, same bytes)`);
-  console.log(`  ${legacy} (the 0.x engine of the 0.x composition)`);
 }

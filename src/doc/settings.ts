@@ -13,8 +13,8 @@
  * (not leading the text) is no settings source; lint reports it
  * (`stray-document-block`), and `upgrade` moves a 0.x file's block to the top.
  *
- * Source of truth for defaults and aliases: `docs/document-model.md`
- * (the curated subset; see DESIGN.md §8).
+ * Source of truth for defaults and aliases: `archive/document-model.md`
+ * (the curated subset; see archive/DESIGN.md §8).
  */
 
 import { readHeader, withoutHeader, type Header } from 'orz-markdown/carrier';
@@ -33,7 +33,7 @@ import { resolveTemplate } from './templates.js';
 
 /* ─────────────────────────── defaults ─────────────────────────── */
 
-/** Every field at its documented default (docs/document-model.md). */
+/** Every field at its documented default (archive/document-model.md). */
 export const DEFAULTS: DocSettings = {
   // page
   pageSize: 'A4',

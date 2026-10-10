@@ -2,7 +2,7 @@
 > `orz-md-pdf` VS Code extension (`wangyu16/orz-md-pdf-vscode`,
 > `pipeline-model/docs/pipeline-model.md`), kept here as a **specification
 > reference**. orz-paged does **not** adopt it wholesale or depend on its code —
-> it **reimplements a curated subset in TypeScript** (see [DESIGN.md](../DESIGN.md)
+> it **reimplements a curated subset in TypeScript** (see [DESIGN.md](DESIGN.md)
 > §3, §8), assumes internet (CDN fonts/images/libs, no embedding), supports
 > **light themes only**, and exports PDF via browser print (not Puppeteer). Treat
 > tables/elements below as the menu to curate from, not a contract to fulfill.

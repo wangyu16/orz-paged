@@ -5,7 +5,7 @@
  * ripples across the document layer, the assembler, and the engine — treat edits
  * as a coordinated change. (Mirrors orz-slides' `src/types.ts` role.)
  *
- * Vocabulary follows DESIGN.md §6–§9 and docs/document-model.md (the curated
+ * Vocabulary follows archive/DESIGN.md §6–§9 and archive/document-model.md (the curated
  * subset). Lengths: margins in **mm**, font size in **pt**, line-height unitless.
  */
 
@@ -38,7 +38,7 @@ export type TemplateName =
   | 'letter' | 'cover-letter'
   | 'cv' | 'cv-modern' | 'cv-elegant' | 'note';
 
-/** Curated, light-only themes (DESIGN §8). `none` = plain. */
+/** Curated, light-only themes (archive/DESIGN.md §8). `none` = plain. */
 export type ThemeName =
   | 'none'
   | 'light-academic-1' | 'light-academic-2'
@@ -46,19 +46,19 @@ export type ThemeName =
   | 'beige-decent-1' | 'beige-decent-2'
   | 'light-playful-1' | 'light-playful-2';
 
-/** Curated CDN font presets (DESIGN §4, §8). */
+/** Curated CDN font presets (archive/DESIGN.md §4, §8). */
 export type FontPresetName =
   | 'system-serif' | 'source-serif-4' | 'lora' | 'crimson-pro' | 'noto-serif'
   | 'inter' | 'ibm-plex-sans' | 'roboto' | 'raleway' | 'noto-sans'
   | 'courier-prime';
 
-/** Curated document elements (DESIGN §8). */
+/** Curated document elements (archive/DESIGN.md §8). */
 export type ElementKind =
   | 'article-title' | 'report-title' | 'exam-title'
   | 'abstract' | 'letterhead' | 'letter-inside-address' | 'letter-signature'
   | 'toc' | 'cv-header' | 'question-mc' | 'question-open' | 'timestamp';
 
-/** A title/cover element renders either as its own page or inline (DESIGN §8). */
+/** A title/cover element renders either as its own page or inline (archive/DESIGN.md §8). */
 export type Placement = 'page' | 'section';
 
 /* ─────────────────────────── document settings ─────────────────────────── */

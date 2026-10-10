@@ -9,7 +9,7 @@
  * `system-serif` is the one preset with **no** webfont — it relies on the
  * platform's Times-style serif and ships an empty `cssUrl`.
  *
- * Source of truth for the curated list: `docs/document-model.md` (Tier A) and
+ * Source of truth for the curated list: `archive/document-model.md` (Tier A) and
  * `src/types.ts` (`FontPresetName`).
  */
 

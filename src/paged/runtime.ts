@@ -25,7 +25,8 @@
  *      and `document.fonts.ready` (pagination depends on final heights);
  *      drawn canvases become images (Paged.js re-parses the HTML);
  *   4. Paged.js into an off-screen container (double buffer), with the
- *      two-column handler; one pagination at a time, only the latest request
+ *      baseline-grid handler (src/paged/baseline-grid.ts: a theme's ruling
+ *      under the text) and the two-column handler; one pagination at a time, only the latest request
  *      runs after a busy one (a superseded request resolves `cancelled`);
  *   5. the pages swapped into `target` with the scroll position kept, the old
  *      pagination's styles removed only then (no unstyled flash);
@@ -36,6 +37,7 @@
 import { Polisher, Previewer, registerHandlers } from 'pagedjs';
 import { enhanceDocument } from 'orz-markdown/preview-frame';
 import { applyDynamicChoices, collectDynamicChoices } from '../doc/dynamic.js';
+import { BaselineGridHandler, type GridStats } from './baseline-grid.js';
 import { ColsFlowHandler, type ColsStats } from './cols-flow.js';
 import { INPUT_ATTRIBUTE, type PagedInput } from './input.js';
 
@@ -53,6 +55,8 @@ export interface PaginateResult {
   pages: number;
   /** What the `.cols` blocks did. */
   cols: ColsStats;
+  /** What the baseline grid did (a theme with a ruled page, light-playful-1; `grid` 0 otherwise). */
+  grid: GridStats;
   /** The dynamic choice keys the content uses, with the values seen (before applying them). */
   choices: Record<string, string[]>;
   /** Milliseconds, start to swap. */
@@ -202,8 +206,9 @@ let waiting = 0;
 async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOptions): Promise<PaginateResult> {
   const t0 = performance.now();
   const empty: ColsStats = { fits: 0, split: 0, moved: 0, fallback: 0 };
+  const noGrid: GridStats = { grid: 0, ruleAt: 0, snapped: 0, offGrid: 0 };
   const isCurrent = (): boolean => (o.isCurrent ? o.isCurrent() : true);
-  if (!isCurrent()) return { cancelled: true, pages: 0, cols: empty, choices: {}, ms: 0 };
+  if (!isCurrent()) return { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices: {}, ms: 0 };
 
   // 1. the content's stylesheet links
   ensureLinks(input.links);
@@ -236,17 +241,19 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     void stage.offsetHeight; // layout: the fonts the content uses start loading
     if (document.fonts?.ready) await within(document.fonts.ready, 8000).catch(() => undefined);
     stage.querySelectorAll('canvas').forEach((c) => freezeCanvas(c as HTMLCanvasElement));
-    if (!isCurrent()) return { cancelled: true, pages: 0, cols: empty, choices, ms: performance.now() - t0 };
+    if (!isCurrent()) return { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices, ms: performance.now() - t0 };
 
     // 4. Paged.js into the off-screen buffer
     document.body.appendChild(out);
     previewer = new Previewer();
     ColsFlowHandler.last = null;
+    BaselineGridHandler.last = null;
     const flow = await previewer.preview(stage.innerHTML, input.sheets.map((s) => ({ [s.name]: s.css })), out);
     const cols = ColsFlowHandler.last ? { ...(ColsFlowHandler.last as ColsFlowHandler).stats } : empty;
+    const gridStats = BaselineGridHandler.last ? { ...(BaselineGridHandler.last as BaselineGridHandler).stats, grid: Math.max(0, (BaselineGridHandler.last as BaselineGridHandler).stats.grid) } : noGrid;
     if (!isCurrent()) {
       previewer.polisher.destroy();
-      return { cancelled: true, pages: flow.total, cols, choices, ms: performance.now() - t0 };
+      return { cancelled: true, pages: flow.total, cols, grid: gridStats, choices, ms: performance.now() - t0 };
     }
 
     // 5. swap, keeping the scroll position; the old pagination's styles go only now
@@ -265,7 +272,7 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     target.setAttribute('data-orz-copy', '');
     try { W.OrzMarkdownRuntime?.init?.(target); } catch { /* the runtime's own error */ }
     if (o.fit) fitTo(target);
-    return { cancelled: false, pages: flow.total, cols, choices, ms: performance.now() - t0 };
+    return { cancelled: false, pages: flow.total, cols, grid: gridStats, choices, ms: performance.now() - t0 };
   } finally {
     previewer?.polisher.destroy();
     stage.remove();
@@ -340,7 +347,7 @@ function stampPagedStyles(): void {
 }
 
 if (!W.__orzPaged) {
-  registerHandlers(ColsFlowHandler);
+  registerHandlers(BaselineGridHandler, ColsFlowHandler); // the grid first: a block is placed before the column handler measures it
   stampPagedStyles();
   const api: PagedRuntime = Object.freeze({
     version: typeof __ORZ_PAGED_RUNTIME_VERSION__ === 'string' ? __ORZ_PAGED_RUNTIME_VERSION__ : '',

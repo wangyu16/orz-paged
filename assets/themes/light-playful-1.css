@@ -726,14 +726,109 @@
 /* ---- print layer: assets/themes/layers/light-playful-1.css ---- */
 
 :root {
-  --rule: calc(var(--line-height, 1.5) * 1em);
-  --rule-drop: calc(var(--rule) / 2 - 0.36em);
+  --orz-grid: calc(var(--font-size, 10pt) * var(--line-height, 1.5));
+  --rule: var(--orz-grid);
+}
+
+.pagedjs_area {
+  position: relative;
+  isolation: isolate;
+}
+
+.pagedjs_area::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--margin-l, 20mm));
+  right: calc(-1 * var(--margin-r, 20mm));
+  background: repeating-linear-gradient(to bottom,
+    transparent 0,
+    transparent calc(var(--orz-rule-at, calc(var(--orz-grid) * 0.72)) - 1px),
+    var(--rule-ink) calc(var(--orz-rule-at, calc(var(--orz-grid) * 0.72)) - 1px),
+    var(--rule-ink) var(--orz-rule-at, calc(var(--orz-grid) * 0.72)),
+    transparent var(--orz-rule-at, calc(var(--orz-grid) * 0.72)),
+    transparent var(--orz-grid));
+  pointer-events: none;
+}
+
+.markdown-body > p,
+.markdown-body > ul:not(.toc-list),
+.markdown-body > ol {
+  line-height: var(--orz-grid);
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: var(--orz-grid);
 }
 
 .markdown-body > p::before,
 .markdown-body > ul:not(.toc-list)::before,
 .markdown-body > ol::before {
-  inset: 0 calc(-1 * var(--margin-r, 20mm)) 0 calc(-1 * var(--margin-l, 20mm));
+  content: none;
+  display: none;
+}
+
+.markdown-body > ul:not(.toc-list) li,
+.markdown-body > ol li,
+.markdown-body > ul:not(.toc-list) :is(ul),
+.markdown-body > ul:not(.toc-list) :is(ol),
+.markdown-body > ol :is(ul),
+.markdown-body > ol :is(ol) {
+  line-height: var(--orz-grid);
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.markdown-body > ul:not(.toc-list) li > p,
+.markdown-body > ol li > p {
+  margin: 0;
+}
+
+.markdown-body > :is(p) :is(sup),
+.markdown-body > :is(p) :is(sub),
+.markdown-body > :is(ul) :is(sup),
+.markdown-body > :is(ul) :is(sub),
+.markdown-body > :is(ol) :is(sup),
+.markdown-body > :is(ol) :is(sub) {
+  vertical-align: baseline;
+  position: relative;
+  line-height: 0;
+}
+
+.markdown-body > :is(p) sup,
+.markdown-body > :is(ul) sup,
+.markdown-body > :is(ol) sup {
+  top: -0.45em;
+}
+
+.markdown-body > :is(p) sub,
+.markdown-body > :is(ul) sub,
+.markdown-body > :is(ol) sub {
+  top: 0.25em;
+}
+
+.markdown-body > :is(p) :is(img),
+.markdown-body > :is(p) :is(.task-list-item-checkbox),
+.markdown-body > :is(ul) :is(img),
+.markdown-body > :is(ul) :is(.task-list-item-checkbox),
+.markdown-body > :is(ol) :is(img),
+.markdown-body > :is(ol) :is(.task-list-item-checkbox) {
+  vertical-align: middle;
+}
+
+.markdown-body > :where(:not(p):not(ul):not(ol)),
+.markdown-body > ul.toc-list,
+.markdown-body > p.katex-block,
+.markdown-body > p:has(.katex-display),
+.markdown-body > p:has(> img:only-child),
+.markdown-body > .orz-off-grid,
+.markdown-body > hr,
+.markdown-body > hr.footnotes-sep {
+  background-color: var(--page-bg);
 }
 
 .pagedjs_page {

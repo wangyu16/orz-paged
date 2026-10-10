@@ -1,17 +1,25 @@
 /**
- * Runs once before the suite — what `npm run bundle` makes: the browser
- * engine (with the paged runtime) staged into `browser/` (the
- * `orz-paged-browser` package) and `dist/` (`orz-paged.browser.js` +
- * `release.json`, where the Node library reads it), and the 0.x engine
- * (`dist/orz-paged.legacy.js`) the 0.x composition (`composeInlineHtml`,
- * tests/lib.test.ts) inlines. Rebuilt every run, so a stale engine cannot
- * pass unnoticed.
+ * Runs once before the suite — what `npm run build` makes (the layout of
+ * orz-mdhtml's tests/global-setup.ts):
+ * - the browser engine staged into `dist/` (`orz-paged.browser.js` +
+ *   `release.json`), where the Node library (src/engine.ts) and the CLI read
+ *   it, and into `browser/`; tests check those bytes against the in-memory
+ *   build (tests/lib.test.ts, tests/bundle.test.ts), so a stale engine cannot pass unnoticed;
+ * - the compiled library and CLI (`tsc -p tsconfig.build.json` → dist/), so
+ *   tests/cli.test.ts spawns the very `dist/cli.js` the package ships.
  */
-import { buildBrowser, buildLegacyBrowser, writeBrowser, writeLegacy, writeLibEngine } from '../build/bundle.js';
+import { execFile } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { promisify } from 'node:util';
+import { buildBrowser, writeBrowser, writeLibEngine } from '../build/bundle.js';
 
 export async function setup(): Promise<void> {
+  const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc');
+  const compile = promisify(execFile)(process.execPath, [tsc, '-p', 'tsconfig.build.json']).catch((e: { stdout?: string; message: string }) => {
+    throw new Error(`tsc -p tsconfig.build.json failed:\n${e.stdout ?? e.message}`);
+  });
   const b = await buildBrowser();
   writeBrowser(b);
   writeLibEngine(b);
-  writeLegacy(await buildLegacyBrowser());
+  await compile;
 }

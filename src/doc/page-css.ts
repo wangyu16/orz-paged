@@ -5,8 +5,8 @@
  * running headers/footers, page-number counters, `:root` design tokens, and
  * layout-behavior CSS that paged.js realizes into physical page boxes.
  *
- * Behavior SPEC: `docs/document-model.md`; token set + page model:
- * `docs/dom-contract.md`. Reimplemented cleanly in TS (light-only output).
+ * Behavior SPEC: `archive/document-model.md`; token set + page model:
+ * `archive/dom-contract.md`. Reimplemented cleanly in TS (light-only output).
  */
 
 import type {

@@ -22,8 +22,8 @@
  *   cdnUrl(path, version): string      jsDelivr URL of a package file (e.g. a stylesheet)
  *
  * Reading the CSS text in Node: `readFileSync(join(packageRoot, themeStylesheet(id)))`
- * (lib.ts `loadThemes()` reads assets/themes/*.css). In a bundle, import the
- * files with esbuild's `text` loader.
+ * (the package ships assets/themes). The browser bundle carries them as text
+ * (build/bundle.ts, the virtual module `orz-paged:themes`).
  *
  * Load order: base.css, then the theme, then the document's page CSS (which
  * may override --page-bg / --accent / --font-* from the header).

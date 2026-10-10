@@ -1,22 +1,109 @@
 /* light-playful-1 on paper: the exercise book becomes the page itself.
-   The source rules running text with a line per body line and draws a pink
-   margin line down the article; on a screen both sit inside the article's
-   padding. On a page there is no such padding, so:
-   - the ruling follows the page's leading (font_size / line_height from the
-     header), so the lines stay under the words, and runs to the paper edges
-     like a real exercise book;
+   The source rules each paragraph and list with a line per body line and
+   draws a pink margin line down the article. On paper (owner decision
+   2026-10-09: the lines follow the text):
+   - the whole content box of every page is ruled, at the body leading in
+     absolute units (--orz-grid = the header's font_size x line_height), from
+     the content box top, out to the paper edges like a real exercise book;
+   - the running text (top-level paragraphs and lists) is set with exactly
+     that leading, so each line of text sits on a rule: the paged runtime's
+     baseline grid (src/paged/baseline-grid.ts) measures where the body
+     font's baseline falls (--orz-rule-at, set on each page) and starts every
+     block on the grid, so after a heading, a table, a callout, code, math or
+     an image the text is back on the lines;
+   - everything else sits on its own paper (an opaque background): the rules
+     run behind it, never through its glyphs; a paragraph that leaves the grid
+     (a tall inline formula) is marked .orz-off-grid and does the same;
    - the margin line is drawn on the page sheet, top to bottom of every page,
      just left of the text block. */
 
 :root {
-  --rule: calc(var(--line-height, 1.5) * 1em);
-  --rule-drop: calc(var(--rule) / 2 - 0.36em);
+  --orz-grid: calc(var(--font-size, 10pt) * var(--line-height, 1.5));
+  --rule: var(--orz-grid);
+}
+
+/* the ruling: the content box of each page, out to the paper edges */
+.pagedjs_area {
+  position: relative;
+  isolation: isolate;
+}
+
+.pagedjs_area::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--margin-l, 20mm));
+  right: calc(-1 * var(--margin-r, 20mm));
+  background: repeating-linear-gradient(to bottom,
+    transparent 0,
+    transparent calc(var(--orz-rule-at, calc(var(--orz-grid) * 0.72)) - 1px),
+    var(--rule-ink) calc(var(--orz-rule-at, calc(var(--orz-grid) * 0.72)) - 1px),
+    var(--rule-ink) var(--orz-rule-at, calc(var(--orz-grid) * 0.72)),
+    transparent var(--orz-rule-at, calc(var(--orz-grid) * 0.72)),
+    transparent var(--orz-grid));
+  pointer-events: none;
+}
+
+/* the running text: exactly one rule per line, a blank ruled line after each block */
+.markdown-body > p,
+.markdown-body > ul:not(.toc-list),
+.markdown-body > ol {
+  line-height: var(--orz-grid);
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: var(--orz-grid);
 }
 
 .markdown-body > p::before,
 .markdown-body > ul:not(.toc-list)::before,
 .markdown-body > ol::before {
-  inset: 0 calc(-1 * var(--margin-r, 20mm)) 0 calc(-1 * var(--margin-l, 20mm));
+  content: none;
+  display: none;
+}
+
+.markdown-body > ul:not(.toc-list) li,
+.markdown-body > ol li,
+.markdown-body > ul:not(.toc-list) :is(ul, ol),
+.markdown-body > ol :is(ul, ol) {
+  line-height: var(--orz-grid);
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.markdown-body > ul:not(.toc-list) li > p,
+.markdown-body > ol li > p {
+  margin: 0;
+}
+
+/* inline marks do not grow a line box (a raised footnote mark included) */
+.markdown-body > :is(p, ul, ol) :is(sup, sub) {
+  vertical-align: baseline;
+  position: relative;
+  line-height: 0;
+}
+
+.markdown-body > :is(p, ul, ol) sup { top: -0.45em; }
+.markdown-body > :is(p, ul, ol) sub { top: 0.25em; }
+
+.markdown-body > :is(p, ul, ol) :is(img, .task-list-item-checkbox) {
+  vertical-align: middle;
+}
+
+/* everything else hides the rules behind it: its own paper */
+.markdown-body > :where(:not(p):not(ul):not(ol)),
+.markdown-body > ul.toc-list,
+.markdown-body > p.katex-block,
+.markdown-body > p:has(.katex-display),
+.markdown-body > p:has(> img:only-child),
+.markdown-body > .orz-off-grid,
+.markdown-body > hr,
+.markdown-body > hr.footnotes-sep {
+  background-color: var(--page-bg);
 }
 
 .pagedjs_page {

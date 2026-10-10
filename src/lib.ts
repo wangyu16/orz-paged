@@ -1,197 +1,96 @@
 /**
- * orz-paged library entry — generate a self-contained `.paged.html` in-process.
+ * orz-paged — the Node library (the package's main export).
  *
- * This is the programmatic twin of the CLI's default (`--inline`) render path: a
- * host platform calls {@link buildPagedHtml} and gets back the FULL document
- * string, fully inline (inlined engine bundle + inlined base/theme CSS + full
- * template catalog + embedded source). Math/diagram/font libs still load from
- * CDN at view time — exactly as the CLI's inline output does.
+ * Text format 1 (FC-18, kind `paged`): a document is its text twin
+ * (`x.paged.md`); its self-editing, print-ready file (`x.paged.html`) is
+ * `assemble(text)`. Everything here is the isomorphic code of
+ * src/assemble.ts, src/inspect.ts and src/legacy.ts — the same functions the
+ * browser bundle runs — except that an inline assembly needs no engine from
+ * the caller: it carries this release's browser bundle (src/engine.ts: the
+ * copy staged in `dist/` by the build, verified against its `release.json`),
+ * so Node writes the bytes the browser writes. Mirrors orz-mdhtml 1.0's
+ * src/lib.ts.
  *
- * Both the CLI and this module compose through {@link composeInlineHtml}, so
- * there is a single render path. The CLI keeps its argument parsing, template
- * scaffolding (`--new`/`--list-templates`), source-selection (`--template`), and
- * the `--cdn` mode; the shared inline composition lives here.
- *
- * Asset resolution is relative to this module (`import.meta.url`), never
- * `process.cwd()`, so it works from an installed npm package.
+ * 1.0.0 replaces the 0.x API (`buildPagedHtml`, `composeInlineHtml`,
+ * `loadThemes`, `loadTemplates`, `pickDefaultTheme`, `findAsset`,
+ * `stripBaseImport`, `selfVersion`, `CDN`): content (title, theme, template,
+ * page settings, metadata) now comes only from the text's header, and a new
+ * text comes from `newDocument({ template })`.
  */
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { extractDocMeta, mergeDocMeta, renderDocMetaHead, renderDocMetaIsland, type DocMeta } from 'orz-markdown/doc-meta';
-import { getBrowserRuntimeScript } from 'orz-markdown/runtime';
-import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
-import { buildHtml, type ThemeAsset, type RendererSpec, type TemplateAsset } from './template.js';
+import { VERSION as ORZ_MARKDOWN_VERSION } from 'orz-markdown/version';
+import { assemble as assembleText, type AssembleOptions } from './assemble.js';
+import { upgrade as upgradeFile, type UpgradeOptions, type UpgradeResult } from './legacy.js';
+import { inspect as inspectInput, type InspectOptions, type InspectReport } from './inspect.js';
 import { templateList } from './doc/templates.js';
-import { VERSION } from './version.js';
+import { engineSource } from './engine.js';
 
-// The 1.0 format-1 API (isomorphic; FC-18 text format 1, kind `paged`). The
-// 0.x composition below (buildPagedHtml, composeInlineHtml) is the old runtime
-// path, replaced by the engine, the paged kind on carrier/app and the CLI in
-// later rebuild steps; nothing new may depend on it.
-export { assemble, extract, readDocument, newDocument, storedText, shellParts, cdnBundleUrl, BUNDLE_FILE, FORMATS, PAGES_ID, DEFAULT_TEMPLATE, TEMPLATE_IDS, type AssembleOptions, type NewDocumentOptions, type Extracted, type DocumentInfo, type Kind } from './assemble.js';
-export { inspect, type InspectReport, type InspectOptions } from './inspect.js';
-export { upgrade, readLegacy, headerFromLegacySource, type LegacyFile, type LegacySourceResult, type UpgradeResult, type UpgradeOptions } from './legacy.js';
+export { extract, readDocument, newDocument, storedText, cdnBundleUrl, BUNDLE_FILE, FORMATS, DEFAULT_TEMPLATE, TEMPLATE_IDS, type AssembleOptions, type NewDocumentOptions, type Extracted, type DocumentInfo, type Kind } from './assemble.js';
+export type { InspectOptions, InspectReport } from './inspect.js';
+export { readLegacy, type LegacyFile, type UpgradeResult, type UpgradeOptions } from './legacy.js';
 export { readSettings, resolveSettings, DEFAULTS as SETTING_DEFAULTS } from './doc/settings.js';
-export { THEMES, DEFAULT_THEME, isThemeId } from './themes.js';
+export { THEMES, THEME_INFO, DEFAULT_THEME, isThemeId, type PagedTheme } from './themes.js';
 export { VERSION } from './version.js';
 export { sha256 } from './sha256.js';
-/** The orz-markdown version this release renders with. */
-export { VERSION as ORZ_MARKDOWN_VERSION } from 'orz-markdown/version';
+export { engineSource, engineFiles, type EngineFiles } from './engine.js';
+export type { DocSettings, TemplateName, ThemeName } from './types.js';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..');
+/** The orz-markdown version this release renders with (its parser, themes, KaTeX and CodeMirror pins). */
+export { ORZ_MARKDOWN_VERSION };
 
-/** orz-paged's own version (src/version.ts, generated from package.json). */
-export const selfVersion: string = VERSION;
-
-/** Pinned CDN assets used at view time — sourced from orz-markdown's shared
- *  preview-frame helper so every host app loads identical, tested versions.
- *  Paged is light-only, so highlight.js uses the light (github) stylesheet. */
-export const CDN = {
-  katexCss: PREVIEW_CDN.katexCss,
-  mermaidJs: PREVIEW_CDN.mermaidJs,
-  smilesJs: PREVIEW_CDN.smilesJs,
-  chartJs: PREVIEW_CDN.chartJs,
-  hljsJs: PREVIEW_CDN.hljsJs,
-  hljsCss: PREVIEW_CDN.hljsLightCss,
-};
-
-export function findAsset(rel: string): string {
-  const p = join(ROOT, rel);
-  if (!existsSync(p)) throw new Error('missing asset: ' + rel + ' (run `npm run build` first)');
-  return p;
+/** One document template (`newDocument({ template })`; `orz-paged templates`). */
+export interface TemplateInfo {
+  /** The id `newDocument` and the header's `template` key take. */
+  id: string;
+  /** The picker's name, e.g. "Article — title page". */
+  label: string;
+  /** One line. */
+  description: string;
+  /** The picker's group, e.g. "Article". */
+  group: string;
 }
 
-/** Drop a theme's `@import url("./base.css")` — base is inlined separately, so the
- *  relative import points nowhere (404 on http; a fetch hazard on file://). */
-export function stripBaseImport(css: string): string {
-  return css.replace(/@import\s+url\(\s*['"]?\.\/base\.css['"]?\s*\)\s*;?/gi, '');
-}
+/** The document templates, in the picker's order (the 12 of `TEMPLATE_IDS`). */
+export const TEMPLATES: readonly TemplateInfo[] = Object.freeze(templateList().map((t) => Object.freeze({ id: t.id, label: t.label, description: t.description, group: t.group })));
 
-export function loadThemes(): { baseCss: string; themes: ThemeAsset[] } {
-  const dir = findAsset('assets/themes');
-  const baseCss = readFileSync(join(dir, 'base.css'), 'utf8');
-  const themes = readdirSync(dir)
-    .filter((f) => f.endsWith('.css') && f !== 'base.css')
-    .map((f) => ({ id: f.replace(/\.css$/, ''), css: stripBaseImport(readFileSync(join(dir, f), 'utf8')) }));
-  return { baseCss, themes };
-}
+/** The engine of an inline assembly: the caller's, else this release's bundle. */
+const withEngine = <T extends AssembleOptions>(o: T): T =>
+  (o.delivery ?? 'inline') === 'inline' && o.engineSource === undefined ? { ...o, engineSource: engineSource() } : o;
 
-/** Load every template's starter skeleton from `assets/templates/<stem>.md`. */
-export function loadTemplates(): TemplateAsset[] {
-  const dir = findAsset('assets/templates');
-  return templateList().map((t) => ({
-    id: t.id,
-    label: t.label,
-    description: t.description,
-    group: t.group,
-    skeleton: readFileSync(join(dir, t.skeleton + '.md'), 'utf8'),
-  }));
-}
-
-/** The default theme id, matching the CLI: prefer `light-neat-1`, else the first
- *  loaded theme, else `'none'`. */
-export function pickDefaultTheme(themes: ThemeAsset[]): string {
-  return themes.some((t) => t.id === 'light-neat-1') ? 'light-neat-1' : (themes[0]?.id ?? 'none');
+/**
+ * Assemble the `.paged.html` file of a text (FC-18 §8, FC-19 §2): `inline`
+ * (default) carries this release's browser bundle, `cdn` loads it from
+ * jsDelivr. `includes` are stored in `#orz-includes` as given. Equal to the
+ * browser bundle's `OrzCarrier.assemble` for the same text and options.
+ *
+ * Throws for a text the envelope refuses (NUL, a lone surrogate, a header
+ * `format` above 1), an unknown delivery, and when the engine is missing or
+ * not this release's (src/engine.ts).
+ */
+export function assemble(text: string, options: AssembleOptions = {}): string {
+  return assembleText(text, withEngine(options));
 }
 
 /**
- * The shared inline composition — called by both the CLI (`--inline`, the
- * default) and {@link buildPagedHtml}. Loads all assets from the package, builds
- * an inline renderer, and returns the full document string. Deterministic: paged
- * has no per-document random id, so the same `(source, title, theme?)` always
- * yields byte-identical output.
- *
- * @param theme  optional theme id; when omitted (or unknown) the default theme
- *               ({@link pickDefaultTheme}) drives the picker's initial selection.
+ * Upgrade an orz-paged file to text format 1 with this shell: a legacy 0.x
+ * file becomes a format-1 text (its source, the settings block and a
+ * `kind: meta` block moved to the top as one header with `carrier: paged`
+ * and a uid, the 0.x `#orz-meta` and title moved in) and that text's file; a
+ * format-1 file is re-assembled with its text and includes unchanged. Inline
+ * by default (this release's bundle), like {@link assemble}.
  */
-export function composeInlineHtml(
-  source: string,
-  title: string,
-  theme?: string,
-  delivery?: 'inline' | 'cdn',
-  metadata?: DocMeta,
-): string {
-  // Read any `{{nyml kind: meta}}` block out of the source and strip it (so it
-  // is not rendered redundantly and cannot clash with the fixed nyml-data id);
-  // the host's injected metadata wins field by field. See orz-markdown/doc-meta.
-  const extracted = extractDocMeta(source);
-  const meta = mergeDocMeta(extracted.meta, metadata);
-  source = extracted.body;
-  const templates = loadTemplates();
-  const { baseCss, themes } = loadThemes();
-  const appJs = readFileSync(findAsset('assets/app.js'), 'utf8');
-  const runtime = getBrowserRuntimeScript(); // copy-as-Markdown (+ qr) from orz-markdown
-
-  // `cdn` references the published engine on jsDelivr (small file); `inline`
-  // (default) embeds it. Only the renderer differs from the inline path.
-  const renderer: RendererSpec =
-    delivery === 'cdn'
-      ? {
-          mode: 'cdn',
-          src: `https://cdn.jsdelivr.net/npm/orz-paged-browser@${selfVersion}/orz-paged.browser.js`,
-        }
-      : {
-          mode: 'inline',
-          js: readFileSync(findAsset('dist/orz-paged.legacy.js'), 'utf8'), // the 0.x engine (window.orzpaged), build/bundle.ts
-        };
-
-  const known = theme && themes.some((t) => t.id === theme);
-  const defaultTheme = known ? (theme as string) : pickDefaultTheme(themes);
-
-  return buildHtml({
-    source,
-    title,
-    rendererVersion: selfVersion,
-    renderer,
-    metaHead: renderDocMetaHead(meta),
-    metaIsland: renderDocMetaIsland(meta),
-    baseCss,
-    themes,
-    defaultTheme,
-    templates,
-    cdn: CDN,
-    appJs,
-    runtime,
-  });
+export function upgrade(html: string, options: UpgradeOptions = {}): UpgradeResult {
+  return upgradeFile(html, withEngine(options));
 }
 
 /**
- * Generate a self-contained `.paged.html` document, fully inline.
- *
- * Mirrors the CLI's default `--inline` mode; the returned string is
- * byte-identical to CLI inline output for the same source/title/theme.
- *
- * @param opts.markdown  the document source (the host passes content).
- * @param opts.title     `<title>` + generator title; defaults to `'Untitled'`.
- * @param opts.theme     initial theme id; unknown/omitted → the default theme.
- * @param opts.template  a starter-skeleton selector, mirroring the CLI's
- *   `--template <name>` with no input file: used as the source ONLY when
- *   `opts.markdown` is empty/whitespace. When `markdown` has content, it wins.
- *   The full template catalog is always embedded regardless (it powers the
- *   in-editor picker), so this never changes the catalog — only the initial
- *   source. An unknown template name is ignored (falls back to `markdown`).
+ * Inspect a text or a file of any version (the isomorphic `inspect`): an
+ * inline file of this shell version is checked against this release's
+ * engine (`checks.engine`), unless `options.engineSource` says otherwise;
+ * when the engine cannot be read here, the check says `unverified`.
  */
-export function buildPagedHtml(opts: {
-  markdown: string;
-  title?: string;
-  theme?: string;
-  template?: string;
-  /** `inline` (default, offline) or `cdn` (small file — engine from jsDelivr;
-   *  requires orz-paged-browser published at this version). */
-  delivery?: 'inline' | 'cdn';
-  /** Document metadata (license, author, source …) injected by the host. Wins
-   *  over any `{{nyml kind: meta}}` block in the source. */
-  metadata?: DocMeta;
-}): string {
-  let source = opts.markdown;
-  if (opts.template && !opts.markdown.trim()) {
-    const templates = loadTemplates();
-    const t = templates.find((x) => x.id === opts.template)
-      ?? templates.find((x) => x.id === opts.template + '-section'); // legacy: article→article-section
-    if (t) source = t.skeleton;
-  }
-  const title = opts.title || 'Untitled';
-  return composeInlineHtml(source, title, opts.theme, opts.delivery, opts.metadata);
+export function inspect(input: string, options: InspectOptions = {}): InspectReport {
+  if (options.engineSource !== undefined) return inspectInput(input, options);
+  let engine: string | undefined;
+  try { engine = engineSource(); } catch { engine = undefined; }
+  return inspectInput(input, { ...options, ...(engine !== undefined ? { engineSource: engine } : {}) });
 }

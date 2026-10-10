@@ -10,7 +10,7 @@
  * The `css` returned per kind is identical on every call (the assembler dedupes
  * by kind), uses `var(--accent)` for the accent color, and stays light-only.
  *
- * Spec: docs/document-model.md (Built-in Elements) — reimplemented cleanly.
+ * Spec: archive/document-model.md (Built-in Elements) — reimplemented cleanly.
  */
 
 import type {

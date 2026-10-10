@@ -1,17 +1,18 @@
 /**
  * Renders a paged text with a theme in real Chrome the way the engine does:
- * renderDocument → stage the body (so webfonts load) → paged.js Previewer with
- * [base.css, theme, page CSS] → the paginated pages. Used by tests/themes.test.ts
+ * renderDocument → the paged runtime (src/paged/runtime.ts, built by
+ * build/bundle.ts: the stage with the theme so webfonts load, enhancement,
+ * Paged.js with [base.css, theme, page CSS] and the baseline-grid and
+ * two-column handlers) → the paginated pages. Used by tests/themes.test.ts
  * (and for the owner's screenshots in /tmp/paged-themes).
  */
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { Browser, Page } from 'playwright-core';
 import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
 import { renderDocument } from '../src/render-paged.js';
+import { buildRuntime } from '../build/bundle.js';
 import { themeStylesheets, themeFontUrls } from '../src/themes.js';
 
-const PAGED_JS = join('node_modules/pagedjs/dist/paged.js');
 
 /** A rich first page: title, headings, list, table, code, quote, callouts, math, two columns, badges. */
 export function sampleText(theme: string): string {
@@ -85,9 +86,13 @@ export interface RenderResult {
   page: Page;
   pages: number;
   errors: string[];
+  /** The baseline grid's report (src/paged/baseline-grid.ts; `grid` 0 for a theme without one). */
+  grid: { grid: number; ruleAt: number; snapped: number; offGrid: number };
 }
 
-/** Paginate `text` in a fresh page of `browser`; the caller closes `result.page`. */
+let runtime: Promise<string> | null = null;
+
+/** Paginate `text` in a fresh page of `browser` through the real paged runtime (Paged.js + the grid and column handlers); the caller closes `result.page`. */
 export async function renderPaged(browser: Browser, text: string, opts: { scale?: number } = {}): Promise<RenderResult> {
   const a = renderDocument(text);
   const [baseCss, themeCss] = themeStylesheets(a.theme).map((p) => readFileSync(p, 'utf8'));
@@ -98,30 +103,19 @@ export async function renderPaged(browser: Browser, text: string, opts: { scale?
   page.on('console', (m) => {
     if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text());
   });
-  const links = fonts.map((u) => `<link rel="stylesheet" href="${u}">`).join('\n');
-  await page.setContent(`<!doctype html><html><head><meta charset="utf-8">${links}
+  await page.setContent(`<!doctype html><html><head><meta charset="utf-8">
 <style>body{margin:0;background:#888}.pagedjs_pages{display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px 0}</style>
 </head><body><div id="out"></div></body></html>`, { waitUntil: 'load', timeout: 30_000 }).catch(() => undefined);
-  await page.addScriptTag({ path: PAGED_JS });
-  const pages = await page.evaluate(
-    async ({ body, base, theme, pageCss }) => {
-      // stage with the stylesheets so the theme's webfonts are requested and loaded before layout
-      const style = document.createElement('style');
-      style.textContent = base + '\n' + theme + '\n' + pageCss;
-      document.head.appendChild(style);
-      const stage = document.createElement('div');
-      stage.style.cssText = 'position:absolute;left:-99999px;top:0;width:680px';
-      stage.innerHTML = body;
-      document.body.appendChild(stage);
+  await page.addScriptTag({ content: await (runtime ??= buildRuntime()) });
+  const sheets = [{ name: 'orz-base.css', css: baseCss }, ...(themeCss ? [{ name: 'orz-theme.css', css: themeCss }] : []), { name: 'orz-page.css', css: a.css }];
+  const result = await page.evaluate(
+    async (input) => {
+      const w = window as unknown as { __orzPaged: { paginate(i: unknown, t: Element): Promise<{ pages: number; grid: { grid: number; ruleAt: number; snapped: number; offGrid: number } }> } };
+      const r = await w.__orzPaged.paginate(input, document.getElementById('out')!);
       await document.fonts.ready;
-      stage.remove();
-      style.remove();
-      const w = window as unknown as { Paged: { Previewer: new () => { preview: (c: string, s: unknown[], to: Element) => Promise<{ total: number }> } } };
-      const flow = await new w.Paged.Previewer().preview(body, [{ 'orz-base.css': base }, { 'orz-theme.css': theme }, { 'orz-page.css': pageCss }], document.getElementById('out')!);
-      await document.fonts.ready;
-      return flow.total;
+      return { pages: r.pages, grid: r.grid };
     },
-    { body: a.bodyHtml, base: baseCss, theme: themeCss, pageCss: a.css },
+    { bodyHtml: a.bodyHtml, sheets, links: fonts, frontMatterClean: a.settings.frontMatterClean, dynamicChoices: { ...a.settings.dynamicChoices } },
   );
-  return { page, pages, errors };
+  return { page, pages: result.pages, grid: result.grid, errors };
 }

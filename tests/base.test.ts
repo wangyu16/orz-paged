@@ -53,7 +53,6 @@ describe('base', () => {
       expect(src, file).not.toMatch(/\.replace\(\/&\/g, ['"]&amp;['"]\)/);
     }
     expect(readFileSync('src/doc/elements.ts', 'utf8')).toMatch(/from 'orz-markdown\/carrier\/read'/);
-    expect(readFileSync('src/template.ts', 'utf8')).toMatch(/from 'orz-markdown\/carrier\/read'/);
   });
 
   it('[B.5] the test setup is orz-mdhtml\'s: vitest projects (main, conformance), playwright-core for real Chrome, a live claims registry', () => {

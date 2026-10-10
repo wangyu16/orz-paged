@@ -1,220 +1,180 @@
 ---
 name: orz-paged
-description: Author and edit single-file, self-editing .paged.html print documents (orz-paged). Use when a user wants to turn Markdown into a paginated, printable document — one portable HTML file that, in any browser, shows the text as real print pages on light paper (paged.js), is edited in-browser, and exports to PDF by printing (Ctrl/Cmd+P → Save as PDF). Covers the document settings block, templates (article, report, exam, letter, cover-letter, three CV styles, note), the curated document elements (title sections with multi-author/affiliation/ORCID support, abstract, toc, letter and CV parts, exam questions), a dynamic switch (print several versions from one source, e.g. an exam with or without its answer key), page breaks, and print-first content guidance.
+description: Create, edit, inspect and upgrade orz-paged documents — a Markdown text twin (x.paged.md, orz text format 1, with a {{nyml kind document}} header) and its single-file, self-editing x.paged.html that lays the text out as print-ready pages (Paged.js), edits and saves itself in the browser and prints to PDF. Use when a user wants a printable document from Markdown (article, report, exam with an answer key, letter, cover letter, CV, note), when you meet a .paged.html file and need its text, when one must be changed, checked or moved to a newer version, or when a web app should embed the paged editor. Covers the header keys (page size, margins, fonts, running headers and footers, page numbers, front matter, versions), templates, document elements (title blocks, abstract, contents, letter and CV parts, exam questions), page breaks and the two-column limits. Edit the text, never the HTML; assemble with the orz-paged CLI.
 ---
 
-# orz-paged — author a `.paged.html` document
+# orz-paged — Markdown that edits itself, as print pages
 
-`orz-paged` turns a **Markdown source** into **one `.paged.html` file** that:
+A document has two forms:
 
-- shows the document as a sequence of **print pages on light-colored paper**
-  (real page size, margins, running headers/footers, page numbers) in any modern
-  browser, via [paged.js](https://pagedjs.org),
-- is authored entirely in **orz-markdown** (math, mermaid, smiles, qr, charts,
-  tables, admonitions, columns) plus a small **document layer**,
-- can be **edited in the browser** (CodeMirror source + live paged preview) and
-  **saves itself** back into the file,
-- **exports to PDF by printing** — the on-screen pages are the printed pages
-  (Ctrl/Cmd+P → Save as PDF, or the ↓ button), so there is no rendering surprise.
+- the **text twin** `x.paged.md` — the document itself: Markdown (orz-markdown
+  syntax) with a header block at the top and document elements in the body;
+- the **self-editing file** `x.paged.html` = `assemble(text)` — one HTML page
+  holding the exact text in a `#orz-src` island plus a regenerable shell: the
+  pages (Paged.js, in the page), the pencil with Print, the editor, saves, the
+  quiet update.
 
-The Markdown source is the single source of truth, embedded in the file:
+**Rule: change the text, then assemble. Never edit, restructure or "fix" the
+HTML** — everything but the island is regenerated, and a save in the browser
+rewrites the whole file from the text. Never serialize the laid-out pages.
 
-```html
-<script type="text/markdown" id="orz-src">
-  ...your Markdown (this is what you write)...
-</script>
-```
+The CLI is `orz-paged` (Node ≥ 20.16; `npx orz-paged@1 …` needs no install;
+this skill is for 1.x). Use `--json` on any command for one machine-readable
+object on stdout. Exit codes: 0 done, 1 refused or failed, 2 usage error.
+Nothing that could hold other work is overwritten unless you pass `--force` —
+when a command refuses, read the error (with `--json`: `reason` and `next`,
+below), do not reach for `--force` by reflex.
 
-You write only the **Markdown source**. Never hand-write the surrounding HTML
-(the paged.js shell, runtime, CDN links) — saving regenerates it. To change a
-document, edit the source (in a `.md` file fed to the CLI, or in-browser) and let
-the tool re-render.
+**The one robust idiom:** pass the `sha256` the last command printed as
+`--replaces`. `assemble`, `extract`, `upgrade` and `inspect` print the SHA-256
+of the text they wrote or read (`--json`: `sha256`; `inspect`: `twin.sha256`
+for the sibling); `assemble x.paged.md --replaces <that sha256>` replaces the
+file only while it still holds that text. It works with no cache, no git, in a
+shallow clone, in a fresh sandbox.
 
-## When to use it
-
-- A user wants a **single shareable file** that looks like a printed document —
-  an article, report, letter, CV, note, or exam — and can be turned into a PDF by
-  printing, with no install.
-- The content is **markdown-native** (prose, tables, math, diagrams) and the
-  author wants a paginated document, not a slide deck or a continuous web page.
-- Prefer `.paged.html` (orz-paged) when the output is a **paginated document to
-  print or hand in**; prefer `.md.html` (orz-mdhtml) for a continuous document to
-  read/annotate on screen; prefer `.slides.html` (orz-slides) for a deck to
-  present.
-
-> It mimics **ink on paper**: light backgrounds only, no dark mode, no
-> interactive constructs. Author for print (see [Print-first content](#print-first-content)).
-
----
-
-## Workflow
-
-Generate from a Markdown file:
+## Create a document
 
 ```bash
-orz-paged document.md                  # → document.paged.html
-orz-paged document.md -o out.paged.html # choose the output name
-orz-paged document.md --inline         # (default) embed engine + all themes
-orz-paged document.md --cdn            # reference engine + theme from jsDelivr
-
-orz-paged --template article-page      # scaffold + render a starter document
-orz-paged --new letter -o draft.md     # write a starter .md you then edit
-orz-paged --list-templates             # list the templates
+npx orz-paged@1 templates                                   # the templates, by group
+npx orz-paged@1 new exam.paged.md --template exam-page --title "Chemistry 101 — Exam 1" [--theme light-academic-2]
+# edit exam.paged.md (the header keys and elements below)
+npx orz-paged@1 assemble exam.paged.md          # → exam.paged.html (inline engine, ~2 MB, works as a file)
+npx orz-paged@1 assemble exam.paged.md --cdn    # → a small file that loads the engine from jsDelivr (for web pages)
 ```
 
-You can also start from a template **inside the editor**: open it (✎) and click
-the **template** button (📄) in the toolbar — a grouped picker of starter
-documents; choosing one drops the starter into the editor (any existing content is
-preserved in an HTML comment).
+`new` writes the template's starter text with a fresh `uid`; keep the `uid`
+(it keys the reader's preferences and the save handle). `new --html` writes
+both files at once; without a file name the text goes to stdout. A paged text
+twin's name ends in `.paged.md`; a plain `x.md` also assembles (to
+`x.paged.html`). `orz-paged x.paged.md` is short for `assemble`. Theme ids:
+`orz-paged themes`.
 
-`--inline` (default) embeds the `orz-paged` engine + paged.js + all light themes,
-so the document **paginates offline**. Either way, **fonts, web images, and the
-math/diagram/chart libraries load from a CDN at view time** (so a document that
-uses those, or in-browser editing, needs internet).
+0.x forms are gone: `orz-paged --new <t>` is `orz-paged new x.paged.md
+--template <t>`; `orz-paged --template <t>` is `orz-paged new <t>.paged.md
+--template <t> --html`; `--list-templates` is `orz-paged templates`. The CLI
+refuses them with that command as `next`.
 
-Then **open the `.paged.html` in any modern browser** — it paginates into pages.
+## Edit an existing document
 
-- Click the **✎** button to open the editor (source + live paged preview).
-- **Ctrl/Cmd+S** saves the file in place (needs a Chromium-based browser, File
-  System Access API; falls back to download elsewhere).
-- **Export PDF** = the **↓** button, or the browser's **Print → Save as PDF**.
-  The pages you see are exactly what prints.
+The `.paged.html` can be edited and saved in a browser (and its settings
+changed from the pencil's list), so it may hold work the text twin lacks —
+even when `x.paged.md` is the newer file. Always compare first.
 
----
+1. **Compare before you edit.** `npx orz-paged@1 inspect x.paged.md --json`
+   (works with only `x.paged.html` too) and read `sha256` and `twin`:
+   - no `x.paged.md` yet → `npx orz-paged@1 extract x.paged.html` (exact, byte
+     for byte);
+   - `twin.holds: "same"` → go on;
+   - `twin.holds: "different"` with `twin.earlier` set → the file holds an
+     earlier text of `x.paged.md`; go on (assemble replaces it);
+   - `twin.holds: "different"` otherwise → `x.paged.html` holds other
+     (browser) edits: `npx orz-paged@1 extract x.paged.html -o
+     x.browser.paged.md`, merge its changes into `x.paged.md` (or ask the
+     user which to keep), and **note `twin.sha256`**;
+   - if `x.paged.md` itself has nothing of its own to keep, `npx orz-paged@1
+     extract x.paged.html` replaces it when it is a known state (unchanged
+     since the CLI last synced the pair, or committed in git), or `extract
+     x.paged.html --replaces <sha256 of x.paged.md>`. A plain `extract` never
+     overwrites a text that may hold edits.
+2. Edit `x.paged.md`. Document settings go in the header, not in the HTML and
+   not as CLI options (`assemble` refuses `--title`, `--theme`, `--template`…).
+3. `npx orz-paged@1 assemble x.paged.md` → `x.paged.html`. No `--force` is
+   needed when the file holds an earlier state of `x.paged.md` the CLI can
+   prove: what `orz-paged` itself last wrote into it or read out of it (after
+   `extract`, `new --html` or a previous `assemble`, for the same pair — with
+   `-o` too: `assemble x.paged.md -o public/x.paged.html --cdn` again and
+   again needs nothing), or (for `x.paged.html` itself) a committed version of
+   `x.paged.md` in git (HEAD, staged, or one of its 20 most recent commits — a
+   full clone works; a shallow checkout, CI's default `--depth 1`, knows only
+   the last commit: use `--replaces <sha256>` there). A text equal to one of
+   the twin's last 20 commits counts as a known earlier state, so a deliberate
+   revert of the other file to such a text is replaced — commit the revert
+   first. **In a fresh sandbox, use the token:** `npx orz-paged@1 assemble
+   x.paged.md --replaces <twin.sha256>`. If assemble refuses (`twin-differs`),
+   someone saved in the browser: do step 1, then run the assemble command the
+   refusal names. If only the file changed (and both texts carry the same
+   uid), `next` is a plain `extract x.paged.html`: run it. A warning "pair not
+   recorded (cache not writable)" means the next assemble needs `--replaces`
+   with the hash just printed. Only when `x.paged.md` has everything, `npx
+   orz-paged@1 assemble x.paged.md --force` (the replaced file is kept as
+   `x.paged.html~`, or `~1`, `~2`… — a backup is never overwritten).
 
-## The Markdown source: settings, then content
+Delivery: `assemble` keeps the existing file's delivery unless you pass
+`--cdn` or `--inline`; a new file is inline. Includes: `assemble` keeps the
+includes the old file recorded; `--resolve-includes` reads `{{md part.md}}`
+files from the text's folder (never outside it); each include left unresolved
+is a warning (`--json` `unresolved`), and the file shows an "Included file not
+available" note there.
 
-A source is a **document-settings block** at the top, then normal Markdown body
-(with elements and page breaks placed wherever you need them):
+## The document header (FC-18, kind `paged`)
 
-```
+```markdown
 {{nyml
 kind: document
-template: article
+carrier: paged
+uid: doc-7kq2m9x4p1r8s3t5
+title: Q3 Reliability Review
+author: Platform Team
+template: report-page
 theme: light-academic-1
-}}
-
-{{nyml
-kind: article-title
-title: A Practical Comparison of RAFT and ATRP
-subtitle: Controlled radical polymerization in the teaching lab
-author: Dr. Yu Wang
-date: March 2026
-}}
-
-{{nyml
-kind: abstract
-text: We compare two controlled-radical methods on accessible monomers...
-keywords: RAFT, ATRP, controlled polymerization
-}}
-
-## Introduction
-
-Body text in normal Markdown. Math like $E = mc^2$, tables, lists, and
-diagrams all print.
-```
-
-### Optional portable metadata
-
-Before the document settings block, authors may add `{{nyml kind: meta}}` with
-`title`, `author`, `description`, `license`, `license_name`, `license_url`,
-`source`, `date`, and comma-separated `keywords`. The builder consumes this
-block and emits standard `<head>` tags plus an `#orz-meta` JSON island; those
-emitted records survive browser saves and framework updates. Programmatic hosts
-may pass `metadata` to `buildPagedHtml`; host values win field by field.
-
-Do not use `kind: document` for publication metadata: that block controls page
-layout. Do not reinsert a consumed meta block into generated HTML by hand.
-
----
-
-## 1 · Document settings (`{{nyml kind: document}}`)
-
-One block at the top configures the whole document. **Template-first:** most
-documents set only `template:` (and maybe `theme:` and `decoration_color:`) — the
-template sets every other default. The rest are **optional overrides** for power
-users and agents.
-
-```
-{{nyml
-kind: document
-template: article
+page_size: Letter
+header_right: Q3 Review
+page_number_position: footer-center
+page_number_style: page-n-of-N
+front_matter: clean
 }}
 ```
 
-### Templates (set one — it picks the layout + a starter skeleton)
+- `{{nyml` alone on the first line, `kind: document` on the next, `}}` alone
+  on the last — **at the very top of the text** (a `kind: document` block
+  further down is not read in format 1: lint `stray-document-block`; move its
+  lines into the header). It renders nothing.
+- Common keys: `carrier` (`paged`), `uid` (`doc-` + 10–32 of `[0-9a-z]`; do
+  not invent or change one — `new` mints it), `title`, `author`,
+  `description`, `date`, `keywords`, `source`, `license` / `license_name` /
+  `license_url`, `lang`, `theme`, `format` (only `1`; omit it). Your own
+  tool's keys: prefix `x_<tool>_`; unknown keys are kept.
+- Paged keys (all optional; the template supplies defaults):
 
-**A template owns *layout only*** — page size, furniture (running headers/footers,
-page numbers), and which elements appear and where. **The look — font, decoration
-color, and element styling — comes from the `theme`**, so the same theme renders
-the same across every template. `article`, `report`, and `exam` come in **two
-variants** — `-page` (a dedicated title/cover page) and `-section` (an inline title
-block above the content):
-
-| `template` | For | Layout |
+| Key | Values | Notes |
 |---|---|---|
-| `article-page` / `article-section` | academic paper | title (own page / inline) + `abstract` (own page in `-page`) + body |
-| `report-page` / `report-section` | business / technical report | title (own page / inline) + `toc` + running header/footer + body |
-| `exam-page` / `exam-section` | exam / assessment | title (cover / inline) + `question-*`, answer-key toggle |
-| `letter` | formal letter | `letterhead` + inside-address + body + signature |
-| `cover-letter` | job cover letter | sender header + recipient + body + sign-off |
-| `cv` | résumé (classic) | `cv-header` + sectioned body |
-| `cv-modern` | résumé (modern) | accent name + rule, uppercase labels, right-aligned dates, skill chips |
-| `cv-elegant` | résumé (elegant) | centered, hairline rules, two-column "ledger" entries |
-| `note` | clean readable notes | A4, minimal furniture |
+| `template` | a template id (below) | layout defaults only |
+| `theme` | `light-neat-3`, `light-neat-1`, `light-neat-2`, `light-academic-1` (default), `light-academic-2`, `beige-decent-1`, `beige-decent-2`, `light-playful-1`, `light-playful-2`, `none` | light only, by design |
+| `page_size` | `A3` `A4` `A5` `Letter` `Legal`, or `210mm 297mm` | |
+| `margin_top` / `margin_bottom` / `margin_left` / `margin_right` | mm | default 20 |
+| `page_background`, `decoration_color` | CSS colours | restyle the theme's paper / accent |
+| `font_preset`, `font_heading_preset`, `font_margin_box_preset`, `font_family` | a preset id (`system-serif`, `source-serif-4`, `lora`, `crimson-pro`, `noto-serif`, `inter`, `ibm-plex-sans`, `roboto`, `raleway`, `noto-sans`, `courier-prime`) or a family | the theme's own fonts otherwise |
+| `font_size` (pt), `line_height` | numbers | default 12 / 1.5 |
+| `header_left` / `header_center` / `header_right`, `footer_left` / `footer_center` / `footer_right` | text | running header/footer in the page margins |
+| `header_rule`, `footer_rule`, `*_rule_color`, `*_font_size` | | |
+| `first_page_hide_header`, `first_page_hide_footer` | `true` / `false` | |
+| `page_number_position` | `header-left\|center\|right`, `footer-left\|center\|right`, `none` | |
+| `page_number_style` | `simple`, `page-n`, `page-n-of-N`, `n-of-N`, `n-slash-N`, `dash-n-dash`, `brackets`, `parentheses` | |
+| `page_number_start_page`, `first_page_skip_number` | | |
+| `front_matter` | `clean` / `normal` | `clean`: title/abstract/contents pages with `placement: page` get no furniture; the body is numbered from 1 |
+| `dynamic_choices` | a `key: value` map (`\|` block) | versions, below |
+| `limit_image_to_page`, `keep_image_together`, `repeat_table_header`, `avoid_table_row_breaks` | `true` / `false` | |
+| `custom_css` | CSS (`\|` block) | must not contain `}}` |
 
-The bare names `article` / `report` / `exam` still work and resolve to the
-`-section` variant. To change the look, set `theme:` (not the template).
+- One `key: value` per line; `key: |` then more-indented lines for a
+  multi-line value. A value must not contain `}}`. Edit the header in place —
+  change one line, never rewrite or reorder the block.
+- No `title`? The file's title is the first level-1 heading, else the title
+  of the first title element.
 
-### Overrides (all optional — the template supplies defaults)
+## Templates
 
-| Key | Values / unit | Notes |
-|---|---|---|
-| `page_size` | `A3` `A4` `A5` `Letter` `Legal`, or custom `"210mm 297mm"` | |
-| `margin_top` / `margin_bottom` / `margin_left` / `margin_right` | number (mm) | |
-| `font_preset` | see [Font presets](#font-presets) | body font |
-| `font_size` | number (pt) | |
-| `line_height` | number (ratio, e.g. `1.5`) | |
-| `decoration_color` | CSS color, e.g. `"#2962a4"` | accent used by theme + elements |
-| `header_left` / `header_center` / `header_right` | text | running header margin boxes |
-| `footer_left` / `footer_center` / `footer_right` | text | running footer margin boxes |
-| `page_number_position` | `header-left\|center\|right`, `footer-left\|center\|right`, `none` | where the page number sits |
-| `page_number_style` | see [Page-number styles](#page-number-styles) | how it reads |
-| `front_matter` | `clean` (or `normal`, the default) | `clean`: strip header/footer/number from every `placement: page` front-matter page (title / abstract / toc) and restart the page count so the body begins at **1** |
-| `dynamic_choices` | a `key: value` map | conditional content — print several versions from one source (e.g. `answer-key: hide`); see [Dynamic switch](#dynamic-switch--print-several-versions-from-one-source) |
-| `theme` | `none` · `light-neat-1/2/3` · `light-academic-1/2` · `beige-decent-1/2` | **light only** |
+`orz-paged templates` lists them: `article-page`, `article-section`,
+`report-page`, `report-section`, `exam-page`, `exam-section`, `letter`,
+`cover-letter`, `cv`, `cv-modern`, `cv-elegant`, `note` (default). A template
+is a starter text plus layout defaults; `-page` gives the title its own page,
+`-section` an inline title block (0.x `article`/`report`/`exam` →
+`-section`). Start from one with `new --template`; the header's `template:`
+key changes layout defaults only (it never rewrites the text). In the file:
+*New document from template…* saves a fresh document; the current one is
+never replaced.
 
-#### Font presets
-
-Serif: `system-serif` `source-serif-4` `lora` `crimson-pro` `noto-serif` ·
-Sans: `inter` `ibm-plex-sans` `roboto` `raleway` `noto-sans` ·
-Mono: `courier-prime`.
-
-#### Page-number styles
-
-`simple` (just the number) · `page-n` (`Page 3`) · `page-n-of-N` (`Page 3 of 12`) ·
-`n-of-N` (`3 of 12`) · `n-slash-N` (`3 / 12`) · `dash-n-dash` (`— 3 —`) ·
-`brackets` (`[3]`) · `parentheses` (`(3)`).
-
-#### Themes (light only — by design)
-
-Seven light themes, vendored from the orz family and print-adapted:
-
-- `light-neat-1/2/3` — modern sans (blue / teal / Orchard-green accents),
-- `light-academic-1/2` — scholarly serif (justified, ruled tables),
-- `beige-decent-1/2` — warm editorial paper,
-- `none` — plain.
-
-There are **no dark themes** — the document mimics ink on paper. **The theme owns
-the look** — font, accent (decoration) color, and element styling — so it is
-consistent across every template. The **default theme is `light-academic-1`** (used
-when a document doesn't set `theme:`). An explicit `font_preset` /
-`decoration_color` / `page_background` still overrides the theme (so
-`layout (template) + look (theme) ← your explicit settings`).
-
----
-
-## 2 · Elements (`{{nyml kind: <element-kind> ...}}`)
+## Elements (`{{nyml kind: <element-kind> …}}` in the body)
 
 An element is a `{{nyml}}` block whose `kind:` **is** the element type. Place it
 in the body where you want it to appear. Curated elements:
@@ -289,7 +249,7 @@ comma-separated list) when you don't need affiliations.
 ### Clean front matter (`front_matter: clean`)
 
 When the title, abstract, and/or toc are each on their own page (`placement:
-page`), set `front_matter: clean` in the document block to give those front-matter
+page`), set `front_matter: clean` in the header to give those front-matter
 pages **no running header, footer, or page number**, and **renumber the body**
 so it runs 1…N over the main content only — front-matter pages are excluded from
 both the current page number and the `… of N` total. The `article-page` and
@@ -403,157 +363,151 @@ answer: Starting from F = ma and integrating over distance...
 
 The `answer:` (and the ✓ on the correct `question-mc` option) is shown only when
 the **`answer-key`** dynamic switch is `show` — so one source makes both the
-student copy and the instructor key (see [Dynamic switch](#dynamic-switch--print-several-versions-from-one-source)).
+student copy and the instructor key (see "Versions" below).
 
----
+## Versions — one source, several printouts
 
-## Dynamic switch — print several versions from one source
-
-`dynamic_choices` is a document setting (a `key: value` map) that drives
-**conditional content**. Any element carrying `data-show-when="key=value"` is kept
-only when the choice matches; `data-hide-when="key=value"` is removed when it
-matches. The exam questions use this automatically: the answers are tagged
-`data-show-when="answer-key=show"`.
+`dynamic_choices` in the header (a `key: value` map) decides what the pages
+show: content tagged `data-show-when="key=value"` is kept only when the choice
+matches, `data-hide-when="key=value"` is removed when it matches. The exam
+elements tag their answers `data-show-when="answer-key=show"`:
 
 ```
-{{nyml
-kind: document
-template: exam-page
 dynamic_choices: |
-  answer-key: hide      ← student copy (default); set to `show` for the key
-}}
+  answer-key: hide
 ```
 
-- **In the file**: change `answer-key: hide` → `show` and re-render to produce the
-  instructor key (✓ marks + model answers revealed).
-- **In the editor**: a live **answer key** dropdown appears in the toolbar
-  whenever a document uses `dynamic_choices` — flip it to preview/print either
-  version without editing the source.
+Set `answer-key: show` (and assemble, or choose *Version…* in the file's
+pencil list or editor bar — a header edit) for the instructor key. Define
+your own keys (`audience: student`) and tag HTML in the body
+(`<div data-show-when="audience=teacher">…</div>`).
 
-It is general-purpose: define your own keys (e.g. `audience: student`) and tag
-content with `data-show-when` / `data-hide-when` (an HTML span/div in the source,
-or a future custom element) to print tailored variants from one file.
+## Page breaks, columns and print
 
----
+- `::: page-break` then `:::` on the next line starts a new page.
+- `:::: cols` / `::: col` … `:::` / `::::` lays text side by side. Across a
+  page break a short block moves whole to the next page; a long one splits
+  column by column (column 1 continues in column 1). **Limits:** a lone long
+  column stays narrow; only paragraphs, list items, blockquotes and plain
+  blocks split (images, figures, code, tables, math, headings, boxed asides
+  move whole); one-line widows happen; a block taller than a page is clipped.
+  Keep each column's blocks short, or avoid columns for long material.
+- Print = the file's *Print* (pencil list, right after Edit), or the
+  browser's print, from the read view: the pages print as laid out (*Save as
+  PDF* in the dialog). The CLI makes no PDF.
+- Print-first content: math, code, tables, Mermaid, `{{smiles}}`, `{{chart}}`,
+  `{{qr}}`, images, callouts (`::: info` / `success` / `warning` / `danger`),
+  footnotes all print. Tabs, `::: spoil` and video are discouraged (they hide
+  content or do not print) — not forbidden. Light paper only.
 
-## 3 · Page breaks
+Content syntax is orz-markdown's: read its skill,
+`node_modules/orz-markdown/orz-markdown-skills/SKILL.md` or
+`https://cdn.jsdelivr.net/npm/orz-markdown/orz-markdown-skills/SKILL.md`.
 
-Force a new page with the orz-markdown arbitrary-class container `page-break`
-(no plugin, no extra syntax):
+## Inspect before you act
 
-```
-::: page-break
-:::
-```
-
-Everything after it starts on a fresh page.
-
----
-
-## 4 · Body content (print-first orz-markdown)
-
-The body is full orz-markdown. Everything below **prints well** and is encouraged:
-
-- **Headings, lists, tables, blockquotes, code blocks.**
-- **Math** — inline `$E=mc^2$` and display `$$ ... $$` (KaTeX).
-- **Mermaid** diagrams (```` ```mermaid ````), **smiles** chemistry
-  (`{{smiles ...}}`), **`{{chart}}`** (bar/line/pie), **`{{qr}}`** (a printed QR
-  is genuinely useful), images, and footnotes.
-- **`{{toc}}`** inline anchors, **admonitions** (`::: info` / `::: success` /
-  `::: warning` / `::: danger`), and **columns** (`:::: cols`).
-
-For the full orz-markdown syntax (containers, `{{name body}}` plugins,
-`{{attrs[#id .class]}}`), read the orz-markdown skill at
-`node_modules/orz-markdown/orz-markdown-skills/SKILL.md`.
-
-### Print-first content
-
-A `.paged.html` mimics paper, so author for print:
-
-- **Avoid screen-only / dynamic constructs** — **tabs**, **spoilers**
-  (`::: spoil`), and **youtube**. They hide content or are video, which is
-  meaningless on paper.
-- **Light backgrounds only** — there are no dark themes by design.
-- These are guidance, not hard blocks — orz-markdown still renders them — but the
-  templates and themes won't use them.
-
----
-
-## Do / don't
-
-**Do**
-- Start with one `{{nyml kind: document}}` block; in the common case set only
-  `template:` (plus maybe `theme:` / `decoration_color:`).
-- Use a title element (`article-title` / `report-title` / `exam-title`) and pick
-  `placement: section` (inline) or `placement: page` (cover page).
-- Force pages with `::: page-break` / `:::`.
-- Keep content static and printable — tables, math, diagrams, charts, QR codes.
-
-**Don't**
-- Don't hand-edit the generated `.paged.html`; edit the Markdown source.
-- Don't use tabs, `::: spoil`, or youtube — they don't print.
-- Don't ask for a dark theme; the document is always light (ink on paper).
-- Don't expect a PDF binary from the CLI — the PDF comes from the browser's
-  Print → Save as PDF on the open file.
-
----
-
-## Examples
-
-### An article with an inline title section and abstract
-
-```
-{{nyml
-kind: document
-template: article
-theme: light-academic-1
-decoration_color: "#2962a4"
-}}
-
-{{nyml
-kind: article-title
-title: A Practical Comparison of RAFT and ATRP
-subtitle: Controlled radical polymerization in the teaching lab
-author: Dr. Yu Wang
-date: March 2026
-}}
-
-{{nyml
-kind: abstract
-text: We compare two controlled-radical methods on accessible monomers, with
-  emphasis on dispersity and reproducibility in an undergraduate setting.
-keywords: RAFT, ATRP, controlled polymerization, dispersity
-}}
-
-## Introduction
-
-Controlled radical polymerization gives narrow dispersity ($\PDI < 1.2$)...
-
-## Methods
-
-| Method | Mediator | Typical PDI |
-|---|---|---|
-| RAFT | thiocarbonylthio | 1.05–1.15 |
-| ATRP | Cu/ligand | 1.05–1.20 |
+```bash
+npx orz-paged@1 inspect x.paged.html --json    # also works on a text, a 0.x file, any HTML
 ```
 
-### A one-line note
+Read `input` (`text`, `assembled`, `legacy`, `html`), `kind`, `format`,
+`writable`, `shell.version` / `shell.relation`, `uid`, `title`, `theme`,
+`template`, `settings`, `header.keys`, `includes`, `lint`, `checks` (a file's
+structure), `sha256` (the `--replaces` token), `twin` (the sibling
+`x.paged.md` ↔ `x.paged.html`: `holds`, `newer`, `sha256`, `earlier`), and
+**follow `advice`** — it names the command to run, with your file names:
 
+- `legacy` (an orz-paged 0.x file) → `upgrade`; next to an existing
+  `x.paged.md`: `upgrade x.paged.html --text x.browser.paged.md`, then merge
+  (keep the new header) — `extract` does not read 0.x files;
+- `twin.holds: "different"` → extract and merge before assembling (unless
+  `twin.earlier` is set: then assemble replaces it);
+- `checks.island: "unclosed"` → the file was cut off: `extract x.paged.html -o
+  x.recovered.paged.md`, compare with a backup; `checks.engine: "different"` /
+  `"missing"` → `upgrade` re-assembles it (the text is intact);
+- an older shell → `upgrade`; a newer shell or text `format` → `npx
+  orz-paged@latest` (do not force a downgrade);
+- lint errors, a `stray-document-block` → fix the header, then assemble;
+- another kind (`md`, `slides`) → its own tool (`npx orz-mdhtml`, …).
+
+## When a command refuses (`--json`)
+
+A failure is `{ "ok": false, "error", "reason", "next"?, "exitCode" }`. `next`
+is `{ "command", "args" }`: run `npx orz-paged@1 <command> <args…>` verbatim
+(it never replaces a text with another line of work). Stable `reason` codes:
+`twin-differs` (extract to `x.browser.paged.md`, merge, assemble with
+`--replaces`), `replaces-mismatch` (a save happened since: extract again and
+merge), `legacy-file` (`upgrade`, then `assemble --replaces` with the
+`sha256` upgrade printed — not `--force`), `output-differs` (another text at
+`-o`: follow `next`; another document: choose another path), `newer-shell` /
+`newer-format` (`npx orz-paged@latest`), `unclosed-island`, `not-orz`,
+`exists`, `assembled-input`, `other-kind`, `invalid-text`, `no-such-file`,
+`unreadable`, `not-utf8`, `write-failed`, `engine-unavailable`, `bad-usage`
+(exit 2; also a 0.x form, with the 1.0 command as `next`), `failed`.
+
+## Upgrade old files
+
+```bash
+npx orz-paged@1 upgrade old.paged.html            # in place, and writes old.paged.md (its text twin)
+npx orz-paged@1 upgrade old.paged.html -o new.paged.html --text new.paged.md
 ```
-{{nyml
-kind: document
-template: note
-}}
 
-Pick up dry cleaning, email the draft to the committee, and water the plants.
-```
+A 0.x file (orz-paged ≤ 0.7.3) keeps its source: the settings block
+(`{{nyml kind: document}}`, wherever 0.x found it) and a `kind: meta` block
+become one header at the top, with `carrier: paged`, a `uid`, and the 0.x
+`#orz-meta` metadata and title; the settings mean what they meant (a `}}`
+inside `custom_css` becomes `} }`, reported). The delivery is kept unless
+`--cdn` / `--inline`. A format-1 file of an older shell is re-assembled with
+its text and includes unchanged. A newer shell and a cut-off file are refused
+(`--force` overrides and keeps `x.paged.html~`). Upgrading twice changes
+nothing more.
 
-## Security
+## Recover the text from any version by hand
 
-`.paged.html` files are **single-file executable HTML** — opening one runs its
-embedded JavaScript. Treat them like programs: only open or edit files from a
-trusted source, and advise users the same. The one-click framework update is
-opt-in (edit view only, explicit confirm) and always fetches from the hardcoded
-canonical jsDelivr packages — a tampered file can't redirect it. A file's
-integrity can't be verified from inside it; for authenticity, verify out-of-band.
-See the README "Security" section.
+Read the `<script type="text/markdown" id="orz-src">` element's raw content
+and undo its escaping:
+
+- **Format 1** (`<script id="orz-shell">` exists): remove **one** backslash
+  after each `<` that is followed by backslashes and then `script` or
+  `/script` (any case); turn the line breaks into the style named by
+  `data-orz-eol` (`lf`, `crlf`, `cr`); prefix U+FEFF when `data-orz-bom` is
+  present. In code: `extract(html).text` from `orz-markdown/carrier` (or
+  `orz-paged`).
+- **0.x** (no `#orz-shell`; generator `orz-paged 0.x`): replace each
+  `<\/script` with `</script`; remove the one line break the writer added at
+  the start and at the end. Metadata is in `<script id="orz-meta">`. Prefer
+  `orz-paged upgrade`.
+
+## In a web app
+
+The same editor is a component: `npm i orz-paged-browser@1`, then
+`mountEditor(element, { text, hooks: { save, ai, fetchInclude, … }, nonce })`
+(ES module, or `globalThis.OrzCarrier` from the IIFE); its preview lays out
+Paged.js pages in a sandboxed frame. Store the text; call `assemble(text)`
+only when a file is needed. Hooks and the CSP recipe: `docs/embedding.md`,
+shipped in both packages. Platforms that show assembled files in an iframe use
+the host protocols (orz-markdown `spec/host-protocols.md`).
+
+## What the file does for its reader
+
+The pages in the page, and ONE control: a pencil at the bottom-left (click:
+Edit; hover or tap: Edit, Print, Save, Download a copy, New document, Save as
+new copy, Theme, Page size, Template, Page numbers, Number style, New document
+from template…, Version…, Page zoom…). Settings write the header (undoable,
+unsaved until Save); *Page zoom* is the reader's and never saved. **Edit**
+(Cmd/Ctrl+E): editor + live page preview. **Save** (Cmd/Ctrl+S) writes
+`assemble(text)` in place in Chromium, downloads elsewhere; a save over a file
+changed on disk asks first. A quiet, once-a-day update offer on local files.
+
+## Gotchas
+
+- Do not edit `x.paged.html` by hand; the text is the document.
+- Keep the `uid` across revisions; a different document needs its own (`new`,
+  or the file's *Save as new copy* / *New document from template…*).
+- `--force` keeps what it replaces as `<file>~` (or `~1`, `~2`…); still,
+  compare before you force. The pair records live in
+  `$XDG_CACHE_HOME/orz-paged/` (else `~/.cache/orz-paged/`).
+- Package: `orz-paged` 1.x depends on `orz-markdown ^2.2.0` and pins Paged.js
+  0.4.3; files record the shell version that wrote them.
+- Security: a `.paged.html` runs the code inside it — treat files like
+  programs and open only trusted ones.
