@@ -193,6 +193,44 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
   colour; an exam question header reads "1. (2 pts)"; `new --title`
   round-trips any title; Version's `hidden` follows renders.
 
+#### Closed loop, round 3 (fixes before the release)
+
+- **Long highlighted code printed wrong** (UPSTREAM Paged.js 0.4.3): on every
+  page continuing a highlighted fence the newlines between tokens were
+  skipped (a 300-line fence lost lines 51–300 off the area), and a code line
+  could be cut through at the page bottom (a page-tall fence over-ran the area
+  by up to 21 px). Whitespace between tokens is kept and a code break moves to
+  the start of the line (`src/paged/code-break.ts`; R.12).
+- **Tables in columns**: a table taller than the rest of the page inside
+  `.cols` is split between rows within its column (widths kept, header
+  repeated); a row taller than a column page lays the block out as plain flow.
+  No broken grid, no row in the hidden column (C.6).
+- **Long tables lost a row at unlucky lengths** (UPSTREAM Paged.js
+  `findOverflow`): the fragment's column widths are frozen before the
+  overflow is removed and a bottom-flush row moves on; a header is never left
+  alone at a page bottom (P.11, a length sweep).
+- **Column move threshold** (owner): a short `.cols` block moves whole only
+  when that leaves less than a third of the page empty; otherwise it is split
+  (`MOVE_WHOLE_MAX_EMPTY`, C.4).
+- **A blocked font server** is waited for once per session; later layouts
+  and Print are final at once (R.13).
+- **First open**: "Laying out pages…" at once, the pages shown one by one as
+  they are laid out (first page ~0.3 s after the parse on a 35-page report,
+  was ~5 s; R.14).
+- **The preview is live**: it re-lays out from the page the edit changed and
+  swaps pages in as they are ready, 0.8 s after typing stops — the edited
+  page shows ~1.2 s after the last key on a 35-page report (was 7.7–9.1 s; E.6).
+- **Print**: one pending print at a time, "Preparing pages… (n of N)" (R.15);
+  apps print the document's pages with the kit's `printDocument` and
+  `renderPreview(text, { document: true, pages: true, nonce })`; an assembled
+  file sets `window.__orzPrintReady` (X.4).
+- `renderPreview(…, { document: true, nonce })` stamps its `<style>` (X.4).
+- `aria-busy` with the "updating…" mark; a TOC on its own pages continues at
+  the top of the next page; Paged.js ticks on a timer in a frame without
+  animation frames (an off-screen preview, a print frame stalled).
+- `front_matter: yes` (and the other yes-words) stays a synonym of `clean`
+  (owner), documented.
+
 ## [0.7.3] — 2026-07-17
 
 ### Changed

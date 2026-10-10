@@ -105,7 +105,11 @@ chrome('typing on a long document (real Chrome)', () => {
     await frame.evaluate(() => (window as unknown as { __orzPaged: { idle(): Promise<void> } }).__orzPaged.idle());
     await page.waitForTimeout(500);
     await page.locator('.cm-content').click();
-    await page.keyboard.press(`${MOD}+End`);
+    // near the start: the pagination of the edit re-lays out most pages (an edit near the end re-lays out the last
+    // ones only and is done within the pause — round 3, E.6)
+    await page.locator('.cm-line', { hasText: 'permitted, and you have 60 minutes' }).first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
     await page.keyboard.press('Enter');
     await page.evaluate(() => {
       const w = window as unknown as { __lt: number[] };
@@ -117,7 +121,7 @@ chrome('typing on a long document (real Chrome)', () => {
     const stats = (): Promise<Stats> => frame.evaluate(() => (window as unknown as { __orzPaged: { stats(): Stats } }).__orzPaged.stats());
     const before = await stats();
     await page.keyboard.type('Alpha ');
-    await page.waitForTimeout(1800);
+    await page.waitForTimeout(1500);
     // no pagination's pages are swapped in while the reader types (a stale one is abandoned instead)
     await frame.evaluate(() => { const w = window as unknown as { __swaps: number }; w.__swaps = 0; new MutationObserver(() => { w.__swaps++; }).observe(document.getElementById('orz-doc')!, { childList: true }); });
     const marked = await frame.evaluate(() => document.getElementById('orz-doc')!.hasAttribute('data-orz-updating'));
@@ -172,6 +176,63 @@ chrome('typing on a long document (real Chrome)', () => {
     await pagesIdle(page);
     expect(await page.evaluate(() => document.getElementById('orz-pages')!.hasAttribute('data-orz-updating'))).toBe(false);
     expect(await page.evaluate(() => getComputedStyle(document.getElementById('orz-pages')!, '::before').content)).toBe('none');
+    await ctx.close();
+  }, 240_000);
+
+  it('[E.6] the preview feels live on a 35-page report: one edit near the end and one near the start show in the preview within about 2 s of the last key (the layout starts at the page the edit changed, the pages before it kept, each new page swapped in as it is laid out, the render acknowledged at once), the whole preview consistent soon after, and typing stays smooth (no long task over 200 ms)', async () => {
+    const ctx = await browser!.newContext({ viewport: { width: 1400, height: 900 } });
+    await ctx.addInitScript(PICKER_INIT);
+    await routeCdn(ctx);
+    const page = await ctx.newPage();
+    const path = files.write('live.paged.html', await assembleReal(readFileSync('tests/fixtures/report-35.paged.md', 'utf8')));
+    await page.goto(`file://${path}`);
+    await bootDone(page);
+    expect(await pagesIdle(page)).toBeGreaterThanOrEqual(30);
+    await page.keyboard.press(`${MOD}+e`);
+    const frame = await (async () => {
+      for (let i = 0; i < 150; i++) {
+        const f = page.frames().find((x) => x !== page.mainFrame());
+        if (f && await f.evaluate(() => document.querySelectorAll('#orz-doc .pagedjs_page').length).catch(() => 0) > 0) return f;
+        await page.waitForTimeout(200);
+      }
+      throw new Error('no preview pages');
+    })();
+    const settled = (): Promise<unknown> => frame.waitForFunction(() => !document.getElementById('orz-doc')!.hasAttribute('data-orz-updating') && !(window as unknown as { __orzPaged: { busy(): boolean } }).__orzPaged.busy(), null, { timeout: 60_000, polling: 100 });
+    await settled();
+    type Stats = { incremental: number; last: Record<string, number> };
+    const stats = (): Promise<Stats> => frame.evaluate(() => (window as unknown as { __orzPaged: { stats(): Stats } }).__orzPaged.stats());
+    await page.locator('.cm-content').click();
+    const trial = async (label: string, place: () => Promise<void>, marker: string): Promise<{ shown: number; consistent: number; from: number }> => {
+      await place();
+      await page.waitForTimeout(800);
+      const before = await stats();
+      await page.keyboard.type(marker, { delay: 60 });
+      const t0 = Date.now();
+      await frame.waitForFunction((m) => Array.from(document.querySelectorAll('#orz-doc .pagedjs_page')).some((p) => (p.textContent || '').includes(m)), marker, { timeout: 30_000, polling: 25 });
+      const shown = Date.now() - t0;
+      await settled();
+      const consistent = Date.now() - t0;
+      const after = await stats();
+      expect(after.incremental, `${label}: an incremental re-layout`).toBeGreaterThan(before.incremental);
+      // eslint-disable-next-line no-console
+      console.log(`[E.6] ${label}: shown ${shown} ms after the last key, the preview consistent at ${consistent} ms (re-laid from page ${after.last.from})`);
+      return { shown, consistent, from: after.last.from ?? 0 };
+    };
+    const end = await trial('an edit near the end', async () => { await page.keyboard.press(`${MOD}+End`); await page.keyboard.type('\n\n'); }, 'ZqEnd');
+    const start = await trial('an edit near the start', async () => { await page.keyboard.press(`${MOD}+Home`); for (let i = 0; i < 34; i++) await page.keyboard.press('ArrowDown'); await page.keyboard.press('End'); }, ' ZqStart');
+    expect(end.shown).toBeLessThanOrEqual(2500);
+    expect(start.shown).toBeLessThanOrEqual(2500);
+    expect(end.from).toBeGreaterThan(20); // only the last pages laid out again
+    expect(end.consistent).toBeLessThanOrEqual(4000);
+    expect(start.consistent).toBeLessThanOrEqual(15_000);
+    // typing in bursts stays smooth
+    await page.evaluate(() => { const w = window as unknown as { __lt: number[] }; w.__lt = []; new PerformanceObserver((l) => { for (const e of l.getEntries()) w.__lt.push(Math.round(e.duration)); }).observe({ type: 'longtask' }); });
+    const words = ' the yield improved when the solvent was changed to ethanol and the rest followed';
+    for (let i = 0; i < words.length; i++) { await page.keyboard.type(words[i]!); await page.waitForTimeout(i % 15 === 14 ? 700 : 110); }
+    const lt = await page.evaluate(() => (window as unknown as { __lt: number[] }).__lt);
+    expect(lt.filter((d) => d > 200)).toEqual([]);
+    await settled();
+    expect(await frame.evaluate(() => document.querySelectorAll('[data-orz-interim]').length)).toBe(0);
     await ctx.close();
   }, 240_000);
 });

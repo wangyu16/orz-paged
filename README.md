@@ -68,12 +68,17 @@ workflow; what paged adds is pages.
   tool's GitHub link. Print from the read view, not the editor preview
   (Cmd/Ctrl+P while editing — in the editor or in its preview — leaves the
   editor and prints the pages of the current text; Print and Cmd/Ctrl+P wait
-  for the final layout, "Preparing pages…" meanwhile). On a long document the
-  preview lays the pages out again only after a pause in typing (about 1.5 s,
-  up to about 3 s for long documents); typing again stops that layout, so
-  typing never waits for it. While the preview is behind the text it shows a
-  quiet "updating…" mark (so does the read view while it lays the pages out
-  again, e.g. after Done).
+  for the final layout, "Preparing pages… (n of N)" meanwhile; pressing again
+  while it waits opens no second dialog). The preview follows about a second
+  after you stop typing: it lays out again from the page your edit changed
+  (the pages before it are kept) and swaps each new page in as it is ready,
+  so the edited page shows one to two seconds after the last key even on a
+  35-page report; the rest of a long document follows within a few seconds.
+  Typing again stops that layout, so typing never waits for it. While the
+  preview is behind the text it shows a quiet "updating…" mark (so does the
+  read view while it lays the pages out again, e.g. after Done). A file opens
+  with a quiet "Laying out pages…" line and shows its pages one by one as they
+  are laid out.
 - **Save, New, Copy.** **Save** (Cmd/Ctrl+S) writes `assemble(text)` — never
   the laid-out pages — back to the file. A save never silently overwrites a
   file that changed on disk since the page opened it: it asks — *Replace it*
@@ -143,12 +148,15 @@ screen-only; the header's `font_preset`, `decoration_color` and
 
 `:::: cols` with `::: col` blocks lays text side by side. Across a page break
 a **short** block (one that fits on a fresh page) moves whole to the next
-page; a **long** one is split column by column at each page bottom (column 1
-continues in column 1 on the next page). Limits: a lone long column stays
-narrow; only paragraphs, list items, blockquotes and plain blocks split
-(images, figures, code, tables, math, headings and boxed asides move whole);
-a one-line widow is possible; a block taller than a page is clipped at the
-bottom.
+page when that leaves less than about a third of the page empty; otherwise —
+and for a **long** block — it is split column by column at the page bottom
+(column 1 continues in column 1 on the next page). Limits: a lone long column
+stays narrow; only paragraphs, list items, blockquotes, plain blocks and
+tables (between rows, their header repeated) split — images, figures, code,
+math, headings and boxed asides move whole; a block that no cut can place (a
+table row taller than a column page) is laid out as plain flow, its columns
+one after the other; a table wider than its column (long unbreakable words in many cells) overflows it; a one-line widow is possible; a block taller than a page
+is clipped at the bottom.
 
 ## Install
 
@@ -417,7 +425,12 @@ edit it there and assemble again.
 > described in [Migrating from 0.x](#migrating-from-0x)). 1.0.0 depends on
 > `orz-markdown ^2.3.0`, which must be published first; until then the
 > `npx orz-paged@1` and `orz-paged-browser@1` commands in this README do not
-> resolve.
+> resolve. At the release both packages go to 1.0.0 with `orz-markdown
+> ^2.3.0` from the registry (the lockfile refreshed), and the cdn example
+> (`examples/letter.paged.html`) is regenerated: until the bump it loads
+> `orz-paged-browser@0.7.3`, a 0.x engine that cannot open it, so it does not
+> boot from the web before the release; after it, it loads `@1.0.0` and is
+> checked against the published bundle.
 
 Two packages, released together with the same version: `orz-paged` (the CLI
 and the Node library) and `orz-paged-browser` (the browser engine and editor

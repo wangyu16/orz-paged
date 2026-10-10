@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, afterAll } from 'vitest';
 import { assembleReal, bootDone, launch, PICKER_INIT, pagesIdle, routeCdn, tempDir, type Browser, type Route } from './browser-env.js';
+import { readFileSync } from 'node:fs';
 import { TEMPLATE_TEXTS } from './helpers.js';
 
 const browser: Browser | null = await launch();
@@ -71,6 +72,8 @@ chrome('the read view on a slow network (real Chrome)', () => {
     const afterParse = await page.evaluate(() => Math.round(performance.now())) - dcl;
     expect(afterParse, `pages ${afterParse} ms after the parse (${shown} ms in all)`).toBeLessThan(3500);
     expect(shown, `pages after ${shown} ms`).toBeLessThan(8000);
+    // (the first layout shows page by page, round 3: its result once all its pages are in)
+    await page.waitForFunction(`${APP}.view.lastResult() !== null`, null, { timeout: 30_000 });
     const first = await page.evaluate(`${APP}.view.lastResult()`) as { provisional: boolean; pages: number };
     expect(first.provisional).toBe(true);
     expect(held.some((u) => /fonts\.googleapis/.test(u))).toBe(true);
@@ -119,6 +122,31 @@ chrome('the read view on a slow network (real Chrome)', () => {
     await page.waitForFunction(() => (window as unknown as { __printed: unknown[] }).__printed.length === 2, null, { timeout: 30_000 });
     await page.waitForTimeout(300);
     expect(await page.evaluate(() => (window as unknown as { __printed: unknown[] }).__printed.length)).toBe(2);
+    await ctx.close();
+  }, 120_000);
+
+  it('[R.14] first open of a 35-page report: the fallback line goes when the layout starts, a quiet announced "Laying out pages…" (role status) shows until the first page, the pages are laid out straight into view (the first page shows while the rest is still being laid out, under aria-busy), and the first page is in view within a few seconds of the parse', async () => {
+    const ctx = await browser!.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx.addInitScript(PICKER_INIT);
+    await routeCdn(ctx);
+    const page = await ctx.newPage();
+    const path = files.write('first-open.paged.html', await assembleReal(readFileSync('tests/fixtures/report-35.paged.md', 'utf8')));
+    await page.goto(`file://${path}`, { waitUntil: 'commit' });
+    const status = await page.waitForFunction(() => { const s = document.getElementById('orz-paged-status'); return s && !s.hidden ? { text: s.textContent, role: s.getAttribute('role'), live: s.getAttribute('aria-live'), fallback: document.querySelectorAll('#orz-pages .orz-fallback').length } : null; }, null, { timeout: 30_000, polling: 10 }).then((h) => h.jsonValue());
+    expect(status).toEqual({ text: 'Laying out pages\u2026', role: 'status', live: 'polite', fallback: 0 });
+    const first = await page.waitForFunction(() => { const p = document.querySelector('#orz-pages .pagedjs_page'); if (!p || !(p.textContent || '').trim()) return null; return { pages: document.querySelectorAll('#orz-pages .pagedjs_page').length, busy: document.getElementById('orz-pages')!.getAttribute('aria-busy'), statusHidden: (document.getElementById('orz-paged-status') as HTMLElement).hidden, t: Math.round(performance.now()), dcl: Math.round((performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming).domContentLoadedEventEnd) }; }, null, { timeout: 30_000, polling: 10 }).then((h) => h.jsonValue()) as { pages: number; busy: string | null; statusHidden: boolean; t: number; dcl: number };
+    await pagesIdle(page);
+    const all = await page.evaluate(() => ({ pages: document.querySelectorAll('#orz-pages .pagedjs_page').length, busy: document.getElementById('orz-pages')!.getAttribute('aria-busy'), t: Math.round(performance.now()) }));
+    // eslint-disable-next-line no-console
+    console.log(`[R.14] first page ${first.t - first.dcl} ms after the parse (${first.t} ms in all), ${first.pages} of ${all.pages} pages then; all at ${all.t} ms`);
+    expect(first.pages).toBeLessThan(all.pages); // progressive: shown while the rest was laid out
+    expect(first.busy).toBe('true');
+    expect(first.statusHidden).toBe(true);
+    expect(all.pages).toBeGreaterThanOrEqual(30);
+    expect(all.busy).toBeNull();
+    expect(first.t - first.dcl).toBeLessThan(4000);
+    // the file tells the kit's printDocument when its pages are final (an app printing the assembled file)
+    expect(await page.evaluate(async () => { const r = (window as unknown as { __orzPrintReady?: () => Promise<void> }).__orzPrintReady; if (typeof r !== 'function') return 'none'; await r(); return 'ready'; })).toBe('ready');
     await ctx.close();
   }, 120_000);
 });

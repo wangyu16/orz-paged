@@ -27,8 +27,8 @@ describe('the handler (Node)', () => {
     expect(src).toContain('if (this.stats.split + this.stats.moved > MAX_CUTS) return;');
     expect(MAX_CUTS).toBe(2000);
     expect(src).toMatch(/if \(r\.rest && r\.nothingFit && atTop\)/);
-    expect(src).toMatch(/if \(!atTop && box\.height <= areaRect\.height - SAFETY\)/); // a short block moves whole
-    expect(DOCS).toEqual(['a_long', 'b_unequal', 'c_short_bottom', 'd_three_custom', 'e_section', 'f_exam', 'g_edge', 'h_overtall', 'i_nested_tight', 'j_nested_loose', 'k_ordered', 'l_nested_tight_a4']);
+    expect(src).toMatch(/if \(!atTop && box\.height <= areaRect\.height - SAFETY && emptied < MOVE_WHOLE_MAX_EMPTY\)/); // a short block moves whole (leaving under a third of the page empty)
+    expect(DOCS).toEqual(['a_long', 'b_unequal', 'c_short_bottom', 'd_three_custom', 'e_section', 'f_exam', 'g_edge', 'h_overtall', 'i_nested_tight', 'j_nested_loose', 'k_ordered', 'l_nested_tight_a4', 'm_table', 'n_table_first']); // m, n: tables in columns (round 3)
     // C.3: a list item that cannot keep anything here moves whole — its children go back (they were lost); a continued
     // ordered list keeps its numbering, a continued item does not repeat its marker, an ended column keeps only its track
     expect(src).toContain('while (r.rest.firstChild) s.appendChild(r.rest.firstChild);');
@@ -75,7 +75,8 @@ chrome('the 8-document regression (real Chrome)', () => {
       results[doc] = await page.evaluate(async (text) => {
         type C = { renderPreview(t: string): Promise<string>; standalone: { view: { lastResult(): { pages: number; cols: Check['cols'] } } } };
         const C = (globalThis as unknown as { OrzCarrier: C }).OrzCarrier;
-        const words = (el: Element): string[] => (el.textContent || '').split(/\s+/).filter(Boolean);
+        // (a table header repeated on a continuation is added content: not counted)
+        const words = (el: Element): string[] => { const c = el.cloneNode(true) as Element; c.querySelectorAll('[data-orz-repeated-head]').forEach((h) => h.remove()); return (c.textContent || '').split(/\s+/).filter(Boolean); };
         // the source: the content as rendered (versions applied), its top-level .cols blocks and MC option grids
         const t = document.createElement('template');
         t.innerHTML = await C.renderPreview(text);

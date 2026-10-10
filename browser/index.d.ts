@@ -104,6 +104,8 @@ export interface EditorEvents {
   selection: { from: number; to: number };
   save: { text: string; via: SaveVia };
   error: { source: 'save' | 'render' | 'adapter' | 'format' | 'hook'; message: string; error: unknown };
+  /** The reader's Cmd/Ctrl+P in the editor or its preview: with a listener the browser's print is prevented and the listener decides (e.g. `printDocument`). */
+  print: { source: 'preview' | 'editor' };
 }
 
 export interface Editor {
@@ -153,6 +155,29 @@ export interface RenderPreviewOptions {
    * sandboxed frame.
    */
   document?: boolean;
+  /**
+   * With `document: true`: a CSP nonce stamped on the engine's `<style>` (a
+   * `srcdoc` frame inherits the app's policy). The engine adds no script;
+   * the document's own raw HTML is not stamped.
+   */
+  nonce?: string;
+  /**
+   * With `document: true`: a print document — the paged runtime (stamped
+   * with `nonce`) lays the content out as Paged.js pages where the document
+   * is opened and resolves `window.__orzPrintReady` when they are final.
+   * Pass it to `printDocument` (the editor's `print` event).
+   */
+  pages?: boolean;
+}
+
+/** `printDocument`'s options (orz-markdown `carrier/editor`). */
+export interface PrintDocumentOptions {
+  /** Your CSP nonce: stamped on the script the helper adds (the frame inherits your policy). */
+  nonce?: string;
+  /** How long to wait for the document to be ready (`__orzPrintReady`, fonts) before printing anyway (ms; default 30 000). */
+  readyTimeoutMs?: number;
+  /** The hidden frame's accessible title (default `Print`). */
+  title?: string;
 }
 
 export declare const kind: 'paged';
@@ -163,6 +188,13 @@ export declare function extract(html: string): Extracted | null;
 export declare function readDocument(text: string): DocumentInfo;
 export declare function renderPreview(text: string, options?: RenderPreviewOptions): Promise<string>;
 export declare function mountEditor(element: HTMLElement, options: EditorOptions): Editor;
+/**
+ * Print a whole document from your page without printing the page (the kit's
+ * helper): a hidden `allow-scripts allow-modals` frame waits for the load,
+ * the fonts and `window.__orzPrintReady`, then prints. `true` once printed,
+ * `false` when the frame never spoke (a policy that blocked its script).
+ */
+export declare function printDocument(html: string, options?: PrintDocumentOptions): Promise<boolean>;
 export declare function editHeader(text: string, changes: Readonly<Record<string, HeaderChange>>): string;
 /** The print theme ids a header `theme` may name (light paper only). */
 export declare const THEMES: readonly string[];
@@ -224,6 +256,7 @@ export interface OrzCarrierApi {
   readDocument: typeof readDocument;
   mountEditor: typeof mountEditor;
   renderPreview: typeof renderPreview;
+  printDocument: typeof printDocument;
   /** The booted file's handle in an assembled `.paged.html` (the IIFE only); null elsewhere. Not in the ES module's `OrzCarrier`. */
   readonly standalone?: StandaloneFile | null;
 }

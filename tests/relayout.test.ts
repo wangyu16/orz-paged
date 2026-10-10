@@ -61,6 +61,7 @@ chrome('re-layouts and print (real Chrome)', () => {
     const t0 = Date.now();
     await page.goto(`file://${path}`, { waitUntil: 'commit' });
     await page.waitForFunction(() => document.querySelectorAll('#orz-pages .pagedjs_page').length > 0, null, { timeout: 15_000 });
+    await page.waitForFunction(`${APP}.view.lastResult() !== null`, null, { timeout: 15_000 }); // the first layout complete (shown page by page)
     expect(await page.evaluate(`${APP}.view.lastResult().provisional`)).toBe(true);
     await pagesIdle(page);
     const total = Date.now() - t0;
@@ -176,6 +177,77 @@ chrome('re-layouts and print (real Chrome)', () => {
     expect(p.length).toBe(2);
     expect(p[1]).toMatchObject({ hidden: false, provisional: false, busy: false });
     expect(p[1]!.text).toContain('Printed from the preview.');
+    await ctx.close();
+  }, 120_000);
+
+  it('[R.13] a font server that never answers costs its wait once per session: after the first layout gave up on it (FIRST_WAIT_MS + LATE_WAIT_MS), later layouts — a setting, Done after an edit — and Print are final at once (no provisional layout, no re-flow, no second wait)', async () => {
+    const { ctx } = await heldFonts(); // never released
+    const page = await ctx.newPage();
+    const path = files.write('hang-session.paged.html', await assembleReal(TEMPLATE_TEXTS['report-section']!));
+    await page.goto(`file://${path}`, { waitUntil: 'commit' });
+    await bootDone(page);
+    await pagesIdle(page); // the first layout: provisional, then the final one after LATE_WAIT_MS
+    const hung = await page.evaluate(() => (window as unknown as { __orzPaged: { stats(): { hung: string[] } } }).__orzPaged.stats().hung);
+    expect(hung.some((h) => h.startsWith('sheet:https://fonts.googleapis.com'))).toBe(true);
+    await recordPrints(page);
+    const waits: number[] = [];
+    // a setting re-lays out the pages
+    const runs = (): Promise<number> => page.evaluate(() => (window as unknown as { __orzPaged: { stats(): { paginations: number } } }).__orzPaged.stats().paginations);
+    const before = await runs();
+    let t0 = Date.now();
+    await page.evaluate(`${APP}.setSetting({ page_number_style: 'brackets' })`);
+    await page.waitForFunction((n) => (window as unknown as { __orzPaged: { stats(): { paginations: number }; busy(): boolean } }).__orzPaged.stats().paginations > n && !(window as unknown as { __orzPaged: { busy(): boolean } }).__orzPaged.busy(), before, { timeout: 30_000, polling: 20 });
+    await pagesIdle(page);
+    waits.push(Date.now() - t0);
+    expect(await page.evaluate(`${APP}.view.lastResult().provisional`)).toBe(false);
+    // edit, Done
+    await page.keyboard.press(`${MOD}+e`);
+    await page.locator('.cm-content').click();
+    await page.keyboard.press(`${MOD}+End`);
+    await page.keyboard.type('\n\nOne more line.');
+    t0 = Date.now();
+    await page.keyboard.press(`${MOD}+e`);
+    await page.waitForFunction(() => (document.getElementById('orz-pages')!.textContent || '').includes('One more line.'), null, { timeout: 20_000 });
+    await pagesIdle(page);
+    waits.push(Date.now() - t0);
+    // Print, twice
+    for (let i = 1; i <= 2; i++) {
+      t0 = Date.now();
+      await page.keyboard.press(`${MOD}+p`);
+      await page.waitForFunction((n) => (window as unknown as { __printed: unknown[] }).__printed.length === n, i, { timeout: 30_000 });
+      waits.push(Date.now() - t0);
+    }
+    // eslint-disable-next-line no-console
+    console.log(`[R.13] with the font server hanging: setting ${waits[0]} ms, Done ${waits[1]} ms, Print ${waits[2]} ms, Print again ${waits[3]} ms`);
+    for (const w of waits) expect(w).toBeLessThan(FIRST_WAIT_MS + 3000);
+    expect((await printed(page)).every((p) => !p.provisional && !p.busy)).toBe(true);
+    await ctx.close();
+  }, 120_000);
+
+  it('[R.15] one print at a time: Print pressed three times while the pages are laid out opens ONE dialog (the further presses only say so again), with a quiet, announced "Preparing pages… (n of N)" line while it waits (never printed)', async () => {
+    const ctx = await browser!.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx.addInitScript(PICKER_INIT);
+    await routeCdn(ctx);
+    const page = await ctx.newPage();
+    const path = files.write('print-once.paged.html', await assembleReal(readFileSync('tests/fixtures/big-exam.paged.md', 'utf8')));
+    await page.goto(`file://${path}`);
+    await bootDone(page);
+    await pagesIdle(page);
+    await recordPrints(page);
+    // a re-layout (a setting), then Print three times at once
+    await page.evaluate(`${APP}.setSetting({ page_number_style: 'n-of-N' })`);
+    await page.waitForFunction(`${APP}.view.busy()`, null, { timeout: 10_000, polling: 10 });
+    await page.keyboard.press(`${MOD}+p`);
+    await page.keyboard.press(`${MOD}+p`);
+    await page.keyboard.press(`${MOD}+p`);
+    const line = await page.waitForFunction(() => { const p = document.querySelector('.orz-paged-progress') as HTMLElement | null; return p && !p.hidden && /Preparing pages\u2026( \(\d+( of \d+)?\))?/.test(p.textContent || '') ? `${p.getAttribute('role')}|${p.textContent}` : null; }, null, { timeout: 10_000, polling: 20 }).then((h) => h.jsonValue());
+    expect(line).toMatch(/^status\|Preparing pages/);
+    await page.waitForFunction(() => (window as unknown as { __printed: unknown[] }).__printed.length >= 1, null, { timeout: 60_000 });
+    await page.waitForTimeout(1500);
+    expect((await printed(page)).length).toBe(1);
+    expect(await page.evaluate(() => (document.querySelector('.orz-paged-progress') as HTMLElement).hidden)).toBe(true);
+    // the line never prints
+    expect(readFileSync('src/browser/paged/read-view.ts', 'utf8')).toMatch(/@media print \{[\s\S]*\.orz-paged-progress \{ display: none !important; \}|\.orz-paged-status, \.orz-paged-progress \{ display: none !important; \}/);
     await ctx.close();
   }, 120_000);
 });

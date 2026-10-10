@@ -14,7 +14,7 @@
  *   1. deep-clones the source children into that clone (real width, real
  *      styles) to measure them,
  *   2. moves a block that would fit on a fresh page whole to the next page
- *      (hybrid), else measures every column's blocks against the page-area
+ *      when that leaves less than a third of this page empty (hybrid), else measures every column's blocks against the page-area
  *      bottom,
  *   3. cuts each column at the last block (or line, for text blocks and list
  *      items) that fits, keeps the head in the SOURCE `.cols` and moves each
@@ -46,9 +46,14 @@
  *   at the top of a page it is forced onto that page (clipped at the bottom,
  *   as Paged.js clips any over-tall box) instead of being deferred forever.
  *
+ * The move threshold ({@link MOVE_WHOLE_MAX_EMPTY}, owner decision round 3):
+ * a short block moves whole only when that leaves less than a third of the
+ * page empty; a short block that starts higher up is split at the page bottom.
+ *
  * Limits (documented, owner-accepted): a lone long column stays narrow; only
- * paragraphs, list items, blockquotes and plain divs split (images, figures,
- * code, tables, math, headings, boxed asides and nested grids move whole);
+ * paragraphs, list items, blockquotes and plain divs split, and tables
+ * between rows (their header repeated; round 3) — images, figures, code,
+ * math, headings, boxed asides and nested grids move whole;
  * one-line widows are possible; over-tall blocks clip.
  *
  * No markup contract change: the input is orz-markdown's `.cols > .col` as
@@ -58,6 +63,19 @@ import { Handler } from 'pagedjs';
 
 /** px kept free at the page bottom to absorb sub-pixel and rounding differences. */
 const SAFETY = 2;
+
+/**
+ * The hybrid's threshold (owner decision, closed loop round 3): a block that
+ * fits on a fresh page moves there whole only when moving it leaves less than
+ * this share of the current page area empty (the space from the block's top to
+ * the page bottom); otherwise it is split column by column at the page
+ * bottom. Before, any block that fitted on a page moved whole, leaving up to
+ * nearly a whole page blank.
+ */
+export const MOVE_WHOLE_MAX_EMPTY = 1 / 3;
+
+/** On the (undrawn) head of a short block the hybrid moved whole to the next page. */
+export const MOVED_SHORT = 'data-cols-moved-short';
 
 /** The runaway guard: splits plus moves per pagination. */
 export const MAX_CUTS = 2000;
@@ -97,7 +115,7 @@ function rectOf(n: Node): DOMRect | null {
 /** True while a column's first block, which does not fit even at the top of a page, is split (`break-inside: avoid` ignored). */
 let splitAvoided = false;
 
-/** Things never cut through: replaced and atomic content, code, tables, math, boxed asides, nested grids. */
+/** Things never cut through: replaced and atomic content, code, tables (split by rows instead: {@link splitTable}), math, boxed asides, nested grids. */
 function unbreakable(el: HTMLElement): boolean {
   if (/^(IMG|FIGURE|PRE|TABLE|SVG|CANVAS|VIDEO|IFRAME|H[1-6]|HR)$/i.test(el.tagName)) return true;
   if (el.classList.contains('katex-display') || el.classList.contains('katex') || el.classList.contains('mermaid')) return true;
@@ -221,8 +239,67 @@ export function splitText(m: HTMLElement, s: HTMLElement, limit: number): HTMLEl
   return rest;
 }
 
+/** A table whose column widths a split in a column froze (undone when its block falls back to plain flow). */
+const FROZEN = 'data-cols-frozen';
+
+/** The attribute of a header row copied onto a table's continuation (the table-head handler's, src/paged/table-head.ts). */
+const REPEATED_HEAD = 'data-orz-repeated-head';
+
+/**
+ * Split a table in a column by rows (closed loop round 3: a table taller than
+ * the rest of the page inside `.cols` was moved whole, could never fit, and
+ * Paged.js broke the grid itself — a row landed in its hidden off-page
+ * column): keep the body rows that end above `limit` in the head, move the
+ * rest into a shallow copy of the table (its `thead` repeated when the page
+ * CSS asks for it, `--orz-repeat-thead: 1`), or null when not even the first
+ * body row fits (the table moves whole). A row is never cut.
+ */
+function splitTable(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement | null {
+  const bodiesM = Array.from(m.children).filter((c) => c.tagName === 'TBODY') as HTMLElement[];
+  const bodiesS = Array.from(s.children).filter((c) => c.tagName === 'TBODY') as HTMLElement[];
+  if (bodiesM.length !== 1 || bodiesS.length !== 1) return null;
+  const rowsM = Array.from(bodiesM[0]!.children) as HTMLElement[];
+  const rowsS = Array.from(bodiesS[0]!.children) as HTMLElement[];
+  let i = 0;
+  while (i < rowsM.length && rowsM[i]!.getBoundingClientRect().bottom <= limit) i++;
+  if (i === 0 || i >= rowsM.length) return null;
+  // both parts keep the measured column widths: a table with fewer rows re-measures its auto layout, its rows
+  // grow, and the head no longer fits where it was planned (Paged.js then broke the grid)
+  const firstRow = (m as HTMLTableElement).rows[0];
+  const tw = m.getBoundingClientRect().width;
+  // the column widths as shares of the table (a page's column can be narrower than where it was measured: a fixed
+  // table wider than its column ran into the hidden column), the table at most its column's width
+  const shares = firstRow && tw > 0 ? Array.from(firstRow.cells).map((c) => (c.getBoundingClientRect().width / tw) * 100) : [];
+  const fix = (t: HTMLElement): void => {
+    const r = (t as HTMLTableElement).rows[0];
+    if (!r || !shares.length) return;
+    t.style.tableLayout = 'fixed';
+    t.style.width = `min(${tw.toFixed(1)}px, 100%)`;
+    t.setAttribute(FROZEN, '');
+    Array.from(r.cells).forEach((c, k) => { if (shares[k] !== undefined) (c as HTMLElement).style.width = `${shares[k]!.toFixed(3)}%`; });
+  };
+  fix(s);
+  const rest = s.cloneNode(false) as HTMLElement;
+  const head = Array.from(s.children).find((c) => c.tagName === 'THEAD');
+  if (head && getComputedStyle(m).getPropertyValue('--orz-repeat-thead').trim() === '1') {
+    const copy = head.cloneNode(true) as HTMLElement;
+    copy.setAttribute(REPEATED_HEAD, '');
+    rest.appendChild(copy);
+  }
+  const body = bodiesS[0]!.cloneNode(false) as HTMLElement;
+  for (let k = i; k < rowsS.length; k++) body.appendChild(rowsS[k]!);
+  rest.appendChild(body);
+  fix(rest);
+  reRefDeep(rest);
+  rest.style.marginTop = '0';
+  rest.setAttribute('data-cols-split-from', '');
+  s.setAttribute('data-cols-split-to', '');
+  return rest;
+}
+
 /** Split a block that straddles `limit`; return its continuation, or null (move it whole). */
 function splitBlock(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement | null {
+  if (m.tagName === 'TABLE') return splitTable(m, s, limit);
   if (unbreakable(m)) return null;
   let rest: HTMLElement | null;
   if (hasBlockChild(m)) {
@@ -309,7 +386,7 @@ function fill(clone: HTMLElement, from: HTMLElement): void {
 }
 
 /** A split planned on a copy of the source (`trial`): its outcome and, for a cut, the continuation. */
-type Plan = { outcome: 'fits' | 'fallback' } | { outcome: 'split' | 'moved'; rest: HTMLElement };
+type Plan = { outcome: 'fits' | 'fallback' | 'linear' } | { outcome: 'split' | 'moved'; rest: HTMLElement };
 
 /**
  * Plan the cut of one block against `limit` on `trial` (a deep copy of the
@@ -353,6 +430,12 @@ function plan(clone: HTMLElement, trial: HTMLElement, limit: number, atTop: bool
     }
     for (const i of row) {
       const r = splitChildren(mCells[i], sCells[i], limit);
+      if (r.rest && r.nothingFit && atTop && Array.from(mCells[i].children).find((k) => rectOf(k))?.tagName === 'TABLE') {
+        // a table whose first row is taller than a whole column page: no cut between rows can place it, and a
+        // forced, clipped table is broken by Paged.js inside the hidden column (rows lost, closed loop round 3) —
+        // the block falls back to the page's own flow (its columns one after the other, Paged.js splits the row)
+        return { outcome: 'linear' };
+      }
       if (r.rest && r.nothingFit && atTop) {
         // the column's first block is taller than a whole page: it can never fit, so it is forced onto
         // this page (clipped at the bottom, as Paged.js clips any over-tall box), never deferred forever
@@ -451,11 +534,14 @@ export function splitColsAt(clone: HTMLElement, src: HTMLElement, area: HTMLElem
   }
   const atTop = box.top - areaRect.top < 4; // nothing above it on this page
 
-  // the hybrid: a block that fits on a fresh page moves there whole
-  if (!atTop && box.height <= areaRect.height - SAFETY) {
+  // the hybrid: a block that fits on a fresh page moves there whole — when that leaves less than a third of this page
+  // empty (MOVE_WHOLE_MAX_EMPTY); else it is split here
+  const emptied = (areaRect.bottom - box.top) / areaRect.height;
+  if (!atTop && box.height <= areaRect.height - SAFETY && emptied < MOVE_WHOLE_MAX_EMPTY) {
     cleanup();
     finishRest(clone, src, moveAllOf(src));
     clone.style.display = 'none';
+    clone.setAttribute(MOVED_SHORT, ''); // the integrity oracle checks the space it left (tests/integrity.ts MOVEGAP)
     return 'moved';
   }
 
@@ -478,12 +564,55 @@ export function splitColsAt(clone: HTMLElement, src: HTMLElement, area: HTMLElem
   }
   cleanup();
   const p = chosen!.plan;
+  if (p.outcome === 'linear') {
+    linearize(clone, src);
+    return 'fallback';
+  }
   if (p.outcome === 'fits' || p.outcome === 'fallback') return p.outcome;
   const cut = p as Extract<Plan, { rest: HTMLElement }>;
   src.replaceChildren(...Array.from(chosen!.trial.childNodes));
   finishRest(clone, src, cut.rest);
   if (cut.outcome === 'moved') clone.style.display = 'none';
   return cut.outcome;
+}
+
+/** On each block of a `.cols` laid out as plain flow: the index of the column it came from. */
+export const FROM_COLUMN = 'data-cols-from';
+
+/** The mark of a `.cols` block laid out as plain flow (its columns one after the other): {@link linearize}. */
+export const LINEAR_ATTRIBUTE = 'data-cols-linear';
+
+/**
+ * The fallback of a block no cut can place (a table row taller than a whole
+ * column page): the block — this page's clone and its source — becomes plain
+ * flow, its columns one after the other, and Paged.js lays it out as any
+ * content (a row split across pages, the table's header repeated): never a
+ * broken grid, never a lost row (closed loop round 3).
+ */
+function linearize(clone: HTMLElement, src: HTMLElement): void {
+  // a table split in a column earlier keeps the column's widths: as plain flow it takes the page's width again
+  src.querySelectorAll<HTMLTableElement>(`table[${FROZEN}]`).forEach((t) => {
+    t.removeAttribute(FROZEN);
+    t.style.removeProperty('table-layout');
+    t.style.removeProperty('width');
+    const r = t.rows[0];
+    if (r) Array.from(r.cells).forEach((c) => (c as HTMLElement).style.removeProperty('width'));
+  });
+  // the columns' content, one column after the other, directly in the block (no grid, no cells: Paged.js splits it
+  // as any flow — a table nested in a block-level cell lost a row in its hidden column)
+  const kids: Node[] = [];
+  Array.from(src.children).forEach((c, i) => {
+    if (c.hasAttribute('data-cols-placeholder')) return;
+    for (const k of Array.from(c.childNodes)) {
+      if (isEl(k)) k.setAttribute(FROM_COLUMN, String(i)); // which column it came from (tests read it)
+      kids.push(k);
+    }
+  });
+  src.replaceChildren(...kids);
+  for (const el of [clone, src]) {
+    el.setAttribute(LINEAR_ATTRIBUTE, '');
+    el.style.display = 'block';
+  }
 }
 
 /** The mark of a source `.cols` whose cells all moved to its continuation (an empty head). */
@@ -534,6 +663,7 @@ export class ColsFlowHandler extends Handler {
     if (!isEl(node) || !node.classList.contains('cols')) return;
     if (node.parentElement && node.parentElement.closest('.cols')) return; // nested: moved or split with its cell
     if (this.stats.split + this.stats.moved > MAX_CUTS) return; // the runaway guard
+    if (node.hasAttribute(LINEAR_ATTRIBUTE)) return; // plain flow (a fallback): Paged.js lays it out
     const area = layout.element;
     if (node.hasAttribute(MOVED) && !node.firstElementChild) {
       // the empty head of a block moved whole: never drawn. Paged.js can lay it out again at the top of the next

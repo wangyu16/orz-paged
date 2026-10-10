@@ -131,6 +131,66 @@ chrome('the example web app (real Chrome)', () => {
     await page.context().close();
   }, 120_000);
 
+  it('[X.4] Cmd/Ctrl+P in an embedded editor (and with the focus in its preview) prints the document\'s Paged.js pages through the kit\'s printDocument — a hidden sandboxed frame under the app\'s nonce CSP (renderPreview `pages: true`, its scripts and style stamped) — never the app page; a second press while one prints opens no second dialog; the library thumbnail (`renderPreview` `document: true`, `nonce`) violates nothing', async () => {
+    const ctx = await browser!.newContext();
+    const consoleLines: string[] = [];
+    await routeCdn(ctx, {});
+    const page = await ctx.newPage();
+    page.on('console', (m) => consoleLines.push(m.text()));
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`${site.url}/examples/webapp/index.html`);
+    await page.waitForFunction(() => !!(globalThis as unknown as { demo?: unknown }).demo);
+    await page.locator('#editor-a').scrollIntoViewIfNeeded();
+    const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+    const D2 = '(globalThis.demo)';
+    // the app page's own print is recorded (it must not happen); each printDocument call and its outcome too
+    await page.evaluate(() => {
+      const w = window as unknown as { __pagePrints: number; __docs: Array<{ ok?: boolean }>; OrzCarrier: { printDocument(h: string, o?: unknown): Promise<boolean> } };
+      w.__pagePrints = 0;
+      w.__docs = [];
+      window.print = () => { w.__pagePrints++; };
+      const orig = w.OrzCarrier.printDocument;
+      w.OrzCarrier.printDocument = (h, o) => { const rec: { ok?: boolean } = {}; w.__docs.push(rec); return orig(h, o).then((ok) => { rec.ok = ok; return ok; }); };
+    });
+    /** The print frame's pages once laid out (it goes a second after it printed). */
+    const printFramePages = async (): Promise<number> => {
+      for (let i = 0; i < 150; i++) {
+        for (const f of page.frames()) {
+          if (f === page.mainFrame()) continue;
+          const marked = await f.frameElement().then((e) => e.getAttribute('data-orz-print')).catch(() => null);
+          if (marked === null) continue;
+          const n = await f.evaluate(() => (document.getElementById('orz-pages')?.textContent?.includes('resists pH change') ? document.querySelectorAll('.pagedjs_page').length : 0)).catch(() => 0);
+          if (n > 0) return n;
+        }
+        await page.waitForTimeout(100);
+      }
+      return 0;
+    };
+    const docs = (): Promise<Array<{ ok?: boolean }>> => page.evaluate(() => (window as unknown as { __docs: Array<{ ok?: boolean }> }).__docs);
+    // in the editor: twice in a row (the second while the first prints: no second dialog)
+    await page.evaluate(`${D2}.editors.a.setMode('editor')`);
+    await page.locator('#editor-a .cm-content').first().click();
+    await page.keyboard.press(`${mod}+p`);
+    await page.keyboard.press(`${mod}+p`);
+    expect(await printFramePages()).toBeGreaterThan(0); // the document's pages, the include resolved by the app
+    await page.waitForFunction(() => (window as unknown as { __docs: Array<{ ok?: boolean }> }).__docs.every((d) => d.ok !== undefined), null, { timeout: 60_000 });
+    expect(await docs()).toEqual([{ ok: true }]);
+    // with the focus in the preview frame (the kit's forwarded key): the document's pages again
+    await page.evaluate(`${D2}.editors.a.setMode('preview')`);
+    const frame = await frameShowing(page, 'Buffers');
+    await frame.locator('#orz-doc').click({ position: { x: 40, y: 40 } });
+    await page.keyboard.press(`${mod}+p`);
+    await page.waitForFunction(() => { const d = (window as unknown as { __docs: Array<{ ok?: boolean }> }).__docs; return d.length === 2 && d[1]!.ok !== undefined; }, null, { timeout: 60_000 });
+    expect((await docs())[1]).toEqual({ ok: true });
+    expect(await page.evaluate(() => (window as unknown as { __pagePrints: number }).__pagePrints)).toBe(0);
+    // the library thumbnail carries the nonce on its stylesheet; no policy violation anywhere (frames inherit the CSP)
+    expect(await page.locator('#thumb').getAttribute('srcdoc')).toContain('<style nonce="orz-demo-nonce">');
+    expect(consoleLines.filter((l) => /Content Security Policy|Refused to/i.test(l))).toEqual([]);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  }, 120_000);
+
   it('[X.2] the ESM build mounts the same editor (its Paged.js preview), sets no global, and assembles the Node bytes (inline by default, the engine fetched from jsDelivr)', async () => {
     const { page, errors } = await open('/examples/webapp/esm.html', []);
     await page.waitForFunction(() => !!(globalThis as unknown as { demo?: unknown }).demo);

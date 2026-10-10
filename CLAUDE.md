@@ -131,7 +131,10 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   light-playful-1 opts in; its ruling is the page box's `::before`, never a
   positioned `.pagedjs_area`), `table-head.ts` (a split table's `thead`
   repeated on each continuation page, as Paged.js lays it out:
-  `repeat_table_header`), `constants.ts` (the waits, the "updating…"
+  `repeat_table_header`; it also freezes a split table's column widths and
+  pulls a bottom-flush row onward — UPSTREAM row loss, P.11),
+  `code-break.ts` (code across pages: whitespace between highlight tokens
+  kept, a line never cut through at the page bottom — R.12), `constants.ts` (the waits, the "updating…"
   attribute: readable without a DOM), `input.ts`. The TOC is built on the
   stage before the layout; only its numbers are set after (R.8). The column
   integrity oracle is `tests/integrity.ts`; the full matrix
@@ -174,14 +177,18 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   `::: page-break`. Do not reopen these without the owner.
 - **A layout must never block typing or keep the page blank** (closed loop
   round 1): the editor preview paginates only after a typing pause
-  (`debounceMs` 1.5 s, `maxWaitMs: Infinity`, frame-acknowledged within
-  `PREVIEW_ACK_MS` 1 s — E.4); each edit is posted to the frame
-  (`orz-paged-edit`) and abandons a pagination of an older text at its next
-  page (E.5);
+  (`PREVIEW_DEBOUNCE_MS` 800 ms, `maxWaitMs: Infinity`; the frame
+  acknowledges a render at once — E.4); it re-lays out incrementally from
+  the first page the edit changed, swapping pages in as they are laid out
+  (round 3, E.6; `paginate(…, { incremental, progressive })`); each edit is
+  posted to the frame (`orz-paged-edit`) and abandons a pagination of an
+  older text at its next page (E.5); a first layout goes straight into view
+  (R.14); Paged.js' queue ticks on a timer when a frame gets no animation
+  frames (an off-screen preview, the print frame);
   anything run per pause (a setting's `hidden`, `current`) is a cheap text
   test, never a render (K.6); the runtime waits at most `FIRST_WAIT_MS` (2 s)
   for fonts and libraries, then lays out and re-flows once when they arrive
-  (R.6).
+  (R.6); what never arrived is remembered for the session (R.13).
 - **Paged.js is pinned at 0.4.3**: the two-column handler, the baseline grid
   and the nonce stamping hook into its internals; a bump needs the column
   regression (C.1) and the ruled-paper check (P.9) green.

@@ -25,7 +25,7 @@
 import { readDocument } from 'orz-markdown/carrier';
 import type { CarrierReadView, ReadViewContext } from 'orz-markdown/carrier/app';
 import type { PagedRuntime, PaginateResult } from '../../paged/runtime.js';
-import { UPDATING_ATTRIBUTE } from '../../paged/constants.js';
+import { markUpdating } from '../../paged/constants.js';
 import { PAGES_ID, presentationOf } from '../../presentation.js';
 import { PAGED_RUNTIME } from '../runtime-source.js';
 import { renderPaged } from './render.js';
@@ -39,10 +39,14 @@ body { margin: 0; }
 #orz-view[hidden] { display: none !important; }
 .orz-pages .pagedjs_pages { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 24px 0 72px; zoom: var(--orz-page-zoom, 1); }
 :where(.orz-pages) .pagedjs_page { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 6px 18px rgba(0,0,0,.10); }
+.orz-paged-status { font: 14px/1.5 system-ui, sans-serif; color: #5b616e; max-width: 40em; margin: 2em auto; padding: 0 1em; text-align: center; }
+.orz-paged-status[hidden] { display: none; }
+.orz-paged-progress { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; font: 12px/1.6 system-ui, sans-serif; color: #2b2f36; background: rgba(255,255,255,.92); box-shadow: 0 1px 4px rgba(0,0,0,.15); padding: 2px 12px; border-radius: 10px; pointer-events: none; }
+.orz-paged-progress[hidden] { display: none; }
 .orz-pages[data-orz-updating]::before { content: "updating\\2026"; position: fixed; top: 10px; left: 12px; z-index: 5; font: 12px/1.6 system-ui, sans-serif; color: #5b616e; background: rgba(255,255,255,.85); padding: 0 8px; border-radius: 9px; pointer-events: none; }
 @media print {
   html, body { background: #fff !important; }
-  #orz-chrome, .orz-paged-stage, .orz-paged-buffer { display: none !important; }
+  #orz-chrome, .orz-paged-stage, .orz-paged-buffer, .orz-paged-status, .orz-paged-progress { display: none !important; }
   .orz-pages[data-orz-updating]::before { content: none !important; display: none !important; }
   /* a print from the browser's menu in edit mode: the pages, never a blank sheet (the editor does not print) */
   body > *:not(#orz-view) { display: none !important; }
@@ -63,6 +67,11 @@ export interface PagedReadView extends CarrierReadView {
   idle(): Promise<void>;
   /** True while a render or the runtime's layout (a re-flow after late fonts included) is pending: `idle()` would wait. */
   busy(): boolean;
+  /**
+   * While Print waits for the layout: a quiet "Preparing pages… (n of N)" line
+   * (announced; never printed), following the runtime's progress.
+   */
+  preparing(on: boolean): void;
   /** The last shown render (pages, the `.cols` outcomes, the dynamic choices the content uses), or null. */
   lastResult(): PaginateResult | null;
   /** The reader's page zoom (the kit stores it per uid as the reader preference `reader.pageZoom` and sets it). */
@@ -112,6 +121,30 @@ export function createReadView(doc: Document): PagedReadView {
   }
   pages.setAttribute('data-orz-copy', '');
   installViewCss(doc);
+  /** The quiet, announced line of the first layout ("Laying out pages…"), before the pages (it never prints). */
+  let status = doc.getElementById('orz-paged-status') as HTMLElement | null;
+  if (!status) {
+    status = doc.createElement('p');
+    status.id = 'orz-paged-status';
+    status.className = 'orz-paged-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = 'Laying out pages\u2026';
+    status.hidden = true;
+    pages.before(status);
+  }
+  const progress = doc.createElement('p');
+  progress.className = 'orz-paged-progress';
+  progress.setAttribute('role', 'status');
+  progress.setAttribute('aria-live', 'polite');
+  progress.hidden = true;
+  main.append(progress);
+  let progressTimer: ReturnType<typeof setInterval> | undefined;
+  const showProgress = (): void => {
+    const p = (doc.defaultView as RuntimeWindow).__orzPaged?.progress?.();
+    const text = p && p.laid > 0 ? `Preparing pages\u2026 (${p.laid}${p.of > p.laid ? ` of ${p.of}` : ''})` : 'Preparing pages\u2026';
+    if (progress.textContent !== text) progress.textContent = text;
+  };
   const win = doc.defaultView as Window;
   let generation = 0;
   /** Renders started and not finished (the runtime's queue and re-flows are its own `busy()`). */
@@ -167,9 +200,15 @@ export function createReadView(doc: Document): PagedReadView {
       const mine = ++generation;
       present(text);
       rendering++;
-      // the quiet "updating…" mark while the pages are not the final layout of the latest text (L3)
-      pages!.setAttribute(UPDATING_ATTRIBUTE, '');
-      const settledMark = (r: PaginateResult): void => { if (mine === generation && !destroyed && !r.provisional) pages!.removeAttribute(UPDATING_ATTRIBUTE); };
+      // the quiet "updating…" mark (and `aria-busy`) while the pages are not the final layout of the latest text (L3)
+      markUpdating(pages!, true);
+      // the first layout: the fallback line ("if this page stays blank…") goes at once, a quiet, announced "Laying out
+      // pages…" until the first page shows — laid out straight into view, page by page (closed loop round 3)
+      if (!pages!.querySelector('.pagedjs_page')) {
+        pages!.querySelectorAll('.orz-fallback').forEach((f) => f.remove());
+        status.hidden = false;
+      }
+      const settledMark = (r: PaginateResult): void => { if (mine === generation && !destroyed && !r.provisional) markUpdating(pages!, false); };
       const run = (async () => {
         const input = await renderPaged(text, {
           ...(ctx.includes ? { includes: ctx.includes } : {}),
@@ -180,8 +219,10 @@ export function createReadView(doc: Document): PagedReadView {
           isCurrent: () => mine === generation && !destroyed,
           // the one re-flow after late fonts or libraries (R.6): its pages are the final ones
           onReflow: (r) => { if (mine === generation && !destroyed) { last = r; reZoom(); settledMark(r); } },
+          onShown: () => { status.hidden = true; reZoom(); },
         });
         if (result.cancelled) return;
+        status!.hidden = true;
         last = result;
         reZoom();
         settledMark(result);
@@ -200,6 +241,14 @@ export function createReadView(doc: Document): PagedReadView {
       } while (seen !== running);
     },
     busy: () => rendering > 0 || !!(doc.defaultView as RuntimeWindow).__orzPaged?.busy(),
+    preparing(on) {
+      clearInterval(progressTimer);
+      progressTimer = undefined;
+      progress.hidden = !on;
+      if (!on) return;
+      showProgress();
+      progressTimer = setInterval(showProgress, 250);
+    },
     lastResult: () => last,
     zoom: () => zoom,
     setZoom(z) {
@@ -212,6 +261,8 @@ export function createReadView(doc: Document): PagedReadView {
       win.removeEventListener('resize', onResize);
       win.removeEventListener('beforeprint', onBeforePrint);
       clearTimeout(resizeTimer);
+      clearInterval(progressTimer);
+      progress.remove();
     },
   };
   return view;

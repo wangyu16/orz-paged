@@ -8,9 +8,9 @@
  * from jsDelivr (`orz-paged-browser@<version>/orz-paged.browser.js`) — an
  * app that assembles inline files offline passes `engineSource` itself.
  */
-import { assemble, extract, formats, kind, mountEditor as mount, readDocument, renderPreview, version, type Editor, type EditorOptions } from './carrier.js';
+import { assemble, extract, formats, kind, mountEditor as mount, printDocument, readDocument, renderPreview, version, type Editor, type EditorOptions } from './carrier.js';
 
-export { assemble, extract, formats, kind, readDocument, renderPreview, version, editHeader } from './carrier.js';
+export { assemble, extract, formats, kind, printDocument, readDocument, renderPreview, version, editHeader } from './carrier.js';
 export type { Editor, EditorOptions, RenderPreviewOptions, DocumentInfo, Extracted, HeaderChange, EditorHooks, PreferenceStore } from './carrier.js';
 export { THEMES, DEFAULT_THEME } from '../themes.js';
 export { TEMPLATE_IDS, DEFAULT_TEMPLATE, newDocument } from '../assemble.js';
@@ -21,4 +21,4 @@ export function mountEditor(element: HTMLElement, options: EditorOptions): Edito
 }
 
 /** The FC-19 §2 surface as one object (the IIFE's `globalThis.OrzCarrier`, without booting a file). */
-export const OrzCarrier = Object.freeze({ kind, version, formats, assemble, extract, readDocument, mountEditor, renderPreview });
+export const OrzCarrier = Object.freeze({ kind, version, formats, assemble, extract, readDocument, mountEditor, renderPreview, printDocument });

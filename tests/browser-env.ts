@@ -89,6 +89,8 @@ export interface RouteOptions {
   latest?: { release: string; bundle: string; version: string } | null;
   /** Count requests here. */
   log?: string[];
+  /** Serve a highlight.js stand-in (tests/fixtures/hljs-stub.js: hljs' API and token DOM) at highlight.js' pinned URL, and an empty highlight.js stylesheet. */
+  highlight?: boolean;
 }
 
 /**
@@ -122,6 +124,9 @@ export async function routeCdn(ctx: BrowserContext, o: RouteOptions = {}): Promi
         const file = join(NM, 'katex', path);
         if (existsSync(file)) return ok(readFileSync(file), TYPES[extname(file)] ?? 'application/octet-stream');
       }
+    }
+    if (o.highlight && /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/highlight\.js\//.test(url)) {
+      return /\.js$/.test(url) ? ok(readFileSync(join(process.cwd(), 'tests/fixtures/hljs-stub.js')), 'text/javascript; charset=utf-8') : ok('/* highlight.js stylesheet (test) */', 'text/css; charset=utf-8');
     }
     // webfont stylesheets of other hosts (Google Fonts): empty too
     if (/^https:\/\/fonts\.googleapis\.com\//.test(url)) return ok('/* webfont stylesheet (test) */', 'text/css; charset=utf-8');

@@ -66,6 +66,20 @@
     b: C.mountEditor($('editor-b'), { text: QUIZ, hooks: hooksFor('b'), nonce: NONCE, chrome: 'none', mode: 'editor' }),
   };
 
+  // Cmd/Ctrl+P in an editor or its preview prints the document's pages, never this page: a print document of the
+  // text (the paged runtime lays it out in a hidden sandboxed frame, under this page's nonce), printed by the kit's
+  // printDocument when the pages are final. One print at a time.
+  let printing = null;
+  for (const [id, ed] of Object.entries(editors)) {
+    ed.on('print', () => {
+      if (printing) return;
+      log('print', id);
+      printing = C.renderPreview(ed.getText(), { document: true, pages: true, nonce: NONCE, fetchInclude: async (u) => INCLUDES[u] ?? null })
+        .then((html) => C.printDocument(html, { nonce: NONCE }))
+        .finally(() => { printing = null; });
+    });
+  }
+
   // the app's own controls for the chrome-less editor
   $('b-save').addEventListener('click', () => { void editors.b.save(); });
   $('b-undo').addEventListener('click', () => { editors.b.undo(); });
@@ -95,7 +109,7 @@
       ul.append(li);
     }
     const thumb = /** @type {HTMLIFrameElement} */ ($('thumb'));
-    thumb.srcdoc = await C.renderPreview(store.get('a') ?? '', { document: true, fetchInclude: async (u) => INCLUDES[u] ?? null });
+    thumb.srcdoc = await C.renderPreview(store.get('a') ?? '', { document: true, nonce: NONCE, fetchInclude: async (u) => INCLUDES[u] ?? null }); // the srcdoc frame inherits the page's policy: its <style> needs the nonce
   }
   $('version').textContent = `orz-paged-browser ${C.version}`;
   void refreshLibrary();

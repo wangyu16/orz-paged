@@ -17,13 +17,21 @@ export const LATE_WAIT_MS = 20_000;
 export const FINAL_WAIT_MS = 1000;
 
 /**
- * At most this long the editor's render waits for the frame's pagination
- * (its acknowledgement): the kit paces the next render by twice that time,
- * so a long document's layout must not hold the preview back for tens of
- * seconds (closed loop round 2, M3); the pagination itself runs on, and a
- * newer render or an edit abandons it.
+ * The kit's wait for the frame's first acknowledgement is this plus a
+ * second (`firstAckWaitMs`). The frame acknowledges each render as soon as
+ * it has taken it (closed loop round 3; within this before): the kit paces
+ * renders by the renderer alone, the pagination runs on in the frame, and a
+ * newer render or an edit abandons it at its next page.
  */
 export const PREVIEW_ACK_MS = 1000;
+
+/**
+ * The editor preview's pause in typing before a render (the kit's
+ * `debounceMs`): short, now that a layout starts at the page the edit
+ * changed and a stale one is abandoned at its next page (closed loop round 3;
+ * 1.5 s before).
+ */
+export const PREVIEW_DEBOUNCE_MS = 800;
 
 /**
  * The attribute the pages' root carries while what it shows is not yet the
@@ -32,3 +40,14 @@ export const PREVIEW_ACK_MS = 1000;
  * "updating…" mark from it (closed loop round 2, M3/L3).
  */
 export const UPDATING_ATTRIBUTE = 'data-orz-updating';
+
+/** The "updating…" mark of a pages root, with `aria-busy` (assistive technology waits for the final pages). */
+export function markUpdating(el: Element, on: boolean): void {
+  if (on) {
+    el.setAttribute(UPDATING_ATTRIBUTE, '');
+    el.setAttribute('aria-busy', 'true');
+  } else {
+    el.removeAttribute(UPDATING_ATTRIBUTE);
+    el.removeAttribute('aria-busy');
+  }
+}

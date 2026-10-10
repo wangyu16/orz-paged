@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { assemble } from '../src/assemble.js';
 import { REPLAN_STEP } from '../src/paged/cols-flow.js';
 import { bundle, launch, pagesIdle, routeCdn, serve, tempDir, type Browser, type BrowserContext } from './browser-env.js';
-import { integrity, withLayout } from './integrity.js';
+import { integrity, prose, withLayout } from './integrity.js';
 
 const FIX = 'tests/fixtures/columns';
 const DOCS = readdirSync(FIX).filter((f) => f.endsWith('.md')).sort().map((f) => f.slice(0, -3));
@@ -47,7 +47,7 @@ const chrome = browser ? describe : describe.skip;
 async function check(cases: { name: string; text: string }[], pool = 3): Promise<{ results: Record<string, string[]>; errors: string[] }> {
   const b = await bundle();
   const ctx: BrowserContext = await browser!.newContext({ viewport: { width: 1100, height: 1200 } });
-  await routeCdn(ctx);
+  await routeCdn(ctx, { highlight: true }); // highlight.js' token DOM (a stand-in, offline)
   const results: Record<string, string[]> = {};
   const errors: string[] = [];
   const queue = [...cases];
@@ -102,4 +102,58 @@ chrome('the column integrity matrix (real Chrome)', () => {
     expect(failures(results)).toEqual({});
     expect(errors).toEqual([]);
   }, 300_000);
+
+  it('[R.12] long highlighted code fences (240 and 300 lines, Python and unlabelled, highlight.js\' token DOM) and a page-tall plain fence, at A4 and A5 in three themes: every line on the pages, in order, with its whitespace (newlines, indentation), none clipped at a page bottom', async () => {
+    const code = (n: number, seed: number): string => Array.from({ length: n }, (_, i) => `def f${i}(x):  # [K${i}] ${prose(seed + i, 3)}\n    return x * ${i} + "s${i}"`).join('\n');
+    const cases: { name: string; text: string }[] = [];
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5'], ['beige-decent-2', 'A4']] as const) {
+      for (const [lang, n] of [['python', 300], ['', 240], ['text', 120]] as const) {
+        cases.push({ name: `code-${lang || 'auto'}-${n}-${theme}-${size}`, text: `{{nyml\nkind: document\ntitle: Code\ntheme: ${theme}\npage_size: ${size}\n}}\n\n**[P0]** ${prose(1, 30)}\n\n\`\`\`${lang}\n${code(n, n)}\n\`\`\`\n\n**[END]** ${prose(2, 12)}\n` });
+      }
+    }
+    const { results, errors } = await check(cases);
+    expect(Object.keys(results).length).toBe(cases.length);
+    expect(failures(results)).toEqual({});
+    expect(errors).toEqual([]);
+  }, 300_000);
+
+  it('[C.6] tables in columns: a table taller than the rest of the page (or than a whole page) inside `.cols` — in the left or right column or opening it, short rows and tall ones, 6 to 110 rows, with and without a repeated header, in four themes and sizes — is split between rows within its column (its widths kept, its header repeated) or, when a row is taller than a column page, laid out as plain flow: the grid never broken by Paged.js, no row in the hidden column, every row once', async () => {
+    const tbl = (n: number, seed: number, tall: number): string => `| H0 | H1 |\n|---|---|\n${Array.from({ length: n }, (_, i) => `| [r${i}] ${prose(seed + i, tall && i % tall === tall - 1 ? 25 : 2)} | ${i} |`).join('\n')}`;
+    const cases: { name: string; text: string }[] = [];
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5'], ['beige-decent-2', 'Letter'], ['light-playful-1', 'A5']] as const) {
+      for (const where of ['left', 'right', 'first'] as const) {
+        for (const [n, tall] of [[6, 5], [30, 0], [30, 5], [110, 5]] as const) {
+          const t = tbl(n, n, tall);
+          const left = where === 'first' ? `${t}\n\n**[C1]** ${prose(5, 60)}` : where === 'left' ? `**[C1]** ${prose(5, 60)}\n\n${t}` : `**[C1]** ${prose(5, 120)}\n\n**[C2]** ${prose(6, 80)}`;
+          const right = where === 'right' ? `**[C3]** ${prose(7, 50)}\n\n${t}` : `**[C3]** ${prose(7, 140)}`;
+          cases.push({ name: `coltable-${theme}-${size}-${where}-n${n}-t${tall}`, text: `{{nyml\nkind: document\ntitle: CT\ntheme: ${theme}\npage_size: ${size}\n${n === 30 && tall ? 'repeat_table_header: false\n' : ''}}}\n\n**[C0]** ${prose(4, 40)}\n\n::::: cols\n:::: col\n${left}\n::::\n:::: col\n${right}\n::::\n:::::\n\n**[END]** ${prose(8, 10)}\n` });
+        }
+      }
+    }
+    const { results, errors } = await check(cases);
+    expect(Object.keys(results).length).toBe(cases.length);
+    expect(failures(results)).toEqual({});
+    expect(errors).toEqual([]);
+  }, 600_000);
+
+  it('[P.11] a length sweep of long tables (20–60 rows, short and tall cells, a short and a page-long lead, three themes and sizes, with and without the repeated header): every row once and in order, none below the page area or in the hidden column, no header stranded alone at a page bottom', async () => {
+    const tbl = (n: number, tall: number, seed: number): string => `| H0 | H1 | H2 |\n|---|---|---|\n${Array.from({ length: n }, (_, i) => `| [Tr${i}] ${prose(seed + i, tall && i % tall === tall - 1 ? 40 : 2)} | ${prose(seed * 7 + i, 1)} | ${i} |`).join('\n')}`;
+    const cases: { name: string; text: string }[] = [];
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5'], ['beige-decent-2', 'Letter']] as const) {
+      for (const repeat of [true, false]) {
+        for (const tall of [0, 7]) {
+          // 26 rows after a page-long lead, light-academic-1 at A5, with the header: a row Paged.js lost into the hidden
+          // column without the round-3 mitigation (1 case in a 336-case sweep)
+          for (const n of [20, 25, 26, 30, 35, 40, 45, 50, 55, 60]) {
+            const lead = n % 10 === 0 || n === 26 ? 90 : 10;
+            cases.push({ name: `table-${theme}-${size}-${repeat ? 'rep' : 'norep'}-t${tall}-n${n}`, text: `{{nyml\nkind: document\ntitle: T\ntheme: ${theme}\npage_size: ${size}\n${repeat ? '' : 'repeat_table_header: false\n'}}}\n\n**[P0]** ${prose(3, lead)}\n\n${tbl(n, tall, n)}\n\n**[END]** ${prose(4, 20)}\n` });
+          }
+        }
+      }
+    }
+    const { results, errors } = await check(cases);
+    expect(Object.keys(results).length).toBe(cases.length);
+    expect(failures(results)).toEqual({});
+    expect(errors).toEqual([]);
+  }, 900_000);
 });

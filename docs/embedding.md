@@ -148,25 +148,56 @@ the frame document (carried by the bundle, nonce-stamped; nothing is fetched
 for it). Each render: the editor renders the text in your page (settings,
 elements, includes, page CSS, the print theme — pure data, no DOM) and posts
 it to the frame; the frame's `window.__orzPreviewApply` lays it out as pages
-(content libraries and webfonts loaded first, then Paged.js into a hidden
-buffer, then swapped in keeping the scroll position) and the frame
-acknowledges the render when the pages are laid out or after at most 1 s,
-whichever comes first (`diff: false`: every render replaces the pages whole).
-A layout reflows every page in the frame, which shares your page's process:
-it runs only after a real pause in typing (`debounceMs` 1.5 s, which the
-editor grows to twice the last render's time — so about 3 s at most) and is
-never forced while keys keep arriving (`maxWaitMs: Infinity`). Paged.js lays
-out one page per frame; the editor reports every edit to the frame (a
+(content libraries and webfonts loaded first; the first layout straight into
+view, later ones from the first page the edit changed — the pages before it
+kept, each new page swapped in as it is laid out, keeping the scroll
+position) and the frame acknowledges the render as soon as it has taken it
+(`diff: false`). A layout runs in the frame, which shares your page's
+process: it starts 0.8 s after typing stops (`debounceMs` 800 ms,
+which the editor grows to twice the time of its own render of the text) and
+is never forced while keys keep arriving (`maxWaitMs: Infinity`). Paged.js
+lays out one page per frame; the editor reports every edit to the frame (a
 carrier message, `orz-paged-edit`), and a layout of an older text stops at
-its next page — a newer render follows the next pause. The preview lags
-behind the text, marked "updating…" meanwhile; typing never waits for it.
-Cmd/Ctrl+P in the preview is forwarded to your page (the editor's `print`
-event, orz-markdown 2.3.0). Fonts, stylesheets
-and libraries are awaited at most 2 s; the pages then show with what has
-arrived and are laid out once more when the rest settles. The pages are scaled to the pane's width; blocks
-keep their source lines (`data-src-line`), so scroll sync maps a line to its
-page. The preview does not print (an assembled file prints from its read
-view) and does not follow a reader's page zoom.
+its next page — a newer render follows the next pause. So the edited page
+shows about 1.2 s after the last key, also on a 35-page document, and the
+rest follows within a few seconds; it is marked "updating…" (and
+`aria-busy`) meanwhile; typing never waits for it. Fonts, stylesheets and
+libraries are awaited at most 2 s; the pages then show with what has arrived
+and are laid out once more when the rest settles (a server that never
+answers is waited for once per session). The pages are scaled to the pane's
+width; blocks keep their source lines (`data-src-line`), so scroll sync maps
+a line to its page. The preview itself does not print and does not follow a
+reader's page zoom.
+
+### Printing the document
+
+Cmd/Ctrl+P in the editor or its preview is the editor's `print` event
+(orz-markdown 2.3.0): without a listener the browser prints **your page**.
+To print the document's pages, listen and hand a print document to
+`printDocument` (the kit's helper, re-exported by this package and on the
+IIFE global): `renderPreview(text, { document: true, pages: true, nonce })`
+is a small document that carries the paged runtime and lays the pages out
+where it is opened, resolving `window.__orzPrintReady` when they are final;
+`printDocument` opens it in a hidden `allow-scripts allow-modals` frame (an
+opaque origin: its scripts cannot reach your page), waits for the load, the
+fonts and `__orzPrintReady`, and calls the frame's own `print()` — the
+browser prints those pages alone.
+
+```js
+let printing = null;
+editor.on('print', () => {
+  if (printing) return;                     // one print at a time
+  printing = OrzCarrier.renderPreview(editor.getText(), { document: true, pages: true, nonce, fetchInclude })
+    .then((html) => OrzCarrier.printDocument(html, { nonce }))   // true once printed
+    .finally(() => { printing = null; });
+});
+```
+
+An assembled file works too (`printDocument(await assemble(text), { nonce })`:
+the file boots in the frame and sets `__orzPrintReady` to its final layout),
+but it is about 1.7 MB inline; the print document is the light path. Under a
+nonce policy pass the same nonce to both calls (the frame inherits your
+policy). The example app (`examples/webapp/`) wires it for both editors.
 
 The document's own raw HTML runs only inside the frame (an opaque origin in
 your page), never in your page: the layout happens there.
@@ -206,11 +237,14 @@ with `style-src-elem 'unsafe-inline'` if your documents use diagrams.
 ## Without an editor
 
 ```ts
-import { assemble, extract, readDocument, renderPreview, newDocument, TEMPLATE_IDS } from 'orz-paged-browser';
+import { assemble, extract, readDocument, renderPreview, printDocument, newDocument, TEMPLATE_IDS } from 'orz-paged-browser';
 
 readDocument(text)                        // header + derived facts (title, author, uid, theme, lint) — no rendering; index with it
 await renderPreview(text, { includes, fetchInclude })  // the content's HTML (<main class="orz-doc markdown-body">, the header's version applied), not paginated
 await renderPreview(text, { document: true })          // a whole HTML document: print theme, page and element CSS, no script, not paginated (iframe srcdoc, thumbnails)
+await renderPreview(text, { document: true, nonce })   // the same, its <style> stamped with your CSP nonce (a srcdoc frame inherits your policy)
+await renderPreview(text, { document: true, pages: true, nonce })  // a print document: the paged runtime lays out the pages where it opens (for printDocument)
+await printDocument(html, { nonce })                   // print a whole document from your page, never your page (see "Printing the document")
 newDocument({ template: 'exam-section', title })      // a new text from one of the 12 templates (TEMPLATE_IDS): carrier paged, a fresh uid
 await assemble(text, { delivery: 'cdn' })              // a small .paged.html that loads the engine from jsDelivr
 await assemble(text)                                   // an inline .paged.html (fetches this release's bundle once, or pass engineSource)
@@ -220,8 +254,9 @@ extract(html)                                          // { text, kind, format, 
 
 Pages need the engine's layout (Paged.js runs in the editor's preview frame
 and in an assembled file's read view), so `renderPreview` is not paginated:
-a continuous, styled view for thumbnails and lists. `renderPreview` adds no
-script of its own, but it keeps the document's raw
+a continuous, styled view for thumbnails and lists (except `pages: true`, a
+print document that carries the paged runtime). `renderPreview` adds no
+other script of its own, but it keeps the document's raw
 HTML as written — a document can hold `<script>` and event handlers (documents
 come from trusted sources; orz-markdown does not filter them). Show its output
 only in a sandboxed frame (`<iframe sandbox srcdoc=…>`, without

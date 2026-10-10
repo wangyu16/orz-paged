@@ -154,7 +154,7 @@ front_matter: clean
 | `page_number_position` | `header-left\|center\|right`, `footer-left\|center\|right`, `none` | |
 | `page_number_style` | `simple`, `page-n`, `page-n-of-N`, `n-of-N`, `n-slash-N`, `dash-n-dash`, `brackets`, `parentheses` | |
 | `page_number_start_page`, `first_page_skip_number` | | |
-| `front_matter` | `clean` / `normal` (or a boolean word) | `clean`: title/abstract/contents pages with `placement: page` get no furniture; the body is numbered from 1 |
+| `front_matter` | `clean` / `normal` (`yes`, `true`, `on`, `1` and `plain` mean `clean`; `no`, `false`, `off`, `0` mean `normal`) | `clean`: title/abstract/contents pages with `placement: page` get no furniture; the body is numbered from 1 |
 | `dynamic_choices` | a `key: value` map (`\|` block) | versions, below |
 | `limit_image_to_page`, `keep_image_together`, `repeat_table_header`, `avoid_table_row_breaks` | `true` / `false` | all on by default; `repeat_table_header`: a table that runs onto the next page repeats its header row there |
 | `custom_css` | CSS (`\|` block) | must not contain `}}` |
@@ -398,11 +398,16 @@ your own keys (`audience: student`) and tag HTML in the body
   that off). Running headers, footers and page numbers take the theme's body
   font and its muted text colour.
 - `:::: cols` / `::: col` … `:::` / `::::` lays text side by side. Across a
-  page break a short block moves whole to the next page; a long one splits
-  column by column (column 1 continues in column 1). **Limits:** a lone long
-  column stays narrow; only paragraphs, list items, blockquotes and plain
-  blocks split (images, figures, code, tables, math, headings, boxed asides
-  move whole); one-line widows happen; a block taller than a page is clipped.
+  page break a short block moves whole to the next page only when that leaves
+  less than about a third of the page empty; otherwise (and for a long block)
+  it splits column by column (column 1 continues in column 1). **Limits:** a
+  lone long column stays narrow; only paragraphs, list items, blockquotes,
+  plain blocks and tables (between rows, header repeated) split — images,
+  figures, code, math, headings, boxed asides move whole; a block no cut can
+  place (a table row taller than a column page) becomes plain flow, its
+  columns one after the other; keep a column's tables narrow (a table wider
+  than its column overflows it); one-line widows happen; a block taller than a
+  page is clipped.
   Nested and numbered lists split too (a continued list keeps its numbers and
   repeats no bullet).
   Keep each column's blocks short, or avoid columns for long material.

@@ -132,6 +132,13 @@ describe('enumerated values', () => {
     for (const ok of ['front_matter: normal', 'front_matter: yes', 'front_matter: no', 'front_matter: Plain', 'front_matter_clean: on']) {
       expect(readDocument(`{{nyml\nkind: document\n${ok}\n}}\n\nx`).lint, ok).toEqual([]);
     }
+    // owner decision (round 3): the yes-words stay synonyms of `clean` — accepted, unflagged, and clean
+    for (const w of ['clean', 'plain', 'yes', 'Yes', 'true', 'on', '1']) {
+      const t = `{{nyml\nkind: document\nfront_matter: ${w}\n}}\n\nx`;
+      expect(readDocument(t).lint, w).toEqual([]);
+      expect(resolveSettings(t).frontMatterClean, w).toBe(true);
+    }
+    for (const w of ['normal', 'no', 'false', 'off', '0']) expect(resolveSettings(`{{nyml\nkind: document\nfront_matter: ${w}\n}}\n\nx`).frontMatterClean, w).toBe(false);
     for (const t of Object.values((await import('./helpers.js')).TEMPLATE_TEXTS)) expect(readDocument(t).lint.filter((l) => l.code === 'invalid-value')).toEqual([]);
     for (const c of corpus('paged')) expect(readDocument(c.text).lint.filter((l) => l.code === 'invalid-value'), c.path).toEqual([]);
   });

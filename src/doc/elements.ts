@@ -120,6 +120,10 @@ const PAGE_BREAK_CSS = `
   flex-direction: column;
   justify-content: center;
   min-height: 80vh;
+}
+.orz-el-PLACEHOLDER.orz-place-page[data-split-from] {
+  justify-content: flex-start;
+  min-height: 0;
 }`;
 
 /** Build the page-break rule scoped to a kind. */

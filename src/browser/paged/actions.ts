@@ -22,18 +22,38 @@ import { newDocument } from '../../assemble.js';
 import { templateList } from '../../doc/templates.js';
 import type { PagedReadView } from './read-view.js';
 
+/** The print waiting for its layout (one at a time: closed loop round 3). */
+let pendingPrint: Promise<void> | null = null;
+
 export const PRINT_ACTION: CarrierAction = {
   id: 'print',
   label: 'Print',
   icon: 'print',
   placement: 'bar',
-  async run(app) {
+  run(app) {
     const view = app.view as unknown as PagedReadView;
-    // the pages print as their final layout: a render or the re-flow after late fonts is awaited first (a quiet note
-    // while it takes), never the provisional pages (closed loop round 2, R.11)
-    if (view.busy?.()) app.toast('Preparing pages…', 'info');
-    await view.idle?.();
-    (view.element.ownerDocument.defaultView ?? window).print();
+    // one pending print: another press (the button, Cmd/Ctrl+P) while the pages are prepared only says so again —
+    // never a second dialog after the first (closed loop round 3)
+    if (pendingPrint) {
+      app.toast('Preparing pages… the print dialog opens when they are ready.', 'info');
+      return pendingPrint;
+    }
+    pendingPrint = (async () => {
+      // the pages print as their final layout: a render or the re-flow after late fonts is awaited first (a quiet,
+      // announced "Preparing pages… (n of N)" while it takes), never the provisional pages (closed loop round 2, R.11)
+      const waits = !!view.busy?.();
+      if (waits) {
+        app.toast('Preparing pages…', 'info');
+        view.preparing?.(true);
+      }
+      try {
+        await view.idle?.();
+      } finally {
+        if (waits) view.preparing?.(false);
+      }
+      (view.element.ownerDocument.defaultView ?? window).print();
+    })().finally(() => { pendingPrint = null; });
+    return pendingPrint;
   },
 };
 

@@ -22,9 +22,11 @@ import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
 import { assemble as assembleSync, cdnBundleUrl, FORMATS, readDocument as pagedReadDocument, type AssembleOptions } from '../assemble.js';
 import { applyDynamicChoices } from '../doc/dynamic.js';
 import { VERSION } from '../version.js';
-import { PREVIEW_ACK_MS } from '../paged/constants.js';
+import { PREVIEW_ACK_MS, PREVIEW_DEBOUNCE_MS } from '../paged/constants.js';
 import { pagedFrameDocument, pagedPreviewPresentation } from './paged/preview.js';
 import { renderPaged, renderPagedPreview } from './paged/render.js';
+import { encodePreviewHtml } from '../paged/input.js';
+import { PAGED_RUNTIME } from './runtime-source.js';
 import { PAGED_SETTINGS } from './paged/settings.js';
 
 export const kind = 'paged' as const;
@@ -97,6 +99,24 @@ export interface RenderPreviewOptions {
    * `false`: the content's HTML (`<main class="orz-doc markdown-body">`).
    */
   document?: boolean;
+  /**
+   * With `document: true`, a CSP nonce stamped on the `<style>` the engine
+   * writes (the print theme, the page and element CSS) — a `srcdoc` frame
+   * inherits the app's policy, so under a nonce `style-src` the stylesheet
+   * was refused (closed loop round 3). The engine adds no script; the
+   * document's own raw HTML is never stamped (its scripts stay refused by
+   * such a policy).
+   */
+  nonce?: string;
+  /**
+   * With `document: true`: a print document — the paged runtime (nonce-
+   * stamped with `nonce`) lays the content out as the read view's Paged.js
+   * pages and resolves `window.__orzPrintReady` when they are final: what
+   * the kit's `printDocument(html, { nonce })` prints from an app's page
+   * (the editor's `print` event; closed loop round 3). It carries the
+   * runtime (about 350 KB) and no theme `<style>` of its own.
+   */
+  pages?: boolean;
 }
 
 /** The body HTML with the header's dynamic choices applied (needs a DOM; as written without one). */
@@ -123,13 +143,30 @@ export async function renderPreview(text: string, options: RenderPreviewOptions 
     ...(options.includes ? { includes: options.includes } : {}),
     ...(options.twinLinks === false ? { twinLinks: false } : {}),
   });
+  if (options.document && options.pages) return printPagesDocument(text, input, options.nonce);
   const body = withChoices(input.bodyHtml, input.dynamicChoices);
   if (!options.document) return body;
   const info = readDocument(text);
   const links = [PREVIEW_CDN.katexCss, PREVIEW_CDN.hljsLightCss, ...input.links].map((u) => `<link rel="stylesheet" href="${escapeAttr(u)}">`).join('\n');
   const css = input.sheets.map((s) => s.css).join('\n').replace(/<\/(style)/gi, '<\\/$1');
-  return `<!doctype html>\n<html lang="${escapeAttr(info.lang)}">\n<head>\n<meta charset="utf-8">\n<meta name="color-scheme" content="light">\n<title>${escapeHtml(info.title)}</title>\n${links}\n<style>${css}</style>\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
+  const nonce = typeof options.nonce === 'string' && options.nonce !== '' ? ` nonce="${escapeAttr(options.nonce)}"` : '';
+  return `<!doctype html>\n<html lang="${escapeAttr(info.lang)}">\n<head>\n<meta charset="utf-8">\n<meta name="color-scheme" content="light">\n<title>${escapeHtml(info.title)}</title>\n${links}\n<style${nonce}>${css}</style>\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
 }
+
+/** The bootstrap of a print document (ES5, script-safe): lay the payload out, resolve `__orzPrintReady` when final. */
+const PRINT_BOOT = '(function(){var W=window,D=document,R=W.__orzPaged,t=D.getElementById("orz-print-input"),p=D.getElementById("orz-pages");W.__orzPrintReady=R&&t&&p?R.layOutPayload(t.innerHTML,p):Promise.resolve();})();';
+
+/** A print document of a rendered text: the runtime and the payload; the pages are laid out where it is opened. */
+function printPagesDocument(text: string, input: Awaited<ReturnType<typeof renderPaged>>, nonce?: string): string {
+  const info = readDocument(text);
+  const n = typeof nonce === 'string' && nonce !== '' ? ` nonce="${escapeAttr(nonce)}"` : '';
+  // the payload in a template (inert: no script of it runs, nothing is fetched until the runtime lays it out); `</template` cannot end it early
+  const payload = encodePreviewHtml(input).replace(/<\/(template)/gi, '<\\/$1');
+  return `<!doctype html>\n<html lang="${escapeAttr(info.lang)}">\n<head>\n<meta charset="utf-8">\n<meta name="color-scheme" content="light">\n<title>${escapeHtml(info.title)}</title>\n<script${n}>${PAGED_RUNTIME}</script>\n<style${n}>html,body{margin:0;padding:0;background:#fff}</style>\n</head>\n<body>\n<div id="orz-pages" class="orz-pages"></div>\n<template id="orz-print-input">${payload}</template>\n<script${n}>${PRINT_BOOT}</script>\n</body>\n</html>\n`;
+}
+
+/** The kit's print of a whole document from an app's page (orz-markdown `carrier/editor`, FC-19 §8.5): pass `renderPreview(text, { document: true, pages: true, nonce })`. */
+export { printDocument } from 'orz-markdown/carrier/editor';
 
 // ── mountEditor ─────────────────────────────────────────────────────────────
 
@@ -237,12 +274,12 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
       assets: false,
       diff: false,
       frameDocument: pagedFrameDocument,
-      // a pagination reflows every page in the frame, in the editor's process (seconds for a long document; Paged.js
-      // lays out one page per frame): it runs only after a real pause in typing (1.5 s, grown by the kit to twice
-      // the last render), never forced while keys keep arriving (the kit's `maxWaitMs: Infinity`, 2.3.0); the frame
-      // acknowledges a render within PREVIEW_ACK_MS (1 s) so a long layout does not stretch that pause, and abandons
-      // a pagination when an edit arrives — the preview lags, marked "updating…", typing never freezes (E.4, E.5)
-      debounceMs: 1500,
+      // a pagination runs in the frame, in the editor's process (Paged.js lays out one page per frame): it starts after
+      // a short pause in typing (800 ms: past the pauses within a burst of typing; never forced while keys keep arriving: the kit's `maxWaitMs: Infinity`), from
+      // the first page the edit changed (the pages before it kept, each new page swapped in as it is laid out) and is
+      // acknowledged when the first new page shows (at most PREVIEW_ACK_MS), so the kit paces renders by first paint;
+      // an edit abandons a running pagination at its next page — typing never freezes (E.4, E.5, E.6)
+      debounceMs: PREVIEW_DEBOUNCE_MS,
       maxWaitMs: Infinity,
       // the frame acknowledges every render within PREVIEW_ACK_MS (its first layout included): the kit waits a little
       // longer for the first acknowledgement, so even the first render is paced by the frame (orz-markdown 2.3.0)

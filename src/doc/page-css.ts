@@ -263,6 +263,8 @@ export function buildPageCss(s: DocSettings): string {
   if (s.avoidTableRowBreaks) {
     layout.push('tr { break-inside: avoid; }');
   }
+  // a table's header never stays alone at a page bottom: its first body row goes with it (closed loop round 3, F5)
+  layout.push('tbody > tr:first-child { break-before: avoid; }');
   const layoutRule = layout.join('\n');
 
   return [

@@ -110,6 +110,10 @@ chrome('[R.8] the TOC laid out with the pages (real Chrome)', () => {
     expect(s.entries[0]!.page).toBe('1'); // clean front matter: the body starts at 1
     expect(new Set(s.entries.map((e) => e.level))).toEqual(new Set(['2', '3'])); // the h4s are below max_level 3
     expect((await integrity(page, text)).problems).toEqual([]);
+    // the list's continuation starts at the top of its page (round 3: the page-placed section's centring left a gap)
+    const tops = await page.evaluate(() => Array.from(document.querySelectorAll('#orz-pages .pagedjs_page')).filter((pg) => pg.querySelector('.orz-toc li') && pg.querySelector('.orz-el-toc[data-split-from]')).map((pg) => Math.round(pg.querySelector('.orz-toc li')!.getBoundingClientRect().top - pg.querySelector('.pagedjs_page_content')!.getBoundingClientRect().top)));
+    expect(tops.length).toBeGreaterThan(0);
+    for (const t of tops) expect(t).toBeLessThanOrEqual(8);
     await page.context().close();
   });
 

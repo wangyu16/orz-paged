@@ -113,7 +113,7 @@ describe('the bundle and its package (Node)', () => {
     expect(readFileSync('browser/docs/embedding.md', 'utf8')).toBe(readFileSync('docs/embedding.md', 'utf8'));
     // every runtime export of the ESM build is declared in index.d.ts
     const exported = /export\s*\{([^}]*)\}\s*;?\s*$/.exec(b.esm)![1].split(',').map((s) => s.trim().split(/\s+as\s+/).pop()!).filter(Boolean).sort();
-    expect(exported).toEqual(['DEFAULT_TEMPLATE', 'DEFAULT_THEME', 'OrzCarrier', 'TEMPLATE_IDS', 'THEMES', 'assemble', 'editHeader', 'extract', 'formats', 'kind', 'mountEditor', 'newDocument', 'readDocument', 'renderPreview', 'version']);
+    expect(exported).toEqual(['DEFAULT_TEMPLATE', 'DEFAULT_THEME', 'OrzCarrier', 'TEMPLATE_IDS', 'THEMES', 'assemble', 'editHeader', 'extract', 'formats', 'kind', 'mountEditor', 'newDocument', 'printDocument', 'readDocument', 'renderPreview', 'version']);
     const dts = readFileSync('browser/index.d.ts', 'utf8');
     for (const name of exported) expect(dts, name).toMatch(new RegExp(`export declare (const|function) ${name}\\b`));
     expect(dts).toMatch(/interface OrzCarrierApi \{[^}]*kind: 'paged';[^}]*readonly standalone\?: StandaloneFile \| null;/);
@@ -205,7 +205,7 @@ chrome('real Chrome (playwright-core, channel chrome)', () => {
         runtime: typeof (window as unknown as { __orzPaged?: unknown }).__orzPaged, styles: document.querySelectorAll('style').length,
       };
     }, { text, html });
-    expect(r.keys).toEqual(['assemble', 'extract', 'formats', 'kind', 'mountEditor', 'readDocument', 'renderPreview', 'standalone', 'version']);
+    expect(r.keys).toEqual(['assemble', 'extract', 'formats', 'kind', 'mountEditor', 'printDocument', 'readDocument', 'renderPreview', 'standalone', 'version']); // printDocument: the kit's print helper (round 3)
     expect(r).toMatchObject({ kind: 'paged', version: VERSION, formats: [1], promise: true, standalone: null, storage: [], chrome: false, runtime: 'undefined', styles: 0 });
     expect(r.types).toEqual(['function', 'function', 'function', 'function', 'function']);
     expect(r.html === html).toBe(true);

@@ -12,6 +12,18 @@
  * Paged.js measures what overflows: the rows it pushes out go to the next
  * page, none is clipped or lost.
  *
+ * Rows lost at unlucky lengths (closed loop round 3, UPSTREAM Paged.js
+ * 0.4.3 `findOverflow` — it reproduces without any orz handler): when
+ * Paged.js removes a table's overflow, the fragment's auto table layout
+ * recomputes its column widths for the rows that stay, a kept row can grow
+ * and end below the page — into Paged.js' hidden off-page column, where it is
+ * never printed (one row in a few hundred lengths of a sweep). In
+ * `onOverflow`, before the removal, the handler freezes the fragment's column
+ * widths as they are measured (`table-layout: fixed`, the table's and the
+ * first row's cells' widths), and pulls a kept row whose bottom is within
+ * {@link FLUSH_PX} of the page bottom into the overflow (it would end below
+ * it after any re-measure), never the fragment's only body row.
+ *
  * The page CSS opts in with `--orz-repeat-thead: 1` on tables (set by
  * src/doc/page-css.ts when `repeat_table_header` is true; a table can opt out
  * with `--orz-repeat-thead: 0`). Browser only (DOM), registered by the paged
@@ -29,6 +41,33 @@ export interface TableHeadStats {
 
 const isEl = (n: Node | null | undefined): n is Element => !!n && n.nodeType === 1;
 
+/** A kept row ending this close to the page bottom (px) moves to the next page with the overflow. */
+export const FLUSH_PX = 2;
+
+/** The table row a Paged.js overflow range starts at (in `rendered`), or null. */
+function overflowRow(overflow: Range, rendered: Element): HTMLTableRowElement | null {
+  const c = overflow.startContainer;
+  let at: Node | null = c;
+  if (isEl(c) && c.childNodes[overflow.startOffset]) at = c.childNodes[overflow.startOffset]!;
+  const el = isEl(at) ? at : at?.parentElement ?? null;
+  const row = el?.closest('tr') ?? (isEl(c) && /^(TBODY|THEAD|TABLE)$/.test(c.tagName) && isEl(at) && at.tagName === 'TR' ? (at as HTMLTableRowElement) : null);
+  return row && rendered.contains(row) ? (row as HTMLTableRowElement) : null;
+}
+
+/** Freeze a laid-out table fragment's column widths (the removal of its overflow must not re-measure them). */
+function freeze(table: HTMLTableElement): void {
+  if (table.hasAttribute('data-orz-frozen-cols')) return;
+  const first = table.rows[0];
+  if (!first) return;
+  const widths = Array.from(first.cells).map((c) => c.getBoundingClientRect().width);
+  const w = table.getBoundingClientRect().width;
+  if (!w || widths.some((x) => !x)) return;
+  table.setAttribute('data-orz-frozen-cols', '');
+  table.style.tableLayout = 'fixed';
+  table.style.width = `${w}px`;
+  Array.from(first.cells).forEach((c, i) => { (c as HTMLElement).style.width = `${widths[i]}px`; });
+}
+
 export class TableHeadHandler extends Handler {
   readonly stats: TableHeadStats = { repeated: 0 };
   /** The handler of the latest previewer. */
@@ -37,6 +76,27 @@ export class TableHeadHandler extends Handler {
   constructor(chunker: unknown, polisher: unknown, caller: unknown) {
     super(chunker, polisher, caller);
     TableHeadHandler.last = this;
+  }
+
+  /** Rows pulled onto the next page (tests read it). */
+  static pulled = 0;
+
+  onOverflow(overflow: Range | undefined, rendered: Element, bounds: DOMRect): Range | undefined {
+    if (!overflow) return undefined;
+    const row = overflowRow(overflow, rendered);
+    const table = row?.closest('table') as HTMLTableElement | null | undefined;
+    if (!row || !table) return undefined;
+    freeze(table);
+    // a kept row flush with the page bottom goes on with the overflow (not the fragment's only body row)
+    const prev = row.previousElementSibling as HTMLElement | null;
+    if (!prev || prev.tagName !== 'TR' || row.parentElement?.tagName !== 'TBODY') return undefined;
+    if (!prev.previousElementSibling) return undefined; // the only body row before it stays
+    if (prev.getBoundingClientRect().bottom <= bounds.bottom - FLUSH_PX) return undefined;
+    const r = document.createRange();
+    r.setStartBefore(prev);
+    r.setEnd(overflow.endContainer, overflow.endOffset);
+    TableHeadHandler.pulled++;
+    return r;
   }
 
   renderNode(clone: Node, node: Node): void {
