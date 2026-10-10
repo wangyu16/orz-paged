@@ -22,75 +22,28 @@
  * A plain Markdown text `x.md` (the 0.x habit, `orz-paged notes.md`) assembles
  * to `x.paged.html` as well; its twin by name is `x.paged.md`.
  *
- * KIT GAP (orz-markdown 2.3.0): this file is orz-mdhtml 1.0's src/cli.ts with
- * the paged kind's names, templates and 0.x forms. The overwrite guards, the
- * known states, the backups, the reason codes and `next` are the same rules
- * in every carrier; a kit CLI core (`orz-markdown/carrier/node`, parameterised
- * by the kind, its file names, `newDocument` and `upgrade`) would leave each
- * carrier only its commands' wording and extras (`templates`).
+ * The rules every carrier's CLI shares — the overwrite guards, the known
+ * states (git and the pair records under `$XDG_CACHE_HOME/orz-paged`), the
+ * backups, atomic writes, includes, the reason codes and `next` — are
+ * orz-markdown's CLI core (`orz-markdown/carrier/node`, 2.3.0) bound to this
+ * tool; this file holds the commands, their wording and the paged extras
+ * (templates, the 0.x forms).
  */
-import { chmodSync, constants as fsConstants, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync, unlinkSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import { decodeText, kindFromFilename, twinName, UID_PATTERN, type Lint } from 'orz-markdown/carrier';
+import { existsSync, statSync } from 'node:fs';
+import { basename, dirname, resolve } from 'node:path';
+import { kindFromFilename, looksHtml, twinName, type Lint } from 'orz-markdown/carrier';
+import {
+  assembleArgs, backup, carrierNode, CliError, emit, includePlan, mtime, readMaybe, readText, replacesToken, reportFailure, sh, sha256, writeOut,
+  EXIT_OK, EXIT_USAGE, type AssembleCall, type Io, type KnownState, type Next, type Risk,
+} from 'orz-markdown/carrier/node';
 import { compareSemver } from 'orz-markdown/carrier/shell';
 import { storedText } from './assemble.js';
-import { isUrl, keepReferenced, resolveFileIncludes, unresolvedIncludes } from './includes.js';
-import { cacheDir, cleanInGit, earlierStateOf, lastWriter, rememberPair as recordPair, sha256, twinStateOf, type EarlierState } from './known-states.js';
-import { SHA256_PATTERN } from './sha256.js';
 import { assemble, extract, inspect, newDocument, readDocument, readLegacy, upgrade, DEFAULT_TEMPLATE, DEFAULT_THEME, ORZ_MARKDOWN_VERSION, TEMPLATES, THEME_INFO, VERSION, type InspectReport } from './lib.js';
 
-const EXIT_OK = 0;
-const EXIT_FAILED = 1;
-const EXIT_USAGE = 2;
+export type { Reason } from 'orz-markdown/carrier/node';
 
-/**
- * Why a command failed: a stable code for scripts and agents (`reason` in the
- * `--json` failure object; documented in the README and the skill).
- */
-export type Reason =
-  | 'bad-usage'          // exit 2: an unknown option, a missing argument, options that exclude each other
-  | 'no-such-file'       // the input does not exist
-  | 'unreadable'         // the input is a folder or cannot be read
-  | 'not-utf8'           // the input is not valid UTF-8
-  | 'write-failed'       // an output (or its <file>~ copy) could not be written; nothing was replaced
-  | 'exists'             // new: the file exists
-  | 'not-orz'            // the output exists and is not an orz file; or the input holds no orz document
-  | 'twin-differs'       // the twin (x.paged.html for assemble, x.paged.md for extract/upgrade) holds a different text that is not a known state
-  | 'output-differs'     // an -o output holds another text (not the one this pair last had there), or any output holds another document (another uid)
-  | 'replaces-mismatch'  // --replaces: the existing file's text is not the one whose SHA-256 was given
-  | 'legacy-file'        // a 0.x file where a format-1 file is needed (extract; assemble over one)
-  | 'newer-shell'        // the existing file was made by a newer orz-paged (assemble, upgrade)
-  | 'newer-format'       // the text's format is newer than this tool writes
-  | 'unclosed-island'    // upgrade: the file was cut off inside its text
-  | 'other-kind'         // an orz md/slides document: use its own tool
-  | 'assembled-input'    // assemble was given an assembled file, not a text
-  | 'invalid-text'       // the text cannot be assembled (NUL, a lone surrogate, …)
-  | 'engine-unavailable' // the inline engine is missing or stale (a source checkout: npm run bundle)
-  | 'failed';            // anything else
-
-/** The command that resolves a refusal: `orz-paged <command> <args…>`. */
-interface Next { command: string; args: string[] }
-
-/** An expected failure: printed as a message (or `{ ok: false, reason }` with --json), never as a stack. */
-class CliError extends Error {
-  readonly code: number;
-  readonly reason: Reason;
-  constructor(message: string, codeOrReason: number | Reason = EXIT_FAILED, readonly next?: Next) {
-    super(message);
-    this.code = typeof codeOrReason === 'number' ? codeOrReason : EXIT_FAILED;
-    this.reason = typeof codeOrReason === 'string' ? codeOrReason : this.code === EXIT_USAGE ? 'bad-usage' : 'failed';
-  }
-}
-
-/** The reason of a library error (its message), for --json. */
-function libReason(message: string): Reason {
-  if (/engine/i.test(message) && /npm run bundle|missing|cannot be used/.test(message)) return 'engine-unavailable';
-  if (/is newer than this tool \(|would downgrade/.test(message)) return 'newer-shell';
-  if (/text format \d+ is newer|format.*above|newer format/i.test(message)) return 'newer-format';
-  if (/not an orz-paged file|not an orz/.test(message)) return 'not-orz';
-  if (/an orz-(mdhtml|slides) file/.test(message)) return 'other-kind';
-  return 'invalid-text';
-}
+/** The kit's CLI core, bound to this tool (its name, kind, cache folder `orz-paged`, text twins `.paged.md`, its 0.x reader). */
+const NODE = carrierNode({ name: 'orz-paged', kind: 'paged', readLegacy, storedText });
 
 // ── help ────────────────────────────────────────────────────────────────────
 
@@ -375,76 +328,6 @@ const one = (p: Parsed, what: string, command: string): string => {
 
 // ── files ───────────────────────────────────────────────────────────────────
 
-/** Read a file as text exactly (UTF-8, BOM kept, invalid UTF-8 refused; FC-18 §3 `decodeText`). */
-function readText(path: string): string {
-  let bytes: Buffer;
-  try { bytes = readFileSync(path); } catch (e) {
-    const code = (e as NodeJS.ErrnoException).code;
-    throw new CliError(code === 'ENOENT' ? `${path}: no such file` : code === 'EISDIR' ? `${path} is a folder` : `${path}: ${(e as Error).message}`, code === 'ENOENT' ? 'no-such-file' : 'unreadable');
-  }
-  try { return decodeText(bytes, { fatal: true }); } catch { throw new CliError(`${path} is not valid UTF-8`, 'not-utf8'); }
-}
-
-/**
- * Write a file atomically (a temporary file next to it, then rename), so a
- * failure never leaves half a file. An existing file keeps its mode, and a
- * symbolic link stays a link: the file it points to is replaced. Missing
- * parent folders are created.
- */
-function writeOut(path: string, data: string): void {
-  let target = path;
-  let mode: number | undefined;
-  if (existsSync(path)) {
-    try {
-      target = realpathSync(path);
-      mode = statSync(target).mode & 0o7777;
-    } catch { /* replaced as named */ }
-  }
-  const tmp = join(dirname(target), `.${basename(target)}.orz-${process.pid}.tmp`);
-  try {
-    mkdirSync(dirname(target), { recursive: true }); // -o into a folder that does not exist yet
-    writeFileSync(tmp, data, { encoding: 'utf8', ...(mode !== undefined ? { mode } : {}) });
-    if (mode !== undefined) chmodSync(tmp, mode); // the umask does not narrow it
-    renameSync(tmp, target);
-  } catch (e) {
-    try { unlinkSync(tmp); } catch { /* not created */ }
-    throw new CliError(`could not write ${path}: ${(e as Error).message}`, 'write-failed');
-  }
-}
-
-/**
- * Keep a copy of a file about to be replaced with --force: `<file>~` — or,
- * when that name holds something else (an earlier backup with other bytes,
- * a symbolic link, a folder), the first free `<file>~1`, `<file>~2`, … An
- * existing backup is never overwritten, and a symbolic link at a backup
- * name is never followed or written through (`lstat`, then an exclusive
- * create). A backup that already holds exactly these bytes is reused.
- */
-function backup(path: string, o: Io): string {
-  let data: Buffer;
-  try { data = readFileSync(path); } catch (e) { throw new CliError(`could not read ${path} to keep a copy: ${(e as Error).message}; nothing was written`, 'write-failed'); }
-  for (let i = 0; i < 1000; i++) {
-    const to = i === 0 ? `${path}~` : `${path}~${i}`;
-    let st: ReturnType<typeof lstatSync> | null = null;
-    try { st = lstatSync(to); } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new CliError(`could not keep a copy of ${path} as ${to}: ${(e as Error).message}; nothing was written`, 'write-failed');
-    }
-    if (st === null) {
-      try { copyFileSync(path, to, fsConstants.COPYFILE_EXCL); } catch (e) {
-        if ((e as NodeJS.ErrnoException).code === 'EEXIST') continue; // created meanwhile: the next name
-        throw new CliError(`could not keep a copy of ${path} as ${to}: ${(e as Error).message}; nothing was written`, 'write-failed');
-      }
-    } else if (!(st.isFile() && st.size === data.length && readFileSync(to).equals(data))) {
-      continue; // another backup (or a link, a folder): kept; try the next name
-    }
-    o.warn(`replaced ${path} (--force); the old file is kept as ${to}${i > 0 ? ` (${path}~ already held something else; it is kept too)` : ''}`);
-    return to;
-  }
-  throw new CliError(`could not keep a copy of ${path}: ${path}~ … ${path}~999 are all taken; nothing was written`, 'write-failed');
-}
-
-const mtime = (path: string): number => statSync(path).mtimeMs;
-
 /**
  * The file a text assembles to by default: the twin of `x.paged.md`
  * (`x.paged.html`, FC-18 §3), and for a plain Markdown text `x.md` (the 0.x
@@ -455,317 +338,23 @@ function outputOf(name: string): string | null {
   if (/\.md$/i.test(name) && kindFromFilename(name) === 'md') return name.replace(/\.md$/i, '.paged.html');
   return null;
 }
-/** A path with symbolic links resolved when it exists (as the pair records key it). */
-const realOrSelf = (path: string): string => { try { return realpathSync(path); } catch { return path; } };
-const looksHtml = (s: string): boolean => /^\uFEFF?\s*(?:<!doctype\s+html|<html[\s>])/i.test(s.slice(0, 1024));
 
-/** The text an existing orz file holds (format 1 or 0.x), or null when it is not one. */
-function documentTextOf(html: string): string | null {
-  const ex = extract(html);
-  if (ex) return ex.text;
-  return readLegacy(html)?.text ?? null;
-}
+/** The user's own `assemble` options (output, delivery, includes), repeated by every suggested command. */
+const callOf = (p: Parsed): AssembleCall => ({
+  ...(p.values['--out'] !== undefined ? { out: p.values['--out'] } : {}),
+  ...(p.flags.has('--cdn') ? { delivery: 'cdn' as const } : p.flags.has('--inline') ? { delivery: 'inline' as const } : {}),
+  resolveIncludes: p.flags.has('--resolve-includes'),
+  noIncludes: p.flags.has('--no-includes'),
+});
 
-/** An existing file as text, or null when it is not valid UTF-8. */
-function readMaybe(path: string): string | null {
-  try { return readText(path); } catch { return null; }
-}
-
-/** A text's uid when its header has a well-formed one (`UID_PATTERN`), else null. */
-function uidOf(text: string): string | null {
-  try {
-    const uid = readDocument(text).meta.uid;
-    return typeof uid === 'string' && UID_PATTERN.test(uid.trim()) ? uid.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Where an earlier state of the twin was found (the human line after "Wrote …"). */
-const EARLIER_SOURCE: Record<EarlierState, string> = {
-  'git-head': 'its last commit',
-  'git-index': 'its staged version',
-  'git-log': 'one of its recent commits',
-  cache: 'the text orz-paged last wrote or read for this pair',
-  token: 'the text whose SHA-256 --replaces gave',
-};
-
-/** A risk of losing work: why an output must not be replaced (without --force). */
-interface Risk { message: string; reason: Reason; next?: Next }
-
-/** The `--replaces` token, checked: 64 hex digits (lowercased), or null when not given. */
-function replacesToken(p: Parsed): string | null {
-  const t = p.values['--replaces'];
-  if (t === undefined) return null;
-  if (!SHA256_PATTERN.test(t)) throw new CliError(`--replaces takes a SHA-256: 64 hex digits (the "sha256" inspect, extract or assemble print), got ${JSON.stringify(t)}`, EXIT_USAGE);
-  return t.toLowerCase();
-}
-
-/** A path for a message or a `next` command: as the user named it, else relative to the working folder when inside it. */
-function shown(path: string, typed?: string): string {
-  if (typed !== undefined) return typed;
-  const rel = relative(process.cwd(), path);
-  return rel && !rel.startsWith('..') && !isAbsolute(rel) ? rel : path;
-}
-
-/** A word of a command line, quoted for the shell when needed. */
-const sh = (word: string): string => (/^[\w./@%+=:,-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`);
 /** `orz-paged <command> <args…>` for a message (the same words as `next`). */
-const commandLine = (n: Next): string => `orz-paged ${n.command} ${n.args.map(sh).join(' ')}`;
-
-/**
- * A free name for another copy of a text (`x.browser.paged.md` for
- * `x.paged.md` or `x.md`): the text's name with `.browser`, a paged text
- * twin's name (so `assemble` takes it as paged), never doubled
- * (`x.browser.paged.md` stays the base of `x.browser-2.paged.md`, not
- * `x.browser.browser.paged.md`), and one that does not exist yet, so the
- * command that writes it is not refused in turn.
- */
-function otherName(textName: string): string {
-  const stem = textName.replace(/\.paged\.md$/i, '').replace(/\.md$/i, '').replace(/\.browser(?:-\d+)?$/i, '');
-  for (let i = 1; ; i++) {
-    const name = i === 1 ? `${stem}.browser.paged.md` : `${stem}.browser-${i}.paged.md`;
-    if (resolve(name) !== resolve(textName) && !existsSync(resolve(name))) return name;
-  }
-}
-
-/** The arguments of the user's own `assemble` (output, delivery, includes) for a suggested re-run, plus `extra`. */
-function assembleArgs(p: Parsed, file: string, extra: string[] = []): string[] {
-  const args = [file];
-  if (p.values['--out'] !== undefined) args.push('-o', p.values['--out']);
-  if (p.flags.has('--cdn')) args.push('--cdn');
-  else if (p.flags.has('--inline')) args.push('--inline');
-  if (p.flags.has('--resolve-includes') && !extra.includes('--resolve-includes')) args.push('--resolve-includes');
-  if (p.flags.has('--no-includes') && !extra.includes('--resolve-includes')) args.push('--no-includes'); // they exclude each other
-  return [...args, ...extra];
-}
-
-/**
- * Record the pair (src/known-states.ts); when the record cannot be written,
- * say so: the next assemble or extract over a changed twin then needs the
- * token (`--replaces <sha256>`, the hash this command printed).
- */
-function rememberPair(twin: string, file: string, held: string, twinText: string, o: Io, token: { command: string; sha: string }): void {
-  const r = recordPair(twin, file, held, twinText);
-  if (r === 'recorded') return;
-  const where = r === 'no-cache' ? 'no cache folder: set $XDG_CACHE_HOME or HOME' : `cache not writable: ${cacheDir() ?? ''}`;
-  o.warn(`pair not recorded (${where}); the next ${token.command} needs --replaces ${token.sha}`);
-}
-
-/** ", changed after <other>" — unless both files are clean in git (then the times are a checkout's and say nothing). */
-function changedAfter(path: string, other: string, words: (o: string) => string, otherName: string): string {
-  if (!existsSync(path) || !existsSync(other) || !(mtime(path) > mtime(other))) return '';
-  if (cleanInGit(path) && cleanInGit(other)) return '';
-  return words(otherName);
-}
-
-/** What `assemble` checks an existing output against. */
-interface AssembleTarget {
-  p: Parsed;
-  input: string;
-  out: string;
-  text: string;
-  names: { input: string; out: string; twin: boolean };
-  token: string | null;
-}
-
-/**
- * Whether `out` (an existing output) may be replaced by the assembly of
- * `text` read from `input` (claims T.7, T.11, T.12, T.14):
- *
- * - it holds the same text (as a new file would store it): yes;
- * - with `--replaces <sha256>`: only when the text it holds has that hash
- *   (`token`); any other text is refused (`replaces-mismatch`);
- * - it holds an earlier state: the text this CLI itself last wrote into it
- *   or read out of it for this pair (`input` ↔ `out`, any output path) or,
- *   for the twin `x.paged.html` of `x.paged.md`, a committed, staged or recent version
- *   of `x.paged.md` in git (src/known-states.ts): yes, without `--force`
- *   (`earlier`);
- * - it is not an orz file, a 0.x file, or holds any other text — whichever
- *   file is newer (it may hold work saved in the browser that the text
- *   lacks): no (`risk`), unless `--force`, which keeps it as `<file>~`.
- *
- * Every command a refusal suggests is built from the user's own arguments.
- */
-function assembledOutputCheck(t: AssembleTarget, existing: string | null): { risk: Risk | null; earlier: EarlierState | null } {
-  const { p, input, out, text, names, token } = t;
-  const isHtml = existing !== null && looksHtml(existing);
-  const held = isHtml ? documentTextOf(existing!) : null;
-  if (held === null) {
-    if (existing !== null && existing.trim() === '') return { risk: { message: `${names.out} exists and is empty (${statSync(out).size} bytes): a damaged or unfinished file, not an orz file; not replaced (pass --force to replace it — the empty file is kept as ${names.out}~ — or -o another path)`, reason: 'not-orz' }, earlier: null };
-    return { risk: { message: `${names.out} exists and is not an orz file; not replaced (pass --force to replace it, or -o another path)`, reason: 'not-orz' }, earlier: null };
-  }
-  if (held === storedText(text)) return { risk: null, earlier: null };
-  const legacy = readLegacy(existing!) !== null;
-  const other = otherName(names.input);
-  const heldHash = sha256(held);
-  const again = (extra: string[]): string => commandLine({ command: 'assemble', args: assembleArgs(p, names.input, extra) });
-  const pull: Next = { command: 'extract', args: [names.out, '-o', other] };
-  const legacyPull: Next = { command: 'upgrade', args: [names.out, '--text', other] };
-  if (token !== null) {
-    if (heldHash === token) return { risk: null, earlier: 'token' };
-    return {
-      risk: {
-        message: `${names.out} no longer holds the text you named (--replaces ${token}): it holds another one (sha256 ${heldHash}) — saved in the browser or written by someone else since; not replaced. Bring its changes in: \`${commandLine(legacy ? legacyPull : pull)}\`, merge them into ${names.input}, then \`${legacy ? `${again(['--replaces'])}\` followed by the sha256 that upgrade printed` : `${again(['--replaces', heldHash])}\``}`,
-        reason: 'replaces-mismatch',
-        next: legacy ? legacyPull : pull,
-      },
-      earlier: null,
-    };
-  }
-  const earlier = earlierStateOf(input, out, held, storedText, { git: names.twin });
-  if (earlier !== null) return { risk: null, earlier };
-  // another document (another well-formed uid) — never "bring its text into this input": nothing to merge, no next
-  const heldUid = uidOf(held);
-  const ownUid = uidOf(text);
-  if (heldUid && ownUid && heldUid !== ownUid) {
-    return {
-      risk: { message: `${names.out} holds another document (uid ${heldUid}; ${names.input} is ${ownUid}); not replaced. Choose another -o path, or pass --force to replace it (the old file is kept as ${names.out}~)`, reason: 'output-differs' },
-      earlier: null,
-    };
-  }
-  if (legacy) {
-    return {
-      risk: {
-        message: `${names.out} is a legacy orz-paged 0.x file holding a different text than ${names.input}; not replaced. Its text is not readable by extract: \`${commandLine(legacyPull)}\` writes its format-1 text to ${other} (and makes ${names.out} a file of this version, printing the sha256 of the text it then holds); compare and merge it into ${names.input}, then \`${again(['--replaces'])}\` followed by that sha256 (it replaces ${names.out} only while it still holds that text)`,
-        reason: 'legacy-file',
-        next: legacyPull,
-      },
-      earlier: null,
-    };
-  }
-  // only the file changed: the text is the very one the CLI last synced with this file (this pair is the file's last
-  // writer), or, for the twin, committed — bring the file's work in, nothing to merge. Only for the SAME document
-  // (both texts carry the same uid): neither the record nor git proves that the file was not replaced by another
-  // document's file (copied over it, or written by another input while the record could not be updated), and
-  // following `extract` would then replace the input with that other text (G1, G2)
-  const sameDocument = heldUid !== null && heldUid === ownUid;
-  const unchanged = twinStateOf(input, out, text, { git: names.twin }) !== null;
-  if (sameDocument && unchanged) {
-    const bring: Next = { command: 'extract', args: [names.out, ...(twinName(out) === input ? [] : ['-o', names.input])] };
-    return {
-      risk: {
-        message: `${names.out} holds a different text than ${names.input}, and ${names.input} is unchanged since orz-paged last synced the pair (or is committed): the file holds newer work (saved in the browser?); not replaced. \`${commandLine(bring)}\` brings it into ${names.input} (no --force needed). To put ${names.input}'s text in the file anyway: \`${again(['--replaces', heldHash])}\``,
-        reason: names.twin ? 'twin-differs' : 'output-differs',
-        next: bring,
-      },
-      earlier: null,
-    };
-  }
-  if (unchanged) {
-    // the input is unchanged, but nothing proves the file holds the same document (no shared uid): bring the file's
-    // text out to another name and compare — never into the input automatically
-    return {
-      risk: {
-        message: `${names.out} holds a different text than ${names.input}. ${names.input} is unchanged since orz-paged last synced the pair (or is committed), so the file may hold newer work (saved in the browser?) — or another document's text (copied over it): the two texts do not carry the same uid, so it cannot be told; not replaced. Bring its text out and compare: \`${commandLine(pull)}\`; merge what belongs into ${names.input}, then \`${again(['--replaces', heldHash])}\` (it replaces ${names.out} only while it still holds that text)`,
-        reason: names.twin ? 'twin-differs' : 'output-differs',
-        next: pull,
-      },
-      earlier: null,
-    };
-  }
-  const writer = lastWriter(out);
-  const later = writer !== null && writer !== realOrSelf(input)
-    ? ` (orz-paged last wrote it from ${shown(writer)})`
-    : changedAfter(out, input, () => ' and was changed after it (saved in the browser?)', names.input);
-  if (!names.twin) {
-    return {
-      risk: {
-        message: `${names.out} holds another text than ${names.input}${later} — not the text orz-paged last wrote there from ${names.input}; not replaced. If it has changes ${names.input} lacks, bring them in first: \`${commandLine(pull)}\`, then merge, then \`${again(['--replaces', heldHash])}\` (it replaces ${names.out} only while it still holds that text). When ${names.input} has everything, run again with --force (the old file is kept as ${names.out}~)`,
-        reason: 'output-differs',
-        next: pull,
-      },
-      earlier: null,
-    };
-  }
-  return {
-    risk: {
-      message: `${names.out} holds a different text than ${names.input}${later} — not its last commit, nor the text orz-paged last wrote there; not replaced. If it has changes ${names.input} lacks, bring them in first: \`${commandLine(pull)}\`, then merge, then \`${again(['--replaces', heldHash])}\` (it replaces ${names.out} only while it still holds that text). When ${names.input} has everything, run again with --force (the old file is kept as ${names.out}~)`,
-      reason: 'twin-differs',
-      next: pull,
-    },
-    earlier: null,
-  };
-}
-
-/**
- * Whether the text file `out` may be replaced by `text` (the text of the
- * file `file`; extract and upgrade, claims T.7, T.12, T.14): it does not
- * exist or holds exactly that text; never (without `--force`) when it holds
- * another document (another well-formed uid than `uid`, the uid of `text`;
- * null: not checked); with `--replaces`, its own text has the given hash
- * (and nothing else counts); or it is a known state (src/known-states.ts
- * `twinStateOf`: exactly the text the CLI last wrote or read for the pair
- * while that pair is the file's last writer, or — when `out` is the file's
- * own twin — a committed/staged/recent version in git) AND `out` and `text`
- * carry the same uid (`uid` non-null and equal to `out`'s): a known state of
- * `out` says nothing about what `file` holds — another document's file may
- * have been copied over it — so without a shared uid it is never replaced
- * automatically. Anything else may hold edits the file lacks — whichever is
- * newer.
- */
-function textOutputCheck(out: string, text: string, file: string, names: { out: string; file: string }, token: string | null, uid: string | null, advice: (h: string) => { message: string; next?: Next }): { risk: Risk | null; earlier: EarlierState | null } {
-  if (!existsSync(out)) return { risk: null, earlier: null };
-  const existing = readMaybe(out);
-  if (existing === text) return { risk: null, earlier: null };
-  const h = existing === null ? null : sha256(existing);
-  const existingUid = existing === null ? null : uidOf(existing);
-  if (uid !== null && existingUid !== null && uid !== existingUid) {
-    return { risk: { message: `${names.out} holds another document (uid ${existingUid}; ${names.file} is ${uid}); not overwritten. Write it to another path (-o), or pass --force to replace it (the old text is kept as ${names.out}~)`, reason: 'output-differs' }, earlier: null };
-  }
-  if (token !== null) {
-    if (h === token) return { risk: null, earlier: 'token' };
-    const a = advice(h ?? '');
-    return { risk: { message: `${names.out} no longer holds the text you named (--replaces ${token})${h ? `: it holds another one (sha256 ${h})` : ''}; not overwritten. ${a.message}`, reason: 'replaces-mismatch', ...(a.next ? { next: a.next } : {}) }, earlier: null };
-  }
-  // a known state of the pair is replaced only for the SAME document (both texts carry the same uid): the record and
-  // git vouch for `out`'s text, not for what `file` holds — another document's file may have been copied over it (G1)
-  const known = existing === null ? null : twinStateOf(out, file, existing, { git: twinName(file) === out });
-  if (known !== null && uid !== null && existingUid === uid) return { risk: null, earlier: known };
-  const later = changedAfter(out, file, (n) => `, changed after ${n}`, names.file);
-  const a = advice(h ?? '');
-  if (known !== null) {
-    return { risk: { message: `${names.out} exists and holds a different text; it is unchanged since orz-paged last synced it (or is committed), but ${names.file} and ${names.out} do not carry the same uid, so ${names.file} may hold another document's text (copied over it); not overwritten. ${a.message}`, reason: 'twin-differs', ...(a.next ? { next: a.next } : {}) }, earlier: null };
-  }
-  return { risk: { message: `${names.out} exists and holds a different text${later} — not the text orz-paged last wrote or read for this pair, nor a committed version; not overwritten (it may hold edits ${names.file} lacks). ${a.message}`, reason: 'twin-differs', ...(a.next ? { next: a.next } : {}) }, earlier: null };
-}
-
-/** Refuse a risk, or with --force keep a copy of what is replaced. */
-function guard(path: string, risk: Risk | null, force: boolean, o: Io): string | null {
-  if (risk === null) return null;
-  if (!force) throw new CliError(risk.message, risk.reason, risk.next);
-  return backup(path, o);
-}
+const commandLine = (n: Next): string => NODE.commandLine(n);
 
 const errors = (lint: Lint[]): string[] => lint.filter((l) => l.level === 'error').map((l) => `header: ${l.message} (${l.code}${l.line ? `, line ${l.line}` : ''})`);
 const warnings = (lint: Lint[]): string[] => lint.filter((l) => l.level === 'warning').map((l) => `header: ${l.message} (${l.code}${l.line ? `, line ${l.line}` : ''})`);
 
-// ── output ──────────────────────────────────────────────────────────────────
-
-interface Io {
-  json: boolean;
-  /** Human lines (stdout). */
-  say(line: string): void;
-  /** Warnings (stderr; in --json mode they go into the result instead). */
-  warn(line: string): void;
-  warned: string[];
-}
-
-function io(json: boolean): Io {
-  const warned: string[] = [];
-  return {
-    json,
-    warned,
-    say(line) { if (!json) process.stdout.write(`${line}\n`); },
-    warn(line) { warned.push(line); if (!json) process.stderr.write(`orz-paged: warning: ${line}\n`); },
-  };
-}
-
-const emit = (o: Io, result: Record<string, unknown>): void => {
-  if (o.json) process.stdout.write(`${JSON.stringify({ ok: true, ...result, warnings: o.warned }, null, 2)}\n`);
-};
-
 const delivery = (p: Parsed, fallback: 'inline' | 'cdn' = 'inline'): 'inline' | 'cdn' => (p.flags.has('--cdn') ? 'cdn' : p.flags.has('--inline') ? 'inline' : fallback);
+
 
 // ── commands ────────────────────────────────────────────────────────────────
 
@@ -807,30 +396,11 @@ function cmdNew(p: Parsed, o: Io): void {
   o.say(`Wrote ${path}`);
   if (htmlPath && html !== null) {
     writeOut(htmlPath, html);
-    rememberPair(path, htmlPath, storedText(text), text, o, { command: 'assemble', sha: sha256(storedText(text)) });
+    NODE.rememberPair(path, htmlPath, storedText(text), text, o, { command: 'assemble', sha: sha256(storedText(text)) });
     o.say(`Wrote ${htmlPath} (${delivery(p)})`);
   }
   emit(o, { command: 'new', file: path, html: htmlPath, ...facts, ...(htmlPath ? { delivery: delivery(p), shell: VERSION } : {}), backups });
 }
-
-/** One include directive the written file does not resolve (assemble's `--json` `unresolved`). */
-interface Unresolved {
-  target: string;
-  kind: 'file' | 'url';
-  /**
-   * `not-recorded` (a file include not in the record that --resolve-includes
-   * would read: not passed), `url` (a URL include not in the record: the CLI
-   * fetches no URLs), or why it cannot be read from the text's folder (with
-   * or without --resolve-includes): `no-such-file`, `outside-folder`,
-   * `unreadable`, `not-utf8`, `folder-unreadable`.
-   */
-  reason: 'not-recorded' | 'url' | 'no-such-file' | 'outside-folder' | 'unreadable' | 'not-utf8' | 'folder-unreadable';
-}
-
-const NOTE = 'the file shows an "Included file not available" note there';
-
-/** A recorded file include older than the file in the text's folder (assemble's `--json` `stale`). */
-interface Stale { target: string; kind: 'file'; reason: 'stale-record' }
 
 function cmdAssemble(p: Parsed, o: Io): void {
   const file = one(p, 'a text file (file.paged.md)', 'assemble');
@@ -839,9 +409,9 @@ function cmdAssemble(p: Parsed, o: Io): void {
   if (kind === 'slides') throw new CliError(`${file} is an orz slides text: use orz-slides`, 'other-kind');
   const resolveFlag = p.flags.has('--resolve-includes');
   if (resolveFlag && p.flags.has('--no-includes')) throw new CliError('--resolve-includes and --no-includes exclude each other', EXIT_USAGE);
-  const token = replacesToken(p);
+  const token = replacesToken(p.values['--replaces']);
   const text = readText(input);
-  if (looksHtml(text) && documentTextOf(text) !== null) {
+  if (looksHtml(text) && NODE.documentTextOf(text) !== null) {
     throw new CliError(`${file} is an assembled file, not a text: \`orz-paged extract ${sh(file)}\` gives its text; \`orz-paged upgrade ${sh(file)}\` re-assembles it with this version`, 'assembled-input', { command: 'extract', args: [file] });
   }
   const outArg = p.values['--out'];
@@ -853,14 +423,14 @@ function cmdAssemble(p: Parsed, o: Io): void {
   // the kind: a .paged.md name says paged; any other name: the header's carrier, else paged
   const info = readDocument(text, kind === 'paged' ? { kind: 'paged' } : {});
   if (info.kind !== 'paged') throw new CliError(`${file}: the header says carrier: ${info.kind}; use ${info.kind === 'md' ? 'orz-mdhtml' : `orz-${info.kind}`}`, 'other-kind');
-  if (info.format > 1) throw new CliError(`${file}: text format ${info.format} is newer than this tool writes (format 1); use a newer orz-paged (\`npx ${commandLine({ command: 'assemble', args: assembleArgs(p, file) }).replace(/^orz-paged /, 'orz-paged@latest ')}\`)`, 'newer-format');
+  if (info.format > 1) throw new CliError(`${file}: text format ${info.format} is newer than this tool writes (format 1); use a newer orz-paged (\`npx ${commandLine({ command: 'assemble', args: assembleArgs(callOf(p), file) }).replace(/^orz-paged /, 'orz-paged@latest ')}\`)`, 'newer-format');
   const force = p.flags.has('--force');
 
   // the existing output: may it be replaced, and which includes and delivery does it hold?
   const exists = out !== null && existsSync(out);
   const existing = exists ? readMaybe(out!) : null;
-  const names = { input: shown(input, file), out: out === null ? '-' : shown(out, outArg ?? outputOf(file) ?? undefined), twin: out !== null && out === outputOf(input) };
-  const check = exists ? assembledOutputCheck({ p, input, out: out!, text, names, token }, existing) : { risk: null, earlier: null };
+  const names = { input: NODE.shown(input, file), out: out === null ? '-' : NODE.shown(out, outArg ?? outputOf(file) ?? undefined), twin: out !== null && out === outputOf(input) };
+  const check = exists ? NODE.assembledOutputCheck({ input, out: out!, text, names, token, call: callOf(p) }, existing) : { risk: null, earlier: null };
   const prior = existing !== null && looksHtml(existing) ? extract(existing) : null;
   const priorLegacy = existing !== null && looksHtml(existing) && prior === null ? readLegacy(existing) : null;
   // the delivery: as asked (--cdn / --inline), else the existing file's (as upgrade and browser saves keep it), else inline
@@ -868,57 +438,28 @@ function cmdAssemble(p: Parsed, o: Io): void {
   // a file made by a newer orz-paged: re-assembling here would downgrade its shell (as upgrade refuses)
   const newerShell = prior && prior.kind === 'paged' && prior.shell && compareSemver(prior.shell, VERSION) === 1 ? prior.shell : null;
   const shellRisk: Risk | null = newerShell === null ? null : {
-    message: `${names.out} was made by a newer orz-paged (${newerShell}) than this tool (${VERSION}): assembling here would replace its shell with an older one; not replaced. Use \`npx ${commandLine({ command: 'assemble', args: assembleArgs(p, names.input) }).replace(/^orz-paged /, 'orz-paged@latest ')}\` (or pass --force: the old file is kept as ${names.out}~)`,
+    message: `${names.out} was made by a newer orz-paged (${newerShell}) than this tool (${VERSION}): assembling here would replace its shell with an older one; not replaced. Use \`npx ${commandLine({ command: 'assemble', args: assembleArgs(callOf(p), names.input) }).replace(/^orz-paged /, 'orz-paged@latest ')}\` (or pass --force: the old file is kept as ${names.out}~)`,
     reason: 'newer-shell',
   };
   if (!force) for (const r of [check.risk, shellRisk]) if (r !== null) throw new CliError(r.message, r.reason, r.next);
 
-  // includes (FC-18 §8.3): the existing file's record, kept for the directives the text still has
-  let includes: Record<string, string> = {};
-  if (!p.flags.has('--no-includes') && prior !== null) {
-    const held = prior.includes;
-    if (held) includes = keepReferenced(text, held);
-  }
-  // what --resolve-includes reads from the text's folder (read either way: it names why a directive stays
-  // unresolved, and which recorded file include is older than its file)
-  const probe = resolveFileIncludes(text, dirname(input));
-  const problems = new Map<string, { reason: Unresolved['reason']; message: string }>();
-  for (const problem of probe.problems) problems.set(problem.target, problem);
-  let resolved = 0;
-  const stale: Stale[] = [];
-  if (resolveFlag) {
-    for (const key of Object.keys(includes)) if (!isUrl(key)) delete includes[key]; // files are read afresh
-    includes = { ...includes, ...probe.includes };
-    resolved = Object.keys(probe.includes).length;
-  } else {
-    for (const [target, recorded] of Object.entries(includes)) {
-      const current = probe.includes[target];
-      if (isUrl(target) || current === undefined || current === recorded) continue;
-      stale.push({ target, kind: 'file', reason: 'stale-record' });
-      o.warn(`{{md ${target}}} is stale (stale-record): the file shows the text recorded in ${names.out}, and ${target} in the text's folder has changed since; \`${commandLine({ command: 'assemble', args: assembleArgs(p, names.input, ['--resolve-includes']) })}\` records the current one`);
-    }
-  }
-  // every directive left unresolved: one warning each, and the structured list
-  const folderProblem = resolveFlag ? probe.folderProblem : null;
-  const unresolved: Unresolved[] = unresolvedIncludes(text, includes).map((target) => {
-    if (isUrl(target)) return { target, kind: 'url', reason: 'url' };
-    const problem = problems.get(target);
-    return { target, kind: 'file', reason: problem ? problem.reason : !resolveFlag ? 'not-recorded' : folderProblem ? 'folder-unreadable' : 'no-such-file' };
+  // includes (FC-18 §8.3): the existing file's record kept for the directives the text still has; --resolve-includes
+  // reads file includes from the text's folder; stale records and unresolved directives are named (the kit's plan)
+  const plan = includePlan(text, {
+    folder: dirname(input),
+    held: prior?.includes ?? null,
+    keep: !p.flags.has('--no-includes'),
+    resolve: resolveFlag,
+    outName: names.out,
+    resolveCommand: commandLine({ command: 'assemble', args: assembleArgs(callOf(p), names.input, ['--resolve-includes']) }),
   });
-  for (const u of unresolved) {
-    const problem = problems.get(u.target);
-    const why = u.kind === 'url'
-      ? `${NOTE} (a URL include is shown only from the record of a file that holds it, or by a host that resolves it; the CLI fetches no URLs)`
-      : problem ? `${problem.message}${!resolveFlag && problem.reason === 'outside-folder' ? ' — --resolve-includes does not read it either: copy it into the folder' : ''}; ${NOTE}`
-      : resolveFlag ? `${folderProblem ?? 'not read'}; ${NOTE}`
-      : `${NOTE} (pass --resolve-includes to read it from the text's folder: \`${commandLine({ command: 'assemble', args: assembleArgs(p, names.input, ['--resolve-includes']) })}\`)`;
-    o.warn(`{{md ${u.target}}} is not resolved: ${why}`);
-  }
+  for (const w of plan.warnings) o.warn(w);
+  const { includes, resolved, unresolved, stale } = plan;
 
   let html: string;
   try { html = assemble(text, { delivery: d, ...(Object.keys(includes).length ? { includes } : {}) }); } catch (e) {
     const message = (e as Error).message.replace(/^orz-paged: /, '');
-    throw new CliError(`${file}: ${message}`, libReason(message));
+    throw new CliError(`${file}: ${message}`, NODE.libReason(message));
   }
   for (const w of errors(info.lint)) o.warn(w);
   for (const w of warnings(info.lint)) o.warn(w);
@@ -928,10 +469,10 @@ function cmdAssemble(p: Parsed, o: Io): void {
   writeOut(out!, html);
   const stored = storedText(text);
   const hash = sha256(stored);
-  rememberPair(input, out!, stored, text, o, { command: 'assemble', sha: hash });
+  NODE.rememberPair(input, out!, stored, text, o, { command: 'assemble', sha: hash });
   const n = Object.keys(includes).length;
   o.say(`Wrote ${out} (${d}${!p.flags.has('--cdn') && !p.flags.has('--inline') && prior !== null ? ' as before' : ''}, orz-paged ${VERSION}${n ? `, ${n} include${n === 1 ? '' : 's'}` : ''})`);
-  if (check.earlier !== null) o.say(`  (it held ${check.earlier === 'token' ? 'the text whose SHA-256 --replaces gave' : `an earlier text of ${basename(input)}: ${EARLIER_SOURCE[check.earlier]}`})`);
+  if (check.earlier !== null) o.say(`  (it held ${check.earlier === 'token' ? 'the text whose SHA-256 --replaces gave' : `an earlier text of ${basename(input)}: ${NODE.earlierSource[check.earlier]}`})`);
   o.say(`  sha256 ${hash} (the text it holds; --replaces takes it)`);
   emit(o, { command: 'assemble', input, output: out, kind: 'paged', format: info.format, shell: VERSION, delivery: d, uid: info.meta.uid ?? null, title: info.title, theme: info.theme ?? null, template: info.header?.fields['template'] ?? null, includes: n, resolved, unresolved, stale, backup: backedUp, replaced: check.earlier, sha256: hash, bytes: Buffer.byteLength(html, 'utf8') });
 }
@@ -939,7 +480,7 @@ function cmdAssemble(p: Parsed, o: Io): void {
 function cmdExtract(p: Parsed, o: Io): void {
   const file = one(p, 'an assembled file (file.paged.html)', 'extract');
   const input = resolve(file);
-  const token = replacesToken(p);
+  const token = replacesToken(p.values['--replaces']);
   const html = readText(input);
   const outArg = p.values['--out'];
   const legacy = readLegacy(html);
@@ -948,7 +489,7 @@ function cmdExtract(p: Parsed, o: Io): void {
     // upgrade writes the text twin of the file unless --text: next to an existing text, to another name (then merge)
     const textTarget = outArg !== undefined && outArg !== '-' ? outArg : twinName(file) ?? undefined;
     const taken = textTarget !== undefined && existsSync(resolve(textTarget));
-    const textArgs = textTarget === undefined ? [] : taken ? ['--text', otherName(textTarget)] : outArg !== undefined && outArg !== '-' ? ['--text', outArg] : [];
+    const textArgs = textTarget === undefined ? [] : taken ? ['--text', NODE.otherName(textTarget)] : outArg !== undefined && outArg !== '-' ? ['--text', outArg] : [];
     const next: Next = { command: 'upgrade', args: [file, ...textArgs] };
     throw new CliError(`${file} is an orz-paged ${legacy.version ?? '0.x'} file (before text format 1): run \`${commandLine(next)}\` — it writes the format-1 text${taken ? ` to ${textArgs[1]} (${textTarget} exists: compare and merge the two)` : ' twin'} (the source exactly, metadata moved into the header) and a file of this version`, 'legacy-file', next);
   }
@@ -964,23 +505,23 @@ function cmdExtract(p: Parsed, o: Io): void {
   const out = outArg !== undefined ? resolve(outArg) : twinName(input);
   if (out === null) throw new CliError(`cannot name the text twin of ${file} (an assembled file's name ends in .paged.html): pass -o out.paged.md`, EXIT_USAGE);
   if (out === input) throw new CliError('the output would overwrite the input', EXIT_USAGE);
-  const names = { out: shown(out, outArg ?? twinName(file) ?? undefined), file };
-  const other = otherName(names.out);
+  const names = { out: NODE.shown(out, outArg ?? twinName(file) ?? undefined), file };
+  const other = NODE.otherName(names.out);
   const outArgs = outArg !== undefined ? ['-o', outArg] : [];
-  const check = textOutputCheck(out, ex.text, input, names, token, uidOf(ex.text), (h) => {
+  const check = NODE.textOutputCheck({ out, text: ex.text, file: input, names, token, uid: NODE.uidOf(ex.text), advice: (h) => {
     const pull: Next = { command: 'extract', args: [file, '-o', other] };
     return {
       message: `If ${names.out} has edits of its own, extract to another name and merge the two: \`${commandLine(pull)}\`.${h ? ` When ${names.out} holds no edit you want to keep, \`${commandLine({ command: 'extract', args: [file, ...outArgs, '--replaces', h] })}\` replaces it while it still holds that text;` : ''} --force replaces it anyway (the old text is kept as ${names.out}~)`,
       next: pull,
     };
-  });
-  const backedUp = guard(out, check.risk, p.flags.has('--force'), o);
+  } });
+  const backedUp = NODE.guard(out, check.risk, p.flags.has('--force'), o);
   writeOut(out, ex.text);
   const hash = sha256(ex.text);
-  rememberPair(out, input, ex.text, ex.text, o, { command: 'extract', sha: hash });
+  NODE.rememberPair(out, input, ex.text, ex.text, o, { command: 'extract', sha: hash });
   const info = readDocument(ex.text, { kind: ex.kind });
   o.say(`Wrote ${out} (${ex.kind}, text format ${ex.format}, from orz-${ex.kind === 'md' ? 'mdhtml' : ex.kind} ${ex.shell || 'unknown'})`);
-  if (check.earlier !== null) o.say(`  (${names.out} held ${check.earlier === 'token' ? 'the text whose SHA-256 --replaces gave' : `a known state: ${EARLIER_SOURCE[check.earlier]}`})`);
+  if (check.earlier !== null) o.say(`  (${names.out} held ${check.earlier === 'token' ? 'the text whose SHA-256 --replaces gave' : `a known state: ${NODE.earlierSource[check.earlier]}`})`);
   o.say(`  sha256 ${hash} (of the text; --replaces takes it)`);
   emit(o, { command: 'extract', input, output: out, kind: ex.kind, format: ex.format, shell: ex.shell || null, delivery: ex.delivery || null, uid: info.meta.uid ?? null, title: info.title, includes: ex.includes ? Object.keys(ex.includes).length : 0, backup: backedUp, replaced: check.earlier, sha256: hash, bytes: Buffer.byteLength(ex.text, 'utf8') });
 }
@@ -995,7 +536,7 @@ function cmdUpgrade(p: Parsed, o: Io): void {
   const d = delivery(p, oldDelivery);
   const force = p.flags.has('--force');
   const out = p.values['--out'] !== undefined ? resolve(p.values['--out']) : input;
-  const outName = shown(out, p.values['--out'] ?? file);
+  const outName = NODE.shown(out, p.values['--out'] ?? file);
   // a newer shell (a downgrade) and a file cut off inside its text: refused unless --force
   const newerShell = ex && ex.kind === 'paged' && ex.shell && compareSemver(ex.shell, VERSION) === 1 ? ex.shell : null;
   if (newerShell !== null && !force) {
@@ -1009,7 +550,7 @@ function cmdUpgrade(p: Parsed, o: Io): void {
   let r: ReturnType<typeof upgrade>;
   try { r = upgrade(html, { delivery: d, ...(force ? { downgrade: true } : {}) }); } catch (e) {
     const message = (e as Error).message.replace(/^orz-paged( upgrade)?: /, '');
-    throw new CliError(`${file}: ${message}`, libReason(message));
+    throw new CliError(`${file}: ${message}`, NODE.libReason(message));
   }
   if (p.flags.has('--no-text') && p.values['--text'] !== undefined) throw new CliError('--text and --no-text exclude each other', EXIT_USAGE);
   const textOut = p.flags.has('--no-text') ? null : p.values['--text'] !== undefined ? resolve(p.values['--text']) : twinName(out);
@@ -1019,32 +560,32 @@ function cmdUpgrade(p: Parsed, o: Io): void {
   let outRisk: Risk | null = null;
   if (out !== input && existsSync(out)) {
     const existing = readMaybe(out);
-    const held = existing !== null && looksHtml(existing) ? documentTextOf(existing) : null;
+    const held = existing !== null && looksHtml(existing) ? NODE.documentTextOf(existing) : null;
     if (held === null) outRisk = { message: `${outName} exists and is not an orz file; not overwritten (pass --force, or -o another path)`, reason: 'not-orz' };
     else if (held !== r.text) outRisk = { message: `${outName} exists and holds another text; not overwritten (pass --force, or -o another path)`, reason: 'output-differs' };
   }
-  const textName = textOut === null ? '' : shown(textOut, p.values['--text'] ?? twinName(outName) ?? undefined);
-  const otherText = otherName(textName);
+  const textName = textOut === null ? '' : NODE.shown(textOut, p.values['--text'] ?? twinName(outName) ?? undefined);
+  const otherText = NODE.otherName(textName);
   // the upgraded text's uid — unless upgrade minted it for a 0.x file without one (then it says nothing about identity)
-  const newUid = uidOf(r.text);
-  const ownUids = legacy ? [uidOf(legacy.text), legacy.meta?.uid].map((u) => (typeof u === 'string' ? u.trim() : null)) : [newUid];
-  const textCheck = textOut ? textOutputCheck(textOut, r.text, out, { out: textName, file: outName }, null, newUid !== null && ownUids.includes(newUid) ? newUid : null, () => ({
+  const newUid = NODE.uidOf(r.text);
+  const ownUids = legacy ? [NODE.uidOf(legacy.text), legacy.meta?.uid].map((u) => (typeof u === 'string' ? u.trim() : null)) : [newUid];
+  const textCheck = textOut ? NODE.textOutputCheck({ out: textOut, text: r.text, file: out, names: { out: textName, file: outName }, token: null, uid: newUid !== null && ownUids.includes(newUid) ? newUid : null, advice: () => ({
     message: legacy
       ? `Upgrade to another name instead: \`${commandLine({ command: 'upgrade', args: [file, ...(p.values['--out'] !== undefined ? ['-o', outName] : []), ...(p.flags.has('--cdn') ? ['--cdn'] : p.flags.has('--inline') ? ['--inline'] : []), '--text', otherText] })}\`, then compare ${otherText} with ${textName} and merge (keep the new header); or --no-text, or --force (the old text is kept as ${textName}~)`
       : `Pass --text ${otherText} (then merge), --no-text, or --force to replace it (the old text is kept as ${textName}~)`,
     next: { command: 'upgrade', args: [file, ...(p.values['--out'] !== undefined ? ['-o', outName] : []), ...(p.flags.has('--cdn') ? ['--cdn'] : p.flags.has('--inline') ? ['--inline'] : []), '--text', otherText] },
-  })) : { risk: null, earlier: null };
+  }) }) : { risk: null, earlier: null };
   if (!force) for (const risk of [outRisk, textCheck.risk]) if (risk !== null) throw new CliError(risk.message, risk.reason, risk.next);
   const backups: string[] = [];
   if (out === input && (newerShell !== null || cut)) backups.push(backup(input, o));
-  const ob = guard(out, outRisk, force, o);
+  const ob = NODE.guard(out, outRisk, force, o);
   if (ob) backups.push(ob);
-  if (textOut) { const tb = guard(textOut, textCheck.risk, force, o); if (tb) backups.push(tb); }
+  if (textOut) { const tb = NODE.guard(textOut, textCheck.risk, force, o); if (tb) backups.push(tb); }
   if (newerShell !== null) o.warn(`${file} had a newer shell (orz-paged ${newerShell}); --force re-assembled it with this older one (${VERSION})`);
   if (cut) o.warn(`${file} was cut off inside its text; --force upgraded it with the text it holds, which may be incomplete`);
   writeOut(out, r.html);
   const held = extract(r.html)?.text ?? r.text;
-  if (textOut) { writeOut(textOut, r.text); rememberPair(textOut, out, held, r.text, o, { command: 'assemble', sha: sha256(held) }); }
+  if (textOut) { writeOut(textOut, r.text); NODE.rememberPair(textOut, out, held, r.text, o, { command: 'assemble', sha: sha256(held) }); }
   for (const n of r.notes) o.warn(n);
   const info = readDocument(r.text);
   o.say(`Upgraded ${input}${out !== input ? ` -> ${out}` : ''} (from ${r.from === 'legacy' ? `orz-paged ${legacy?.version ?? '0.x'}` : `orz-paged ${ex?.shell ?? '?'}`} to ${VERSION}, ${d})`);
@@ -1082,7 +623,7 @@ function humanInspect(file: string, r: InspectReport): string {
     if (r.sha256) rows.push(['sha256', `${r.sha256} (of the text it holds; --replaces takes it)`]);
     if (r.twin) {
       const when = { input: 'this one is newer', twin: 'the twin is newer', 'same-time': 'same modification time', unknown: '' }[r.twin.newer];
-      const earlier = r.twin.earlier ? `, an earlier text of the text twin (${EARLIER_SOURCE[r.twin.earlier]})` : '';
+      const earlier = r.twin.earlier ? `, an earlier text of the text twin (${NODE.earlierSource[r.twin.earlier]})` : '';
       rows.push(['twin', `${r.twin.name}: ${r.twin.holds === 'same' ? 'the same text' : r.twin.holds === 'different' ? `a different text${when ? ` (${when})` : ''}${earlier}` : 'not an orz text'}`]);
       if (r.twin.sha256 && r.twin.holds === 'different') rows.push(['twin sha256', r.twin.sha256]);
     }
@@ -1102,7 +643,7 @@ function cmdInspect(p: Parsed, o: Io): void {
   const content = readText(path);
   // the sibling twin (x.paged.md <-> x.paged.html; a plain x.md -> x.paged.html): does it hold the same text, and which is newer?
   const sibling = /\.paged\.html$/i.test(path) ? twinName(path) : outputOf(path);
-  let twin: { name: string; content: string; newer: 'input' | 'twin' | 'same-time'; earlier?: Exclude<EarlierState, 'token'> | null } | undefined;
+  let twin: { name: string; content: string; newer: 'input' | 'twin' | 'same-time'; earlier?: Exclude<KnownState, 'token'> | null } | undefined;
   if (sibling && sibling !== path && existsSync(sibling)) {
     const c = readMaybe(sibling);
     if (c !== null) {
@@ -1111,8 +652,8 @@ function cmdInspect(p: Parsed, o: Io): void {
       twin = { name: (/\.paged\.html$/i.test(file) ? twinName(file) : outputOf(file)) ?? basename(sibling), content: c, newer: a > b ? 'input' : b > a ? 'twin' : 'same-time' };
       // does the .paged.html hold a known earlier state of the text twin (assemble then needs no --force, T.11)?
       const [textPath, textContent, htmlPath, htmlContent] = path.endsWith('.paged.html') ? [sibling, c, path, content] : [path, content, sibling, c];
-      const held = looksHtml(htmlContent) ? documentTextOf(htmlContent) : null;
-      if (held !== null && !looksHtml(textContent) && readLegacy(htmlContent) === null && held !== storedText(textContent)) twin.earlier = earlierStateOf(textPath, htmlPath, held, storedText) as Exclude<EarlierState, 'token'> | null;
+      const held = looksHtml(htmlContent) ? NODE.documentTextOf(htmlContent) : null;
+      if (held !== null && !looksHtml(textContent) && readLegacy(htmlContent) === null && held !== storedText(textContent)) twin.earlier = NODE.earlierStateOf(textPath, htmlPath, held);
     }
   }
   // the name as given: advice names runnable paths (inspect sub/x.paged.md → assemble sub/x.paged.md)
@@ -1168,13 +709,10 @@ export function main(argv: string[]): number {
     if (rest.includes('--help') || rest.includes('-h')) { process.stdout.write(`${HELP[command]}\n`); return EXIT_OK; }
     if (command === 'assemble') { const old = legacyForm(rest); if (old) throw old; }
     const parsed = parse(command, rest);
-    COMMANDS[command](parsed, io(json));
+    COMMANDS[command](parsed, NODE.io(json));
     return EXIT_OK;
   } catch (e) {
-    const err = e instanceof CliError ? e : new CliError(e instanceof Error ? e.message : String(e));
-    if (json) process.stdout.write(`${JSON.stringify({ ok: false, command, error: err.message, reason: err.reason, ...(err.next ? { next: err.next } : {}), exitCode: err.code }, null, 2)}\n`);
-    else process.stderr.write(`orz-paged ${command}: ${err.message}\n${err.code === EXIT_USAGE ? `(see orz-paged ${command} --help)\n` : ''}`);
-    return err.code;
+    return reportFailure('orz-paged', command, e, json);
   }
 }
 

@@ -56,7 +56,7 @@
   "homepage": "https://markdown.orz.how/family.html#paged",
   "bugs": "https://github.com/wangyu16/orz-paged/issues",
   "dependencies": {
-    "orz-markdown": "^2.2.0",
+    "orz-markdown": "^2.3.0",
     "pagedjs": "0.4.3"
   },
   "devDependencies": {

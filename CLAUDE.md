@@ -12,7 +12,7 @@ document is its **text twin** (`x.paged.md`, orz text format 1, FC-18, kind
 one page that shows the document as Paged.js print pages, edits and saves
 itself in the browser and prints to PDF (the browser's print; no PDF binary).
 Built on the orz-markdown carrier kit ([orz-markdown](../orz-markdown)
-`carrier/*`, **`^2.2.0`**): the standalone file's whole runtime is the kit's
+`carrier/*`, **`^2.3.0`**): the standalone file's whole runtime is the kit's
 `orz-markdown/carrier/app`; this repo supplies the paged kind behind its
 `StandaloneKind` seam, the paged runtime (Paged.js 0.4.3, pinned) and the
 print themes. orz-mdhtml 1.0 is the reference for everything that is not
@@ -29,9 +29,19 @@ Two npm packages live here, **versioned in lockstep**:
 > (steps 1–7 of REBUILD §3b done: base, isomorphic assembler, engine and
 > bundle, the paged kind on `carrier/app`, the 9 derived print themes, CLI
 > and library, conformance, docs and examples). Next: the closed loop, then
-> the release (kit gaps first as orz-markdown 2.3.0). Claims in
-> `notes/CLAIMS.md` (bound by `tests/claims.test.ts`). `KIT GAP` markers name
-> code that belongs in orz-markdown/carrier.
+> the release (orz-markdown 2.3.0 first: it holds every former kit gap, and
+> no `KIT GAP` workaround is left here). Claims in `notes/CLAIMS.md` (bound by
+> `tests/claims.test.ts`).
+>
+> **orz-markdown is linked, not installed, until 2.3.0 is published:**
+> `node_modules/orz-markdown` is a symlink to the local checkout
+> (`rm -rf node_modules/orz-markdown && ln -s ../../orz-markdown
+> node_modules/orz-markdown`; do not `npm install` over it — that restores the
+> published 2.2.0, which lacks the 2.3.0 API). The bundle resolves the kit's
+> dependencies from its real directory (one KaTeX: `build/bundle.ts`).
+> **After orz-markdown 2.3.0 is published, refresh the lockfile**
+> (`npx npm@11 install orz-markdown@^2.3.0`, which replaces the symlink) and
+> rebuild before the release.
 
 ## Commands
 
@@ -59,9 +69,11 @@ orz-paged themes
 orz-paged templates
 ```
 
-`src/cli.ts` is orz-mdhtml 1.0's CLI for the paged kind (KIT GAP: the
-overwrite guards, known states and reason codes are the same in every
-carrier): every command takes `--json` (one object on stdout), `--help`,
+`src/cli.ts` holds the commands; the overwrite guards, known states, pair
+records, backups, atomic writes, includes, reason codes and `next` are
+orz-markdown's CLI core (`orz-markdown/carrier/node`, bound by
+`carrierNode({ name: 'orz-paged', kind: 'paged', readLegacy, storedText })`):
+every command takes `--json` (one object on stdout), `--help`,
 `--force`; exit 0 done / 1 refused or failed / 2 usage. Content (title, theme,
 template, page settings, versions, metadata) comes only from the text's
 header — `assemble` has no content options; the 0.x forms `--template`,
@@ -69,18 +81,16 @@ header — `assemble` has no content options; the 0.x forms `--template`,
 (T.22). Files that could hold other work are not overwritten without
 `--force`, which keeps the replaced file as `<file>~` (or `~1`, `~2`…). Known
 states: git (HEAD/staged/20 recent commits of the twin) and the CLI's pair
-records in `$XDG_CACHE_HOME/orz-paged/` (`src/known-states.ts`, KIT GAP copy of
-orz-mdhtml's), or the caller's `--replaces <sha256>` (`src/sha256.ts`,
-isomorphic, KIT GAP). `src/includes.ts` (Node only, KIT GAP copy) lists,
-carries and resolves includes. Tests point `XDG_CACHE_HOME` at a temporary
-folder.
+records in `$XDG_CACHE_HOME/orz-paged/`, or the caller's `--replaces
+<sha256>` (the kit's `sha256`); includes are listed, carried and resolved by
+the kit's `includePlan`. Tests point `XDG_CACHE_HOME` at a temporary folder.
 
 Tests live in `tests/` and are bound to the claims in `notes/CLAIMS.md`.
 `tests/global-setup.ts` runs `tsc -p tsconfig.build.json` and stages the
 engine into `dist/` and `browser/` first (the CLI tests spawn `dist/cli.js`).
 The `conformance` project (`tests/conformance.test.ts`, ~6 min of Chrome) runs
-orz-markdown's carrier harness against the real carrier after the others (two
-lanes); it must stay conformant (46 checks: 45 pass, `C.update.from-previous` not
+orz-markdown's carrier harness against the real carrier after the others (the
+harness's default lanes); it must stay conformant (46 checks: 45 pass, `C.update.from-previous` not
 applicable — `firstRelease`; no `allowSkips`). Real-Chrome tests skip without
 an installed Chrome (playwright-core, channel `chrome`) — such a run verifies
 nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
@@ -95,7 +105,8 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   read view markup), `src/inspect.ts`, `src/legacy.ts` (`readLegacy`,
   `upgrade` of 0.x files: settings block + `kind: meta` → one header),
   `src/themes.ts`, `src/starters.ts` (generated from `assets/templates`),
-  `src/sha256.ts`, `src/version.ts` (generated).
+  `src/version.ts` (generated). The kind-independent pieces (`sha256`, the
+  0.x island reader, the `inspect` core) are the kit's (`orz-markdown/carrier`).
 - **The document layer** `src/doc/` (reimplemented from orz-md-pdf's model,
   archived in `archive/document-model.md`): `settings.ts` (the header is the
   settings source: `readHeader` → DEFAULTS ← template layer ← header),
@@ -104,11 +115,12 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   page numbers, front matter), `dynamic.ts` (versions), `fonts.ts`,
   `theme-fonts.ts` (generated). `src/render-paged.ts` renders a text to the
   runtime's input.
-- **Node only**: `src/known-states.ts`, `src/includes.ts`, `src/engine.ts`
+- **Node only**: `src/engine.ts`
   (finds and verifies the engine an inline file carries: `dist/` +
   `release.json`, version and SHA-384), `src/lib.ts` (the package's main
   export; `assemble`/`upgrade`/`inspect` default to that engine),
-  `src/cli.ts` (the `orz-paged` bin).
+  `src/cli.ts` (the `orz-paged` bin, on the kit's CLI core
+  `orz-markdown/carrier/node`).
 - **The paged runtime** `src/paged/` — one IIFE built first and carried by
   the engine as a string (Paged.js is in the bundle once): `runtime.ts`
   (`__orzPaged.paginate`: stage, enhancement, Paged.js into an off-screen
@@ -121,8 +133,10 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   engine source, then the kit's `startCarrier(PAGED_KIND)`), `esm.ts`,
   `carrier.ts` (the FC-19 API), `paged/` (the kind: `kind.ts`, the read view
   `read-view.ts` with Paged.js pages in the page, `settings.ts`, `actions.ts`
-  (Print, New document from template…, Version…, Page zoom…), `preview.ts`
-  (the editor's Paged.js preview frame), `render.ts`, `zoom.ts`,
+  (Print; New document from template…, a submenu), the Version setting in
+  `settings.ts` (`choicesFor` / `apply` / `hidden`), the Page zoom reader
+  control in `kind.ts` (`readerControls.choices`, `zoom.ts` scales the
+  pages), `preview.ts` (the editor's Paged.js preview frame), `render.ts`,
   `versions.ts`).
 - `build/bundle.ts` — esbuild → the runtime, the IIFE/ESM, the bundle rule,
   `release.json`; `buildBrowser({ version })` builds in memory (tests, the
@@ -166,7 +180,8 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   runtime hold no `<script`/`</script`, no CR, only ASCII; the build rewrites
   `<` as `\x3C`, checks, then computes the SHA-384.
 - **Kit gaps** are worked around locally behind a `KIT GAP` comment and
-  reported, never patched in orz-markdown from here.
+  reported, never patched in orz-markdown from here (none is open: 2.3.0
+  closed them all).
 - Reading and editing work in all modern browsers; **Save in place only in
   Chromium** (File System Access; elsewhere Save downloads).
 

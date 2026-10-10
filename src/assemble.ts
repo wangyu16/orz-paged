@@ -20,12 +20,12 @@
 import {
   assembleEnvelope,
   editHeader,
-  extract,
   kindFromFilename,
   lintHeader,
   mintUid,
   readDocument as readKitDocument,
   readHeader,
+  storedText as kitStoredText,
   UID_PATTERN,
   type DocumentInfo,
   type HeaderChange,
@@ -36,7 +36,7 @@ import { bundleUrl, isScriptSafe } from 'orz-markdown/carrier/shell';
 import { canonicalTemplate, TEMPLATES } from './doc/templates.js';
 import { presentationOf, readViewMarkup, shellHead, type Presentation } from './presentation.js';
 import { STARTERS } from './starters.js';
-import { isThemeId } from './themes.js';
+import { isThemeId, THEMES } from './themes.js';
 import { VERSION } from './version.js';
 import type { TemplateName } from './types.js';
 
@@ -63,6 +63,8 @@ const KINDS: readonly string[] = ['md', 'slides', 'paged'];
  * (the kit's own default is `md`). The title follows FC-18 §8.1 for `paged`:
  * the header `title`, else the first top-level level-1 heading, else the
  * `title` (else `text`) of the first `*-title` element, else `Untitled`.
+ * For kind `paged` the lint checks the header's `theme` against this
+ * carrier's print themes (`unknown-theme`, a warning).
  */
 export function readDocument(text: string, opts: { kind?: Kind; filename?: string } = {}): DocumentInfo {
   const carrier = readHeader(text)?.fields['carrier']?.trim();
@@ -70,7 +72,8 @@ export function readDocument(text: string, opts: { kind?: Kind; filename?: strin
     opts.kind ??
     (opts.filename !== undefined ? kindFromFilename(opts.filename) : null) ??
     (carrier !== undefined && KINDS.includes(carrier) ? (carrier as Kind) : 'paged');
-  return readKitDocument(text, { kind });
+  // a paged header names a paged theme (its own list): any other is the kit's `unknown-theme` warning
+  return readKitDocument(text, kind === 'paged' ? { kind, themes: THEMES } : { kind });
 }
 
 /** Options of {@link assemble} (FC-18 §8.2, FC-19 §2). */
@@ -152,11 +155,7 @@ export function shellParts(options: AssembleOptions = {}, presentation: Presenta
  * with the raw input. A text the envelope refuses is returned as it is.
  */
 export function storedText(text: string): string {
-  try {
-    return extract(assembleEnvelope(text, shellParts({ delivery: 'cdn' }, presentationOf(''))))?.text ?? text;
-  } catch {
-    return text;
-  }
+  return kitStoredText(text, 'paged');
 }
 
 /* ─────────────────────────── newDocument ─────────────────────────── */
@@ -208,7 +207,7 @@ export function newDocument(options: NewDocumentOptions = {}): string {
   if (title !== undefined && title.trim() !== '') changes['title'] = title;
   if (theme !== undefined) changes['theme'] = theme;
   text = editHeader(text, changes);
-  const errors = lintHeader(text, 'paged').filter((l) => l.level === 'error');
+  const errors = lintHeader(text, { kind: 'paged', themes: THEMES }).filter((l) => l.level === 'error');
   if (errors.length > 0) throw new Error(`orz-paged: the new header is not valid: ${errors.map((l) => `${l.code} (${l.message})`).join('; ')}`);
   return text;
 }

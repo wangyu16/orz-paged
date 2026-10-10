@@ -14,18 +14,18 @@
  * bytes (FC-18 law 2).
  */
 import { extract as kitExtract, readDocument as kitReadDocument, type DocumentInfo, type Extracted, type HeaderChange } from 'orz-markdown/carrier';
-import { attachAiMenu, attachSettings, captureEngineSource, followPresentation, settingPicker, type EngineSource, type MenuButton, type SettingControl, type StandaloneContext } from 'orz-markdown/carrier/app';
+import { attachAiMenu, attachSettings, captureEngineSource, followPresentation, type EngineSource, type StandaloneContext } from 'orz-markdown/carrier/app';
 import { createEditorShell, type EditorHooks, type EditorShell } from 'orz-markdown/carrier/editor';
 import type { PreferenceStore } from 'orz-markdown/carrier/shell';
 import { escapeAttr, escapeHtml } from 'orz-markdown/carrier/read';
 import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
 import { assemble as assembleSync, cdnBundleUrl, FORMATS, type AssembleOptions } from '../assemble.js';
 import { applyDynamicChoices } from '../doc/dynamic.js';
+import { THEMES } from '../themes.js';
 import { VERSION } from '../version.js';
 import { pagedFrameDocument, pagedPreviewPresentation } from './paged/preview.js';
 import { renderPaged, renderPagedPreview } from './paged/render.js';
 import { PAGED_SETTINGS } from './paged/settings.js';
-import { versionChange, versionChoices } from './paged/versions.js';
 
 export const kind = 'paged' as const;
 export const version: string = VERSION;
@@ -72,9 +72,9 @@ export function extract(html: string): Extracted | null {
   return kitExtract(html);
 }
 
-/** The header and derived facts of a paged text, without rendering (the kit's `readDocument`, kind `paged`). */
+/** The header and derived facts of a paged text, without rendering (the kit's `readDocument`, kind `paged`, linted against the print themes). */
 export function readDocument(text: string): DocumentInfo {
-  return kitReadDocument(text, { kind: 'paged' });
+  return kitReadDocument(text, { kind: 'paged', themes: THEMES });
 }
 
 /** Options of {@link renderPreview}. */
@@ -160,62 +160,12 @@ export interface EditorOptions {
 export type Editor = EditorShell;
 
 /**
- * KIT GAP (orz-markdown 2.3.0): the Version pickers in the editor's toolbar —
- * one per dynamic choice key the document offers (`attachSettings` takes a
- * fixed list, and its pickers write a one-line value; `dynamic_choices` is a
- * multi-line map). They follow the text (a key added or gone) and write the
- * header through `setHeader` (one undoable edit).
- */
-function attachVersionPickers(shell: EditorShell, o: { iconOnly?: boolean }): { destroy(): void } {
-  const toolbar = shell.toolbar as unknown as HTMLElement | null;
-  if (!toolbar) return { destroy() { /* no toolbar */ } };
-  const doc = toolbar.ownerDocument;
-  let sig = '';
-  let pickers: MenuButton[] = [];
-  const NOT_SET = '\u0000';
-  const build = (): void => {
-    const choices = versionChoices(shell.getText());
-    const next = choices.map((c) => `${c.key}=${c.values.join('|')}`).join(';');
-    if (next === sig) return;
-    sig = next;
-    pickers.forEach((p) => { p.destroy(); (p.element as unknown as HTMLElement).remove(); });
-    pickers = choices.map((c) => {
-      const control: SettingControl = {
-        key: `version:${c.key}`,
-        label: choices.length === 1 ? 'Version' : `Version: ${c.label}`,
-        choices: [...c.values.map((v) => ({ value: v, label: `${c.label}: ${v}` })), { value: NOT_SET, label: `${c.label}: (not set)` }],
-        current: (text) => versionChoices(text).find((x) => x.key === c.key)?.current ?? NOT_SET,
-      };
-      const picker = settingPicker(doc as never, control, () => shell.getText(), (_key, value) => {
-        shell.setHeader(versionChange(shell.getText(), c.key, value === NOT_SET ? null : value));
-      }, { iconOnly: !!o.iconOnly });
-      (picker.element as unknown as HTMLElement).setAttribute('data-orz-version-picker', c.key);
-      toolbar.append(picker.element as unknown as Node);
-      return picker;
-    });
-  };
-  build();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const off = shell.on('change', () => {
-    clearTimeout(timer);
-    timer = setTimeout(build, 300);
-  });
-  return {
-    destroy() {
-      off();
-      clearTimeout(timer);
-      pickers.forEach((p) => p.destroy());
-      pickers = [];
-    },
-  };
-}
-
-/**
  * Mount the paged editor (FC-19 §3–4) in `element`: the kit's editor shell
  * with the Paged.js preview (src/browser/paged/preview.ts: the frame runs the
  * paged runtime; `diff: false`; renders acknowledged by the frame when the
  * pages are laid out), the header's webfonts in the preview (they follow
- * header edits), the paged settings and the Version picker in its toolbar
+ * header edits), the paged settings (Version among them, shown while the
+ * document defines choices) in its toolbar
  * (spec/carrier-app.md §3.2).
  *
  * With `hooks.save` the app owns persistence (FC-19 §8.5 app host). Without it
@@ -282,7 +232,6 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
   // the carrier's tools in the toolbar (FC-19 §1: the same tools for every host)
   const iconOnly = options.chrome === 'compact';
   const settings = attachSettings(shell, PAGED_SETTINGS, { iconOnly });
-  const versions = attachVersionPickers(shell, { iconOnly });
   const appAi = appHooks.ai;
   const aiMenu = appAi && !ctx?.ai ? attachAiMenu(shell, { operations: () => (Array.isArray(appAi.operations) ? appAi.operations : []), iconOnly }) : null;
   // the preview follows the header's theme and fonts
@@ -292,7 +241,6 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
   shell.destroy = () => {
     unfollow();
     settings.destroy();
-    versions.destroy();
     aiMenu?.destroy();
     destroy();
   };

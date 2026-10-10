@@ -10,7 +10,7 @@ saves back in place and prints to PDF from the browser (no PDF binary, no
 Puppeteer). The file is always `assemble(text)`: the text inside it is the
 document; everything else is a shell that can be regenerated. Built on the
 carrier kit of [orz-markdown](https://www.npmjs.com/package/orz-markdown)
-(`^2.2.0`; orz text format 1) and [Paged.js](https://pagedjs.org/) 0.4.3.
+(`^2.3.0`; orz text format 1) and [Paged.js](https://pagedjs.org/) 0.4.3.
 
 The paginated sibling of [orz-mdhtml](https://www.npmjs.com/package/orz-mdhtml)
 (a continuous, themed web page) and orz-slides (a deck): the same text twin,
@@ -34,8 +34,8 @@ workflow; what paged adds is pages.
   Click it to edit; hover it (tap it on a touch screen, or Tab to it and press
   ArrowUp) for the list of everything else — **Edit, Print, Save, Download a
   copy, New document, Save as new copy**, the settings **Theme, Page size,
-  Template, Page numbers, Number style**, **New document from template…**,
-  **Version…** (while the document offers versions) and **Page zoom…**, and,
+  Template, Page numbers, Number style**, **Version** (while the document
+  offers versions), **New document from template…** and **Page zoom**, and,
   when there is one, the update. A dot on the pencil means unsaved changes.
 - **Print.** *Print* (right after Edit) prints the read view once its layout
   has settled: the pages print as laid out, without the pencil, the grey desk
@@ -46,9 +46,9 @@ workflow; what paged adds is pages.
   until you Save — and the pages follow. Margins, fonts, running headers and
   footers and custom CSS stay in the header text.
 - **Versions (one source, several printouts).** A header's `dynamic_choices`
-  (e.g. `answer-key: hide`) decides what the pages show; *Version…* switches it
+  (e.g. `answer-key: hide`) decides what the pages show; *Version* switches it
   (an exam with or without its answers) — again a header edit.
-- **Page zoom.** *Page zoom…* (Automatic, Fit width, 100 %, 125 %) scales the
+- **Page zoom.** *Page zoom* (Automatic, Fit width, 100 %, 125 %) scales the
   pages for reading. It is your preference, not the document's: kept in this
   browser for this document (by its `uid`), never saved into the file, and it
   never changes pagination (a text-size control would).

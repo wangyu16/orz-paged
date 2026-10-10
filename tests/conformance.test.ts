@@ -149,11 +149,8 @@ if (!browser) {
     title: '[H.1] orz-paged conformance (orz-markdown carrier harness, real Chrome)',
     // two playwright-core type copies while orz-markdown is linked from a checkout; one object at run time
     browser: browser as never,
-    // two checks side by side, not the harness's default three: every paged page lays out Paged.js pages (the
-    // editor's preview too) and an inline file is ~2 MB, so with three lanes the harness's fixed 10 s wait for
-    // C.save.conflict's "Download a copy instead" download timed out under load (once in three full runs,
-    // 2026-10-09: the check took 204 s instead of ~95 s). Nothing is skipped: every check still runs.
-    lanes: 2,
+    // the harness's default lanes: since orz-markdown 2.3.0 C.save.conflict waits for a download and a write in
+    // proportion to the file's size (a paged inline file is ~2 MB; a fixed 10 s once timed out under load)
     log: (line) => log.push(line),
   });
 }

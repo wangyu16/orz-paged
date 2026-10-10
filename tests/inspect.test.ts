@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { assembleEnvelope } from 'orz-markdown/carrier';
 import { inspect } from '../src/inspect.js';
 import { assemble, newDocument, storedText } from '../src/assemble.js';
-import { sha256 } from '../src/sha256.js';
+import { sha256 } from 'orz-markdown/carrier';
 import { VERSION } from '../src/version.js';
 import { corpus, ENGINE, LEGACY_FILES, read, legacySourceOf, withLegacySource } from './helpers.js';
 

@@ -30,7 +30,7 @@ export { readLegacy, type LegacyFile, type UpgradeResult, type UpgradeOptions } 
 export { readSettings, resolveSettings, DEFAULTS as SETTING_DEFAULTS } from './doc/settings.js';
 export { THEMES, THEME_INFO, DEFAULT_THEME, isThemeId, type PagedTheme } from './themes.js';
 export { VERSION } from './version.js';
-export { sha256 } from './sha256.js';
+export { sha256 } from 'orz-markdown/carrier';
 export { engineSource, engineFiles, type EngineFiles } from './engine.js';
 export type { DocSettings, TemplateName, ThemeName } from './types.js';
 

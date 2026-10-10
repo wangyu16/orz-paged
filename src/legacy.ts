@@ -26,17 +26,19 @@
  * Isomorphic: no Node built-ins, no clock; randomness only through `mintUid`
  * when the file has no valid id and none is injected.
  *
- * KIT GAP: the raw-element scan (`rawElements`, `attr`, `decodeEntities`) and
- * the shape of `upgrade` for a format-1 file are copies of orz-mdhtml's
- * src/legacy.ts; a shared "legacy island reader" in orz-markdown/carrier
- * (2.3.0) would let both carriers (and orz-slides) drop them.
+ * The source island, the generator, the config, the delivery, the `<title>`
+ * and `#orz-meta` are read by orz-markdown's `readLegacyIsland` (2.3.0, the
+ * reader orz-mdhtml and this carrier share); this module keeps the paged
+ * names, the notes' wording and the 0.x header arrangement.
  */
 import { scanNymlBlocks, type NymlBlock } from 'orz-markdown';
-import { editHeader, extract, mintUid, readHeader, withoutHeader, UID_PATTERN, type HeaderChange } from 'orz-markdown/carrier';
-import { parseDocMetaIsland, type DocMeta } from 'orz-markdown/doc-meta';
+import { editHeader, extract, mintUid, normalizeHeader, readHeader, readLegacyIsland, withoutHeader, UID_PATTERN, type HeaderChange } from 'orz-markdown/carrier';
+import type { DocMeta } from 'orz-markdown/doc-meta';
 import { compareSemver } from 'orz-markdown/carrier/shell';
 import { assemble, readDocument, type AssembleOptions } from './assemble.js';
 import { VERSION } from './version.js';
+
+export { generatorOf } from 'orz-markdown/carrier';
 
 /** What {@link readLegacy} reads from a 0.x file. */
 export interface LegacyFile {
@@ -60,147 +62,31 @@ export interface LegacyFile {
   notes: string[];
 }
 
-interface RawElement {
-  name: string;
-  attrs: string;
-  start: number;
-  end: number;
-}
-
-const RAW_TEXT = new Set(['script', 'style', 'title', 'textarea']);
-
-/** ASCII-only lower case: keeps offsets (String#toLowerCase may change the length). */
-const asciiLower = (s: string): string => s.replace(/[A-Z]+/g, (m) => m.toLowerCase());
-
-/**
- * The raw-text elements of a 0.x file in document order (comments and other
- * raw-text content skipped, so a `<script` written inside a script string is
- * not taken for a tag).
- */
-function rawElements(html: string): RawElement[] {
-  const lower = asciiLower(html);
-  const out: RawElement[] = [];
-  let i = 0;
-  while (i < html.length) {
-    const lt = html.indexOf('<', i);
-    if (lt < 0) break;
-    if (html.startsWith('<!--', lt)) {
-      const e = html.indexOf('-->', lt + 4);
-      if (e < 0) break;
-      i = e + 3;
-      continue;
-    }
-    const m = /^<([A-Za-z][A-Za-z0-9-]*)/.exec(html.slice(lt, lt + 64));
-    if (!m) {
-      i = lt + 1;
-      continue;
-    }
-    const name = asciiLower(m[1]);
-    const gt = html.indexOf('>', lt);
-    if (gt < 0) break;
-    if (!RAW_TEXT.has(name)) {
-      i = gt + 1;
-      continue;
-    }
-    let close = -1;
-    for (let at = lower.indexOf(`</${name}`, gt + 1); at >= 0; at = lower.indexOf(`</${name}`, at + 1)) {
-      const c = lower.charAt(at + name.length + 2);
-      if (c === '' || c === '>' || c === '/' || /\s/.test(c)) {
-        close = at;
-        break;
-      }
-    }
-    out.push({ name, attrs: html.slice(lt + 1 + m[1].length, gt), start: gt + 1, end: close < 0 ? html.length : close });
-    if (close < 0) break;
-    const end = html.indexOf('>', close);
-    i = end < 0 ? html.length : end + 1;
-  }
-  return out;
-}
-
-const attr = (attrs: string, name: string): string | null => {
-  const m = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i').exec(attrs);
-  return m ? (m[1] ?? m[2] ?? m[3] ?? '') : null;
-};
-
-const hasAttr = (attrs: string, name: string): boolean => new RegExp(`(?:^|\\s)${name}(?=[\\s=/]|$)`, 'i').test(attrs);
-
-/** Decode the entities a 0.x writer or a browser's serializer puts in `<title>`. */
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&#x([0-9a-f]+);/gi, (m, h: string) => safeCodePoint(parseInt(h, 16)) ?? m)
-    .replace(/&#([0-9]+);/g, (m, d: string) => safeCodePoint(parseInt(d, 10)) ?? m)
-    .replace(/&(lt|gt|quot|apos|nbsp|amp);/g, (_m, n: string) => ({ lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0', amp: '&' })[n] ?? '');
-}
-
-function safeCodePoint(n: number): string | null {
-  return Number.isInteger(n) && n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : null;
-}
-
-/** The inverse of the 0.x writer's escape (`</script` → `<\/script`, any case). */
-const legacyUnescape = (s: string): string => s.replace(/<\\\/(script)/gi, '</$1');
-
-/** The generator meta of a file's head. */
-export const generatorOf = (html: string): string | null => {
-  const head = html.slice(0, Math.max(0, html.search(/<body[\s>]/i)));
-  return /<meta\s+name=["']generator["']\s+content=["']([^"']*)["']/i.exec(head)?.[1] ?? null;
-};
-
 /**
  * Read a legacy orz-paged 0.x file; `null` when `html` is not one (no
  * `#orz-src` island, a format-1 `#orz-shell`, or no 0.x marker — an
  * `orz-paged` generator or the `__ORZ_PAGED__` config).
  */
 export function readLegacy(html: string): LegacyFile | null {
-  const els = rawElements(html);
-  const scripts = els.filter((e) => e.name === 'script');
-  if (scripts.some((e) => attr(e.attrs, 'id') === 'orz-shell')) return null;
-  const island = scripts.find((e) => attr(e.attrs, 'id') === 'orz-src');
+  const island = readLegacyIsland(html, { generator: /^orz-paged(\s|$)/, config: '__ORZ_PAGED__' });
   if (!island) return null;
-  const gen = generatorOf(html);
-  const configEl = scripts.find((e) => /^\s*window\.__ORZ_PAGED__\s*=/.test(html.slice(e.start, e.end)));
-  if (!(gen !== null && /^orz-paged(\s|$)/.test(gen)) && !configEl) return null;
-
   const notes: string[] = [];
-  let config: Record<string, unknown> = {};
-  if (configEl) {
-    const js = html.slice(configEl.start, configEl.end).replace(/^\s*window\.__ORZ_PAGED__\s*=\s*/, '').replace(/;\s*$/, '');
-    try {
-      const parsed = JSON.parse(js) as unknown;
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) config = parsed as Record<string, unknown>;
-    } catch {
-      notes.push('the 0.x config (window.__ORZ_PAGED__) is not readable JSON; the version was read from the generator only');
-    }
+  if (island.configError) notes.push('the 0.x config (window.__ORZ_PAGED__) is not readable JSON; the version was read from the generator only');
+  if (island.scriptEscapes > 0) {
+    notes.push(`the source held ${island.scriptEscapes} \`<\\/script\` (the 0.x writer's escape of \`</script\`, which the 0.x editor showed as written): restored to \`</script\` as in the text the file was made from`);
   }
+  notes.push(...island.notes);
   const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
-
-  const island0 = html.slice(island.start, island.end);
-  const scriptEscapes = (island0.match(/<\\\/script/gi) ?? []).length;
-  if (scriptEscapes > 0) {
-    notes.push(`the source held ${scriptEscapes} \`<\\/script\` (the 0.x writer's escape of \`</script\`, which the 0.x editor showed as written): restored to \`</script\` as in the text the file was made from`);
-  }
-  const raw = legacyUnescape(island0);
-  // The 0.x writer wrapped the source in "\n…\n"; a file whose line breaks were
-  // converted to CR LF afterwards (an editor, a git checkout) has "\r\n…\r\n".
-  const lead = raw.startsWith('\r\n') ? 2 : raw.startsWith('\n') ? 1 : 0;
-  const trail = lead === 2 && raw.endsWith('\r\n') ? 2 : raw.endsWith('\n') ? 1 : 0;
-  const wrapped = lead > 0 && trail > 0 && raw.length >= lead + trail;
-  if (!wrapped) notes.push('the source island lacks the 0.x writer\'s "\\n…\\n" wrapper; its content is kept exactly');
-  if (attr(island.attrs, 'type') !== 'text/markdown') notes.push(`the source island's type is ${JSON.stringify(attr(island.attrs, 'type'))}, not text/markdown`);
-
-  const titleEl = els.find((e) => e.name === 'title');
-  const engine = scripts.find((e) => attr(e.attrs, 'data-orz-asset') === 'engine');
-  const genVersion = gen !== null ? (/^orz-paged\s+(\S+)/.exec(gen)?.[1] ?? null) : null;
-
+  const genVersion = island.generator !== null ? (/^orz-paged\s+(\S+)/.exec(island.generator)?.[1] ?? null) : null;
   return {
-    text: wrapped ? raw.slice(lead, raw.length - trail) : raw,
-    wrapped,
-    scriptEscapes,
-    generator: gen,
-    version: str(config['version']) ?? genVersion,
-    delivery: engine ? (hasAttr(engine.attrs, 'src') ? 'cdn' : 'inline') : null,
-    title: titleEl ? decodeEntities(html.slice(titleEl.start, titleEl.end)).trim() : null,
-    meta: parseDocMetaIsland(html),
+    text: island.text,
+    wrapped: island.wrapped,
+    scriptEscapes: island.scriptEscapes,
+    generator: island.generator,
+    version: str(island.config['version']) ?? genVersion,
+    delivery: island.delivery,
+    title: island.title,
+    meta: island.meta,
     notes,
   };
 }
@@ -373,10 +259,8 @@ export function headerFromLegacySource(source: string): LegacySourceResult {
   }
   rest = rest.startsWith(bom) ? rest.slice(bom.length) : rest;
   const prefix = wanted.map((b) => src.slice(b.start, b.end) + eol + eol).join('');
-  // The kit merges a leading meta+document pair into one document header on an
-  // edit (a no-op edit does not merge): set and remove a scratch host key.
-  const SCRATCH = 'x_orz_paged_upgrade';
-  const merged = editHeader(editHeader(bom + prefix + rest, { [SCRATCH]: '1' }), { [SCRATCH]: null });
+  // the kit's legacy merge (FC-18 §5): a leading meta+document pair becomes one document header
+  const merged = normalizeHeader(bom + prefix + rest);
   const h = readHeader(merged);
   // verify: every key of the moved blocks reads back (the settings block wins a clash), the body is the rest
   const ok =

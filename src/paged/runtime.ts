@@ -23,7 +23,7 @@
  *      SMILES, Chart.js from their pinned URLs, only what the content needs;
  *      KaTeX's stylesheet) — awaited; then images decoded, stylesheets loaded
  *      and `document.fonts.ready` (pagination depends on final heights);
- *      drawn canvases become images (Paged.js re-parses the HTML);
+ *      `static: true`: drawn canvases become images (Paged.js re-parses the HTML);
  *   4. Paged.js into an off-screen container (double buffer), with the
  *      baseline-grid handler (src/paged/baseline-grid.ts: a theme's ruling
  *      under the text) and the two-column handler; one pagination at a time, only the latest request
@@ -78,7 +78,6 @@ const W = window as unknown as Window & {
   __orzPaged?: PagedRuntime;
   __orzPreviewApply?: (html: string, msg: unknown) => Promise<unknown>;
   OrzMarkdownRuntime?: { init?(root: unknown): void };
-  Chart?: { getChart?(c: HTMLCanvasElement): { stop?(): void; update?(mode?: string): void } | undefined };
 };
 
 /** The nonce this script was given (the preview frame under an app's nonce policy), stamped on what it adds. */
@@ -123,30 +122,6 @@ function stylesheetsSettled(ms: number): Promise<unknown> {
       l.addEventListener('error', () => r(), { once: true });
     }));
   return within(Promise.all(pending), ms);
-}
-
-/**
- * A drawn canvas as an image, so it survives the HTML Paged.js re-parses.
- * KIT GAP (orz-markdown 2.3.0): `enhanceDocument` draws for the screen
- * (Chart.js instances it tracks, SMILES canvases); a print layout needs the
- * drawings settled and static — the kit could offer `{ static: true }`.
- */
-function freezeCanvas(canvas: HTMLCanvasElement): void {
-  try {
-    const chart = W.Chart?.getChart?.(canvas);
-    chart?.stop?.();
-    const img = document.createElement('img');
-    img.src = canvas.toDataURL('image/png');
-    img.className = canvas.className;
-    const w = canvas.style.width || (canvas.clientWidth ? `${canvas.clientWidth}px` : '');
-    img.style.maxWidth = '100%';
-    if (w) img.style.width = w;
-    const md = canvas.getAttribute('data-md');
-    if (md !== null) img.setAttribute('data-md', md); // the copy-as-Markdown breadcrumb
-    canvas.replaceWith(img);
-  } catch {
-    /* a tainted or empty canvas stays */
-  }
 }
 
 /** Fill `.orz-toc` with the headings of the pages and their page numbers. */
@@ -235,12 +210,13 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
   try {
     // 3. enhancement, images, stylesheets, fonts
     const root = (stage.querySelector('.orz-doc') as HTMLElement | null) ?? stage;
-    await within(enhanceDocument(root, { scheme: 'light', ...(NONCE ? { nonce: NONCE } : {}) }), 20_000).catch(() => undefined);
+    // static (print): everything drawn, then each drawn chart / SMILES canvas an image (Paged.js re-parses the
+    // HTML); the orz runtime installed too (copy-as-Markdown on the pages, step 6)
+    await within(enhanceDocument(root, { scheme: 'light', static: true, runtime: true, ...(NONCE ? { nonce: NONCE } : {}) }), 20_000).catch(() => undefined);
     await within(Promise.all(Array.from(stage.querySelectorAll('img')).map((i) => i.decode().catch(() => undefined))), 6000);
     await stylesheetsSettled(8000);
     void stage.offsetHeight; // layout: the fonts the content uses start loading
     if (document.fonts?.ready) await within(document.fonts.ready, 8000).catch(() => undefined);
-    stage.querySelectorAll('canvas').forEach((c) => freezeCanvas(c as HTMLCanvasElement));
     if (!isCurrent()) return { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices, ms: performance.now() - t0 };
 
     // 4. Paged.js into the off-screen buffer

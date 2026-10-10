@@ -26,7 +26,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 
 | ID | Claim | Oracle |
 |---|---|---|
-| B.1 | The package depends on orz-markdown `^2.2.0` and pagedjs `0.4.3` (pinned exactly: the two-column handler is tested against it) and builds without shims or aliases: no `build/shims`, no `path-browserify`, no injected `process`, no version `define`; the orz-markdown version comes from `orz-markdown/version` and orz-paged's from `src/version.ts`, never from a `package.json` walk; the engine bundles for the browser as it is. | conformance |
+| B.1 | The package depends on orz-markdown `^2.3.0` and pagedjs `0.4.3` (pinned exactly: the two-column handler is tested against it) and builds without shims or aliases: no `build/shims`, no `path-browserify`, no injected `process`, no version `define`; the orz-markdown version comes from `orz-markdown/version` and orz-paged's from `src/version.ts`, never from a `package.json` walk; the engine bundles for the browser as it is. | conformance |
 | B.2 | There is one paged theme list (`src/themes.ts`): the stylesheets in `assets/themes` plus `none`, the same ids as the theme fonts, and the default theme is one of them. | conformance |
 | B.3 | `VERSION` (src/version.ts, the shell version every file records) equals the package version. | conformance |
 | B.4 | No escape helper is copied into the TypeScript sources: they use the kit's `escapeHtml` / `escapeAttr` (`orz-markdown/carrier/read`). | conformance |
@@ -71,7 +71,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | A.5 | The envelope is the kit's: `#orz-shell` is `{kind: "paged", format: 1, shell: VERSION, delivery}`, the generator is `orz-paged VERSION`, `data-orz-kind="paged"`, the agent banner names `#orz-src` and the orz-paged skill, `#orz-includes` holds exactly the includes given, `<title>`, `lang` and `#orz-meta` come from the header, and the output equals `assembleEnvelope` with this shell's parts — head: viewport, colour scheme, `#orz-katex`, `#orz-hljs` and the presentation's webfont links (written `media="not all"`: switched on by the read view); body: `#orz-view` > `#orz-pages` (holding one constant fallback line of the delivery), `#orz-chrome`, `#orz-engine`. | scenario |
 | A.6 | Delivery: inline puts the given engine source in the file once; CDN references `https://cdn.jsdelivr.net/npm/orz-paged-browser@<VERSION>/orz-paged.browser.js` (the kit's `bundleUrl`) and holds no engine code. | scenario |
 | A.7 | `assemble` refuses (throws) a text with NUL or a lone surrogate, a header `format` above 1, an unknown delivery, inline delivery without an engine source, and an engine source that is not script-safe. | scenario |
-| A.8 | The assembler modules (`assemble`, `inspect`, `legacy`, `themes`, `version`, `starters`, `sha256`, `doc/settings`, `doc/templates`) import no Node built-in: they bundle for `platform: browser` with nothing external. | conformance |
+| A.8 | The assembler modules (`assemble`, `inspect`, `legacy`, `themes`, `version`, `starters`, `doc/settings`, `doc/templates`) import no Node built-in: they bundle for `platform: browser` with nothing external. | conformance |
 | A.9 | Browser parity: the assembler bundled for the browser — and the real bundle's `OrzCarrier.assemble` (inline with the bundle given and defaulted, cdn, with and without includes) — run in real Chrome writes byte-identical files to Node for every paged corpus file, template and hazard text. | real |
 | A.10 | `extract` is the kit's own function; `readDocument` is the kit's with this carrier's default kind (`opts.kind`, else the file name's, else the header `carrier`, else `paged`). | conformance |
 | A.11 | The title (FC-18 §8.1, paged): the header `title`, else the first top-level level-1 heading, else the `title` (else `text`) of strictly the first `*-title` element, else `Untitled` — for every corpus document as the manifest derives it. | corpus |
@@ -155,11 +155,11 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 
 | ID | Claim | Oracle |
 |---|---|---|
-| K.1 | At rest the page shows one control (the pencil); its list: Edit, Print, Save, Download a copy, New document, Save as new copy, Theme, Page size, Template, Page numbers, Number style, New document from template…, Version… (only while the document offers versions, following its text), Page zoom…. | real |
+| K.1 | At rest the page shows one control (the pencil); its list: Edit, Print, Save, Download a copy, New document, Save as new copy, Theme, Page size, Template, Page numbers, Number style, Version (only while the document offers versions, following its text), New document from template…, Page zoom. | real |
 | K.2 | A setting writes the header (one undoable edit per choice, the document unsaved) and the pages follow (a page size change re-paginates); the saved file is the text's assembly. | real |
-| K.3 | New document from template… lists the 12 templates and saves a fresh file of the chosen one through the kit's New document (its skeleton via `newDocument`, `carrier: paged`, a new uid, lint clean, the opened file's delivery); the current text is never replaced. | real |
-| K.4 | Version… offers each choice key's values and "(not set)"; choosing writes the header's `dynamic_choices` (one undoable edit) and the pages follow. | real |
-| K.5 | Page zoom… (Automatic, Fit width, 100 %, 125 %) is a reader preference by uid: the pages scale, the document stays saved and untouched, the choice persists across a reload, Automatic shrinks a page to a narrow window; a save writes the text's assembly only. | real |
+| K.3 | New document from template… is a submenu of the 12 templates (the kit's action `items`) and saves a fresh file of the chosen one through the kit's New document (`app.newDocument({ text })`; its skeleton via `newDocument`, `carrier: paged`, a new uid, lint clean, the opened file's delivery); the current text is never replaced. | real |
+| K.4 | Version (a kit setting: `choicesFor`, `apply` writing the block value, `hidden` while the document defines no choices) offers each choice key's values and "(not set)"; choosing writes the header's `dynamic_choices` (one undoable edit) and the pages follow. | real |
+| K.5 | Page zoom (Automatic, Fit width, 100 %, 125 %; the kit's `readerControls.choices`, key `pageZoom`) is a reader preference by uid (`reader.pageZoom`): the pages scale, the document stays saved and untouched, the choice persists across a reload, Automatic shrinks a page to a narrow window; a save writes the text's assembly only. | real |
 
 ## E — the editor with a Paged.js preview (FC-19 §8.4)
 
@@ -178,6 +178,11 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | X.3 | `docs/embedding.md` covers install and import (ESM and IIFE), every export (with `newDocument`), every hook, the Paged.js preview frame, the CSP recipe (fonts and style attributes included), `renderPreview` not paginated, and versions. | conformance |
 
 ## T — the CLI (FC-10, REBUILD §3b)
+
+Since 1.0 the overwrite guards, known states, pair records, backups, atomic
+writes, includes, reason codes and `next` are orz-markdown's CLI core
+(`orz-markdown/carrier/node`, 2.3.0, its claims N.1–N.9) bound to this tool;
+these claims hold for the paged CLI end to end.
 
 | ID | Claim | Oracle |
 |---|---|---|
@@ -208,7 +213,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 
 | ID | Claim | Oracle |
 |---|---|---|
-| H.1 | orz-markdown's carrier conformance harness (`registerConformance`, no `allowSkips`) passes against the real carrier (two lanes: paged pages paginate, inline files are ~2 MB): all 46 checks of `CHECK_IDS` (C.save.conflict among them) ran in real Chrome and passed, `C.update.from-previous` being not applicable (`firstRelease`: 1.0 is the first release of text format 1 and of `release.json`; 0.x files are upgraded, not updated — owner decision 1), and the final `[conformant]` test is green. No local adaptation: the harness gets the plain browser (orz-markdown 2.2.0 counts only bundle requests, H.7, so the shell head's own stylesheets need no workaround). | conformance |
+| H.1 | orz-markdown's carrier conformance harness (`registerConformance`, no `allowSkips`) passes against the real carrier (the harness's default lanes; paged pages paginate, inline files are ~2 MB): all 46 checks of `CHECK_IDS` (C.save.conflict among them) ran in real Chrome and passed, `C.update.from-previous` being not applicable (`firstRelease`: 1.0 is the first release of text format 1 and of `release.json`; 0.x files are upgraded, not updated — owner decision 1), and the final `[conformant]` test is green. No local adaptation: the harness gets the plain browser (orz-markdown 2.2.0 counts only bundle requests, H.7, so the shell head's own stylesheets need no workaround). | conformance |
 | H.2 | The harness target is the real carrier: `bundle`/`release` are the library's verified `dist/` engine (= the build = `browser/`), `assemble` is the Node library's, `create` is `newDocument`, `editor` is the opened file's own editor (`OrzCarrier.standalone.edit()`), `protocols` both, `next` this build with the patch number bumped (identical but for its version), `firstRelease: true`, no `previous`. | conformance |
 
 ## D — docs and examples (rebuild step 7)

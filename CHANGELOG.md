@@ -8,7 +8,7 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 ### 1.0.0 (prepared on branch `rebuild/1.0`)
 
 A rebuild on the orz-markdown carrier kit (orz text format 1), the shape of
-orz-mdhtml 1.0 with pages added. Requires `orz-markdown ^2.2.0`; Paged.js
+orz-mdhtml 1.0 with pages added. Requires `orz-markdown ^2.3.0`; Paged.js
 pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
 
 #### Breaking
@@ -45,10 +45,11 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
   re-renders are double-buffered (never an empty view).
 - **One quiet control**, the pencil: Edit, **Print**, Save, Download a copy,
   New document, Save as new copy, the settings Theme, Page size, Template,
-  Page numbers, Number style (header edits, undoable), **New document from
-  template…** (a fresh file; the current text is never replaced),
-  **Version…** (the header's `dynamic_choices`) and **Page zoom…** (Automatic,
-  Fit width, 100 %, 125 %; the reader's, never saved).
+  Page numbers, Number style, **Version** (header edits, undoable; Version
+  writes the header's `dynamic_choices`, offered while the document defines
+  choices), **New document from template…** (a submenu of the 12 templates; a
+  fresh file, the current text is never replaced) and **Page zoom** (Automatic, Fit
+  width, 100 %, 125 %; the reader's, never saved).
 - **Editor** (the kit's editor shell) with a Paged.js page preview in a
   sandboxed frame; the paged settings and Version in its bar.
 - Saves write `assemble(text)`, never the laid-out pages; a save over a file
@@ -74,7 +75,9 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
   everywhere with stable `reason` codes and `next`, the `sha256` /
   `--replaces` compare-and-swap, known earlier states (git, the CLI's pair
   record), backups `<file>~` / `~1`…, overwrite guards, `--resolve-includes`,
-  the delivery kept on re-assembly — orz-mdhtml 1.0's rules.
+  the delivery kept on re-assembly — orz-mdhtml 1.0's rules, now
+  orz-markdown's shared CLI core (`orz-markdown/carrier/node`, 2.3.0) bound
+  to this tool.
 - The Node library (`assemble`, `extract`, `readDocument`, `newDocument`,
   `upgrade`, `inspect`, templates, themes, settings) inlines this release's
   verified engine: callers pass no engine source.
@@ -85,6 +88,16 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
   the corpus round trip, the CLI spawned with golden outputs and the "follow
   every next verbatim" matrix, real Chrome for pages, print, columns, themes
   and the ruled paper; examples kept fresh by a test.
+- Built on orz-markdown 2.3.0's kit additions (no local workaround left):
+  action submenus (New document from template…, `app.newDocument({ text })`),
+  a setting writing a block value with `choicesFor` / `apply` / `hidden`
+  (Version, in the handle's list and the editor's toolbar), a reader control
+  with named choices (Page zoom, the preference `reader.pageZoom`),
+  `enhanceDocument(root, { static: true })` (charts and SMILES as images for
+  pagination), `normalizeHeader` (the 0.x header merge), `lintHeader` /
+  `readDocument` with the print themes (a header `theme` outside them is the
+  warning `unknown-theme`), the kit's `sha256`, `readLegacyIsland`, the
+  `inspect` core and the CLI core.
 
 ## [0.7.3] — 2026-07-17
 

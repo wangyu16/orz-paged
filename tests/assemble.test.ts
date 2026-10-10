@@ -208,7 +208,7 @@ describe('the envelope and the shell parts', () => {
 
 // ── isomorphic: no Node built-ins, and the same bytes in real Chrome ────────
 
-const MODULES = ['src/assemble.ts', 'src/inspect.ts', 'src/legacy.ts', 'src/themes.ts', 'src/version.ts', 'src/starters.ts', 'src/sha256.ts', 'src/doc/settings.ts', 'src/doc/templates.ts'];
+const MODULES = ['src/assemble.ts', 'src/inspect.ts', 'src/legacy.ts', 'src/themes.ts', 'src/version.ts', 'src/starters.ts', 'src/doc/settings.ts', 'src/doc/templates.ts'];
 
 async function browserBundle(): Promise<string> {
   const { build } = await import('esbuild');

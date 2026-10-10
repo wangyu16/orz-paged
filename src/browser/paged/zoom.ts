@@ -6,41 +6,24 @@
  * (`--orz-page-zoom` on `#orz-pages`, CSS `zoom` on `.pagedjs_pages`); the
  * pagination is measured unscaled and printing ignores it.
  *
- * KIT GAP (orz-markdown 2.3.0): the kit's `readerControls` offers only
- * `fontScale` (a "Text size A− 100% A+" row). The page zoom needs a reader
- * control with named choices (Fit width / 100 % / 125 %) and the kit's
- * reader-preference schema has no `pageZoom`; both are local here (a kind
- * menu, src/browser/paged/kind-menu.ts, and a preference store with this
- * kind's own schema in the kit's namespace).
+ * The kit offers it as a reader control with named choices
+ * (`readerControls.choices`, key `pageZoom`, src/browser/paged/kind.ts): it
+ * stores the choice per uid and calls the read view's `setZoom`.
  */
-import { createPreferenceStore, type PreferenceStore } from 'orz-markdown/carrier/shell';
 
 /** The reader's page zoom: `auto` (the default: 100 %, shrunk to fit a narrow window), fit width, 100 %, 125 %. */
 export type PageZoom = 'auto' | 'fit' | '100' | '125';
 
-/** The choices the reader is offered (`auto` is "100 %" until the window is narrower than a page). */
-export const PAGE_ZOOMS: ReadonlyArray<{ value: Exclude<PageZoom, 'auto'>; label: string }> = Object.freeze([
-  { value: 'fit', label: 'Fit width' },
-  { value: '100', label: '100%' },
-  { value: '125', label: '125%' },
+/** The choices the reader is offered, `auto` first (the default: "100%" until the window is narrower than a page). */
+export const PAGE_ZOOMS: ReadonlyArray<{ id: PageZoom; label: string }> = Object.freeze([
+  { id: 'auto', label: 'Automatic' },
+  { id: 'fit', label: 'Fit width' },
+  { id: '100', label: '100%' },
+  { id: '125', label: '125%' },
 ]);
 
-const isZoom = (v: unknown): v is PageZoom => v === 'auto' || v === 'fit' || v === '100' || v === '125';
-
-/** KIT GAP: this kind's reader preference (the kit's store, its namespace `orz-pref:<uid>:`, this schema). */
-export const ZOOM_SCHEMA = Object.freeze({ pageZoom: { default: 'auto' as PageZoom, valid: isZoom } });
-
-export type ZoomStore = PreferenceStore<typeof ZOOM_SCHEMA>;
-
-/** The page zoom store of a document (by uid), or null when the page has no usable storage. */
-export function zoomStore(uid: string | undefined, win: Window): ZoomStore | null {
-  try {
-    const storage = win.localStorage;
-    return createPreferenceStore(uid, storage ?? undefined, ZOOM_SCHEMA);
-  } catch {
-    return null;
-  }
-}
+/** True for a page zoom id. */
+export const isPageZoom = (v: unknown): v is PageZoom => v === 'auto' || v === 'fit' || v === '100' || v === '125';
 
 /** The scale a zoom choice gives pages `pageWidth` wide in a window `avail` wide. */
 export function zoomScale(zoom: PageZoom, pageWidth: number, avail: number): number {

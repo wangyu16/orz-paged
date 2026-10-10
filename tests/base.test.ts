@@ -1,5 +1,5 @@
 /**
- * Rebuild step 1 — the base: orz-markdown ^2.2.0 without shims, one theme
+ * Rebuild step 1 — the base: orz-markdown ^2.3.0 without shims, one theme
  * list, the version constant, no copied escape helpers, the test setup
  * (claims B.1–B.5).
  */
@@ -15,8 +15,8 @@ const sources = (dir: string): string[] =>
   (readdirSync(dir, { recursive: true }) as string[]).filter((f) => /\.(ts|js|cjs|mjs)$/.test(f)).map((f) => `${dir}/${f}`);
 
 describe('base', () => {
-  it('[B.1] depends on orz-markdown ^2.2.0 and pagedjs 0.4.3 with no shims, aliases, injected globals or package.json walk', async () => {
-    expect(pkg.dependencies['orz-markdown']).toBe('^2.2.0');
+  it('[B.1] depends on orz-markdown ^2.3.0 and pagedjs 0.4.3 with no shims, aliases, injected globals or package.json walk', async () => {
+    expect(pkg.dependencies['orz-markdown']).toBe('^2.3.0');
     expect(pkg.dependencies['pagedjs']).toBe('0.4.3'); // pinned exactly: the two-column handler is tested against it
     expect(existsSync('build/shims')).toBe(false);
     expect({ ...pkg.dependencies, ...pkg.devDependencies }).not.toHaveProperty('path-browserify');

@@ -198,15 +198,20 @@ export interface StandaloneFile {
   /** Save the document (the editor's save while editing). Never rejects. */
   save(): Promise<StandaloneSaveOutcome>;
   download(): Promise<StandaloneSaveOutcome>;
-  newDocument(): Promise<StandaloneSaveOutcome>;
+  /** Save a new document as a new file (default: the `note` template's text; `text` a given one, `name` the suggested file name). */
+  newDocument(options?: { text?: string; name?: string }): Promise<StandaloneSaveOutcome>;
   saveAsCopy(): Promise<StandaloneSaveOutcome>;
+  /** The reader's choice of a reader control (`pageZoom`: `auto` | `fit` | `100` | `125`), or null. */
+  readerChoice(key: string): string | null;
+  /** Choose a reader control's choice (stored per uid, applied to the pages; the document is untouched). */
+  setReaderChoice(key: string, id: string | null): string | null;
   /** Show a toast in the chrome. */
   toast(message: string, tone?: 'info' | 'success' | 'warning' | 'error'): void;
   /** True while a quiet update runs (the document is read-only). */
   readonly updating: boolean;
   /** Resolves when the first read view is in the page (its pages laid out). */
   readonly ready: Promise<void>;
-  /** The handle's list of operations (the pencil's: Edit, Print, Save, …, the settings, New document from template…, Version…, Page zoom…). */
+  /** The handle's list of operations (the pencil's: Edit, Print, Save, …, the settings with Version, New document from template…, Page zoom). */
   readonly menu: { open(): void; close(): void; isOpen(): boolean };
 }
 

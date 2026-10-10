@@ -4,7 +4,7 @@
  * view (Paged.js pages in the page: page size, page furniture, TOC page
  * numbers, front matter, print, the double-buffered re-render), the handle and
  * its paged items (Print, the settings, New document from template…,
- * Version…, Page zoom…), and the editor with its Paged.js preview frame.
+ * Version, Page zoom), and the editor with its Paged.js preview frame.
  * Files are assembled with the real bundle and opened over `file:` (and
  * http:); jsDelivr is routed to local files; the picker returns real OPFS
  * handles.
@@ -221,18 +221,18 @@ chrome('the read view: Paged.js pages in the page (real Chrome)', () => {
 });
 
 chrome('the handle and its paged items (real Chrome)', () => {
-  it('[K.1] one control at rest (the pencil); its list: Edit, Print, Save, Download a copy, New document, Save as new copy, the settings, New document from template…, Version… only while the document offers versions, Page zoom…', async () => {
+  it('[K.1] one control at rest (the pencil); its list: Edit, Print, Save, Download a copy, New document, Save as new copy, the settings (Version only while the document offers versions), New document from template…, Page zoom', async () => {
     const ctx = await context();
     const exam = await openFile(ctx, 'handle-exam.paged.html', await assembleReal(TEMPLATE_TEXTS['exam-section']!));
     const shown = await exam.evaluate(`Array.from(${APP}.root.querySelectorAll('button, a')).filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute('aria-label'))`);
     expect(shown).toEqual(['Edit and more']);
-    expect(await handleItems(exam)).toEqual(['Edit', 'Print', 'Save', 'Download a copy', 'New document', 'Save as new copy', 'Theme', 'Page size', 'Template', 'Page numbers', 'Number style', 'New document from template…', 'Version…', 'Page zoom…']);
+    expect(await handleItems(exam)).toEqual(['Edit', 'Print', 'Save', 'Download a copy', 'New document', 'Save as new copy', 'Theme', 'Page size', 'Template', 'Page numbers', 'Number style', 'Version', 'New document from template…', 'Page zoom']);
     const note = await openFile(ctx, 'handle-note.paged.html', await assembleReal(TEMPLATE_TEXTS['note']!));
-    expect(await handleItems(note)).not.toContain('Version…');
+    expect(await handleItems(note)).not.toContain('Version');
     // the version item follows the document: a header with choices brings it
     await note.evaluate(`${APP}.setSetting({ dynamic_choices: { multiline: 'audience: student' } })`);
     await pagesIdle(note);
-    expect(await handleItems(note)).toContain('Version…');
+    expect(await handleItems(note)).toContain('Version');
     await ctx.close();
   });
 
@@ -274,15 +274,15 @@ chrome('the handle and its paged items (real Chrome)', () => {
     await ctx.close();
   });
 
-  it('[K.3] New document from template… lists the 12 templates and saves a fresh file of the chosen one (its skeleton, carrier paged, a new uid, lint clean, the file\'s delivery) — the current text is never replaced', async () => {
+  it('[K.3] New document from template… is a submenu of the 12 templates (the kit\'s action items) and saves a fresh file of the chosen one (its skeleton, carrier paged, a new uid, lint clean, the file\'s delivery) — the current text is never replaced', async () => {
     const ctx = await context();
     const text = TEMPLATE_TEXTS['note']!;
     for (const delivery of ['inline', 'cdn'] as const) {
       const page = await openFile(ctx, `from-${delivery}.paged.html`, await assembleReal(text, { delivery }));
       await chooseInHandle(page, 'New document from template…');
-      const items = await page.evaluate(`Array.from(${APP}.root.querySelectorAll('[data-orz-kind-menu] .orz-menu__item')).map((b) => b.textContent)`) as string[];
+      const items = await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-handle__sub .orz-handle__item')).map((b) => (b.querySelector('.orz-handle__label') || b).textContent)`) as string[];
       expect(items).toEqual(['Article — title page', 'Article — title section', 'Report — title page', 'Report — title section', 'Exam — cover page', 'Exam — title section', 'Letter', 'Cover letter', 'CV — classic', 'CV — modern', 'CV — elegant', 'Note']);
-      await page.evaluate(`Array.from(${APP}.root.querySelectorAll('[data-orz-kind-menu] .orz-menu__item')).find((b) => b.textContent === 'Exam — title section').click()`);
+      await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-handle__sub .orz-handle__item')).find((b) => (b.querySelector('.orz-handle__label') || b).textContent === 'Exam — title section').click()`);
       await page.waitForFunction(() => (window as unknown as { __orzPicks: unknown[] }).__orzPicks.length === 1);
       expect((await picks(page))[0]!.suggestedName).toBe('Untitled.paged.html');
       let made: string | null = null;
@@ -307,14 +307,14 @@ chrome('the handle and its paged items (real Chrome)', () => {
     await ctx.close();
   });
 
-  it('[K.4] Version… writes the header\'s dynamic_choices (one undoable edit) and the pages follow; "(not set)" removes the key', async () => {
+  it('[K.4] Version (a kit setting with choicesFor / apply / hidden) writes the header\'s dynamic_choices (one undoable edit) and the pages follow; "(not set)" removes the key', async () => {
     const ctx = await context();
     const text = TEMPLATE_TEXTS['exam-section']!;
     const page = await openFile(ctx, 'version-pick.paged.html', await assembleReal(text));
-    await chooseInHandle(page, 'Version…');
-    const items = await page.evaluate(`Array.from(${APP}.root.querySelectorAll('[data-orz-kind-menu] .orz-menu__item')).map((b) => [b.textContent, b.getAttribute('aria-checked')])`);
+    await chooseInHandle(page, 'Version');
+    const items = await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-handle__sub .orz-handle__item')).map((b) => [(b.querySelector('.orz-handle__label') || b).textContent, b.getAttribute('aria-checked')])`);
     expect(items).toEqual([['answer key: hide', 'true'], ['answer key: show', 'false'], ['answer key: (not set)', 'false']]);
-    await page.evaluate(`Array.from(${APP}.root.querySelectorAll('[data-orz-kind-menu] .orz-menu__item')).find((b) => b.textContent === 'answer key: show').click()`);
+    await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-handle__sub .orz-handle__item')).find((b) => (b.querySelector('.orz-handle__label') || b).textContent === 'answer key: show').click()`);
     const shown = await page.evaluate(`${APP}.getText()`) as string;
     expect(shown).toBe(editHeader(text, { dynamic_choices: { multiline: 'answer-key: show' } }));
     expect(await page.evaluate(`${APP}.isDirty()`)).toBe(true);
@@ -327,21 +327,21 @@ chrome('the handle and its paged items (real Chrome)', () => {
     await ctx.close();
   });
 
-  it('[K.5] Page zoom… is a reader preference: the pages scale (Fit width / 100 % / 125 %), the document stays saved, the choice persists by uid across a reload and never enters the file', async () => {
+  it('[K.5] Page zoom is a reader preference (the kit\'s readerControls.choices, key pageZoom): the pages scale (Fit width / 100 % / 125 %), the document stays saved, the choice persists by uid across a reload and never enters the file', async () => {
     const ctx = await context();
     const text = newDocument({ template: 'note', uid: 'doc-zoomtest0001' });
     const html = await assembleReal(text);
     const page = await openFile(ctx, 'zoom.paged.html', html);
     const zoom = (): Promise<string> => page.evaluate(() => getComputedStyle(document.querySelector('#orz-pages .pagedjs_pages')!).zoom);
     expect(await zoom()).toBe('1');
-    await chooseInHandle(page, 'Page zoom…');
-    const items = await page.evaluate(`Array.from(${APP}.root.querySelectorAll('[data-orz-kind-menu] .orz-menu__item')).map((b) => [b.textContent, b.getAttribute('aria-checked')])`);
+    await chooseInHandle(page, 'Page zoom');
+    const items = await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-handle__sub .orz-handle__item')).map((b) => [(b.querySelector('.orz-handle__label') || b).textContent, b.getAttribute('aria-checked')])`);
     expect(items).toEqual([['Automatic', 'true'], ['Fit width', 'false'], ['100%', 'false'], ['125%', 'false']]);
-    await page.evaluate(`Array.from(${APP}.root.querySelectorAll('[data-orz-kind-menu] .orz-menu__item')).find((b) => b.textContent === '125%').click()`);
+    await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-handle__sub .orz-handle__item')).find((b) => (b.querySelector('.orz-handle__label') || b).textContent === '125%').click()`);
     expect(await zoom()).toBe('1.25');
     expect(await page.evaluate(`${APP}.isDirty()`)).toBe(false);
     expect(await page.evaluate(`${APP}.getText()`)).toBe(text);
-    expect(await page.evaluate(() => localStorage.getItem('orz-pref:doc-zoomtest0001:pageZoom'))).toBe('"125"');
+    expect(await page.evaluate(() => localStorage.getItem('orz-pref:doc-zoomtest0001:reader.pageZoom'))).toBe('"125"');
     await page.reload();
     await bootDone(page);
     await pagesIdle(page);

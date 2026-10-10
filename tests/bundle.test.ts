@@ -151,7 +151,7 @@ describe('the bundle and its package (Node)', () => {
     expect(entry.indexOf(capture)).toBeGreaterThan(0);
     expect(entry.indexOf('startCarrier(PAGED_KIND)')).toBeGreaterThan(entry.indexOf(capture));
     const kind = readFileSync('src/browser/paged/kind.ts', 'utf8');
-    for (const member of ['readDocument', 'renderPreview', 'extract', 'createReadView', 'settings: PAGED_SETTINGS', 'actions: PAGED_ACTIONS', "repo: 'https://github.com/wangyu16/orz-paged'", 'newDocument({ template: pendingTemplate() })']) expect(kind, member).toContain(member);
+    for (const member of ['readDocument', 'renderPreview', 'extract', 'createReadView', 'settings: PAGED_SETTINGS', 'actions: PAGED_ACTIONS', "repo: 'https://github.com/wangyu16/orz-paged'", 'newDocument({ template: DEFAULT_TEMPLATE })', 'readerControls', "key: 'pageZoom'"]) expect(kind, member).toContain(member);
     const carrier = readFileSync('src/browser/carrier.ts', 'utf8');
     for (const k of ['attachSettings(shell, PAGED_SETTINGS', 'followPresentation(shell, pagedPreviewPresentation)', 'frameDocument: pagedFrameDocument', 'diff: false']) expect(carrier, k).toContain(k);
     // the new code depends on none of the 0.x shell (template.ts, app.js, browser-entry.ts, paged.ts)
@@ -159,11 +159,12 @@ describe('the bundle and its package (Node)', () => {
       const s = readFileSync(f, 'utf8');
       expect(s, f).not.toMatch(/from '\.\.?\/(\.\.\/)?(template|browser-entry|paged)\.js'|assets\/app\.js|__ORZ_PAGED__|window\.orzpaged/);
     }
-    for (const f of ['kind', 'read-view', 'render', 'settings', 'actions', 'preview', 'versions', 'zoom', 'kind-menu', 'themes']) {
+    for (const f of ['kind', 'read-view', 'render', 'settings', 'actions', 'preview', 'versions', 'zoom', 'themes']) {
       const s = readFileSync(`src/browser/paged/${f}.ts`, 'utf8');
       expect(s, f).not.toMatch(/from '\.\.\/\.\.\/(template|browser-entry|paged)\.js'/);
     }
     expect(existsSync('src/browser/paged/kind.ts')).toBe(true);
+    expect(existsSync('src/browser/paged/kind-menu.ts')).toBe(false); // the kit's submenus (2.3.0) replaced it
   });
 });
 

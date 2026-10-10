@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { lintHeader, readHeader, UID_PATTERN } from 'orz-markdown/carrier';
 import { assemble, extract, inspect, readDocument, readLegacy, upgrade, DEFAULT_TEMPLATE, DEFAULT_THEME, ORZ_MARKDOWN_VERSION, TEMPLATES, THEME_INFO, VERSION } from '../src/lib.js';
 import { storedText } from '../src/assemble.js';
-import { sha256 } from '../src/sha256.js';
+import { sha256 } from 'orz-markdown/carrier';
 import { createHash } from 'node:crypto';
 import { corpus, HAZARDS, LEGACY_FILES, read, withLegacySource } from './helpers.js';
 

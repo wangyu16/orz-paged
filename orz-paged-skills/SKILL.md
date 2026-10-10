@@ -377,7 +377,7 @@ dynamic_choices: |
   answer-key: hide
 ```
 
-Set `answer-key: show` (and assemble, or choose *Version…* in the file's
+Set `answer-key: show` (and assemble, or choose *Version* in the file's
 pencil list or editor bar — a header edit) for the instructor key. Define
 your own keys (`audience: student`) and tag HTML in the body
 (`<div data-show-when="audience=teacher">…</div>`).
@@ -492,8 +492,8 @@ the host protocols (orz-markdown `spec/host-protocols.md`).
 
 The pages in the page, and ONE control: a pencil at the bottom-left (click:
 Edit; hover or tap: Edit, Print, Save, Download a copy, New document, Save as
-new copy, Theme, Page size, Template, Page numbers, Number style, New document
-from template…, Version…, Page zoom…). Settings write the header (undoable,
+new copy, Theme, Page size, Template, Page numbers, Number style, Version, New
+document from template…, Page zoom). Settings write the header (undoable,
 unsaved until Save); *Page zoom* is the reader's and never saved. **Edit**
 (Cmd/Ctrl+E): editor + live page preview. **Save** (Cmd/Ctrl+S) writes
 `assemble(text)` in place in Chromium, downloads elsewhere; a save over a file
@@ -507,7 +507,7 @@ changed on disk asks first. A quiet, once-a-day update offer on local files.
 - `--force` keeps what it replaces as `<file>~` (or `~1`, `~2`…); still,
   compare before you force. The pair records live in
   `$XDG_CACHE_HOME/orz-paged/` (else `~/.cache/orz-paged/`).
-- Package: `orz-paged` 1.x depends on `orz-markdown ^2.2.0` and pins Paged.js
+- Package: `orz-paged` 1.x depends on `orz-markdown ^2.3.0` and pins Paged.js
   0.4.3; files record the shell version that wrote them.
 - Security: a `.paged.html` runs the code inside it — treat files like
   programs and open only trusted ones.

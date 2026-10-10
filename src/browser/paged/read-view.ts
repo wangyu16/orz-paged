@@ -20,13 +20,13 @@
  * `<head>` (so Paged.js' and the theme's rules win on a tie): the assembled
  * file's bytes do not depend on it.
  */
-import { readDocument, readHeader, UID_PATTERN } from 'orz-markdown/carrier';
+import { readDocument } from 'orz-markdown/carrier';
 import type { CarrierReadView, ReadViewContext } from 'orz-markdown/carrier/app';
 import type { PagedRuntime, PaginateResult } from '../../paged/runtime.js';
 import { PAGES_ID, presentationOf } from '../../presentation.js';
 import { PAGED_RUNTIME } from '../runtime-source.js';
 import { renderPaged } from './render.js';
-import { applyZoom, zoomStore, type PageZoom, type ZoomStore } from './zoom.js';
+import { applyZoom, type PageZoom } from './zoom.js';
 
 /** The read view's own stylesheet (installed at run time, `#orz-paged-view-css`). */
 export const VIEW_CSS = `
@@ -56,7 +56,7 @@ export interface PagedReadView extends CarrierReadView {
   idle(): Promise<void>;
   /** The last shown render (pages, the `.cols` outcomes, the dynamic choices the content uses), or null. */
   lastResult(): PaginateResult | null;
-  /** The reader's page zoom (a preference by uid). */
+  /** The reader's page zoom (the kit stores it per uid as the reader preference `reader.pageZoom` and sets it). */
   zoom(): PageZoom;
   setZoom(zoom: PageZoom): void;
 }
@@ -108,22 +108,8 @@ export function createReadView(doc: Document): PagedReadView {
   let destroyed = false;
   let running: Promise<void> = Promise.resolve();
   let last: PaginateResult | null = null;
-  let store: ZoomStore | null = null;
-  let storeUid: string | undefined | null = null;
   let zoom: PageZoom = 'auto';
 
-  /** The page zoom preference of the document's uid (read again when the uid changes). */
-  const loadZoom = (text: string): void => {
-    let uid: string | undefined;
-    try {
-      const u = readHeader(text)?.fields['uid']?.trim();
-      uid = u && UID_PATTERN.test(u) ? u : undefined;
-    } catch { uid = undefined; }
-    if (uid === storeUid && store) return;
-    storeUid = uid;
-    store = zoomStore(uid, win);
-    zoom = store ? store.get('pageZoom') : 'auto';
-  };
   const reZoom = (): void => { if (!destroyed) applyZoom(pages!, zoom); };
   let resizeTimer: ReturnType<typeof setTimeout> | undefined;
   const onResize = (): void => {
@@ -158,7 +144,6 @@ export function createReadView(doc: Document): PagedReadView {
     render(text, ctx = {}) {
       const mine = ++generation;
       present(text);
-      loadZoom(text);
       const run = (async () => {
         const input = await renderPaged(text, {
           ...(ctx.includes ? { includes: ctx.includes } : {}),
@@ -184,10 +169,6 @@ export function createReadView(doc: Document): PagedReadView {
     zoom: () => zoom,
     setZoom(z) {
       zoom = z;
-      if (store) {
-        if (z === 'auto') store.remove('pageZoom');
-        else store.set('pageZoom', z);
-      }
       reZoom();
     },
     destroy() {

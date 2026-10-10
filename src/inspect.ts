@@ -6,16 +6,14 @@
  *
  * Isomorphic and deterministic: no Node built-ins, no clock, no randomness.
  *
- * KIT GAP: the report shape, the structure checks and the twin check are
- * orz-mdhtml's (src/inspect.ts) with the kind's names; a kind-parameterised
- * `inspect` core in orz-markdown/carrier (2.3.0) would leave each carrier only
- * its legacy reader and advice wording.
+ * The kind-independent core — telling HTML from a text, the structure checks,
+ * the twin check, the SHA-256 — is orz-markdown's (`orz-markdown/carrier`,
+ * 2.3.0); this module keeps the report's shape, the 0.x reader and the advice.
  */
-import { kindFromFilename, type Kind, type Lint } from 'orz-markdown/carrier';
+import { assembledStructure, generatorOf, kindFromFilename, looksHtml, sha256, shellWord as sh, twinCheck as kitTwinCheck, type Kind, type Lint } from 'orz-markdown/carrier';
 import { compareSemver } from 'orz-markdown/carrier/shell';
-import { cdnBundleUrl, extract, FORMATS, readDocument, storedText } from './assemble.js';
-import { generatorOf, headerFromLegacySource, readLegacy } from './legacy.js';
-import { sha256 } from './sha256.js';
+import { cdnBundleUrl, extract, FORMATS, readDocument } from './assemble.js';
+import { headerFromLegacySource, readLegacy } from './legacy.js';
 import { VERSION } from './version.js';
 
 /** The report {@link inspect} returns (plain JSON data). */
@@ -95,12 +93,6 @@ export interface InspectOptions {
   /** This release's browser bundle (the Node library passes it): an inline file of this shell version is compared with it (`checks.engine`). */
   engineSource?: string;
 }
-
-/** HTML is recognised by its start: an optional BOM and whitespace, then `<!doctype html` or `<html`. */
-const looksHtml = (s: string): boolean => /^\uFEFF?\s*(?:<!doctype\s+html|<html[\s>])/i.test(s.slice(0, 1024));
-
-/** A file name as a shell word (quoted when it holds anything but safe characters). */
-const sh = (name: string): string => (/^[\w./@%+=:,-]+$/.test(name) ? name : `'${name.replace(/'/g, `'\\''`)}'`);
 
 /** `x.paged.md` → `x.browser.paged.md` (where a file's other text goes for a merge). */
 export const browserName = (textName: string): string => `${textName.replace(/\.paged\.md$/i, '').replace(/\.md$/i, '')}.browser.paged.md`;
@@ -187,7 +179,7 @@ export function inspect(input: string, options: InspectOptions = {}): InspectRep
       const relation = cmp === -1 ? 'older' : cmp === 0 ? 'same' : cmp === 1 ? 'newer' : 'unknown';
       report.shell = { version: ex.shell, generator: generatorOf(input), delivery: ex.delivery, relation };
       report.includes = ex.includes ? Object.keys(ex.includes).length : 0;
-      if (ex.kind === 'paged') report.checks = structureOf(input, ex.shell, ex.delivery, options.engineSource);
+      if (ex.kind === 'paged') report.checks = assembledStructure(input, { shell: ex.shell, delivery: ex.delivery, version: VERSION, bundleUrl: cdnBundleUrl, ...(options.engineSource !== undefined ? { engineSource: options.engineSource } : {}) });
       if (report.checks) {
         const c = report.checks;
         const recovered = sh(`${(options.filename ?? 'file.paged.html').replace(/\.paged\.html$/i, '').replace(/\.html?$/i, '')}.recovered.paged.md`);
@@ -230,7 +222,7 @@ export function inspect(input: string, options: InspectOptions = {}): InspectRep
   if (report.input !== 'legacy' && doc.header?.legacy) report.advice.push('the header is a legacy `kind: meta` block (or a meta + settings pair): the first header edit (any tool) merges it into one `kind: document` header; nothing to do by hand');
   if (report.input !== 'legacy' && doc.lint.some((l) => l.code === 'stray-document-block')) report.advice.push('a `{{nyml kind: document}}` block that is not at the top of the text is not the settings source in format 1 (0.x read it anywhere): move its lines into the header at the top');
   if (options.twin && (report.input === 'text' || report.input === 'assembled') && doc.kind === 'paged') {
-    report.twin = twinCheck(report.input, text, options.twin);
+    report.twin = kitTwinCheck(report.input, text, { name: options.twin.name, content: options.twin.content, ...(options.twin.newer ? { newer: options.twin.newer } : {}) }, { kind: 'paged', readLegacy });
     const t = report.twin;
     const tn = sh(t.name);
     const twinLegacy = report.input === 'text' && looksHtml(options.twin.content) && readLegacy(options.twin.content) !== null;
@@ -254,49 +246,4 @@ export function inspect(input: string, options: InspectOptions = {}): InspectRep
   }
   if (report.input === 'text' && doc.kind === 'paged' && !newer && report.twin?.holds !== 'different') report.advice.push(`a text twin: \`orz-paged assemble ${self}\` makes its .paged.html`);
   return report;
-}
-
-/** The text a `.paged.html` holds (format 1, or a 0.x file's source), or null. */
-function heldText(html: string): string | null {
-  if (!looksHtml(html)) return null;
-  const legacy = readLegacy(html);
-  if (legacy) return legacy.text;
-  const ex = extract(html);
-  return ex && ex.shell !== '' ? ex.text : null;
-}
-
-function twinCheck(input: 'text' | 'assembled', text: string, twin: NonNullable<InspectOptions['twin']>): NonNullable<InspectReport['twin']> {
-  const newer = twin.newer ?? 'unknown';
-  if (input === 'text') {
-    const held = heldText(twin.content);
-    if (held === null) return { name: twin.name, holds: 'none', newer, sha256: null };
-    return { name: twin.name, holds: held === storedText(text) ? 'same' : 'different', newer, sha256: sha256(held) };
-  }
-  if (looksHtml(twin.content) && heldText(twin.content) !== null) return { name: twin.name, holds: 'none', newer, sha256: null };
-  return { name: twin.name, holds: storedText(twin.content) === text ? 'same' : 'different', newer, sha256: sha256(twin.content) };
-}
-
-/** The first `<script …>` start tag with this id, with its content's bounds (raw text: up to the first `</script`). */
-function scriptElement(html: string, idValue: string): { attrs: string; start: number; end: number | null } | null {
-  const open = new RegExp(`<script\\b([^>]*\\bid\\s*=\\s*["']?${idValue}["']?[^>]*)>`, 'i').exec(html);
-  if (!open) return null;
-  const start = open.index + open[0].length;
-  const close = html.slice(start).search(/<\/script/i);
-  return { attrs: open[1]!, start, end: close < 0 ? null : start + close };
-}
-
-/** The structural checks of an assembled paged file (see {@link InspectReport.checks}). */
-function structureOf(html: string, shell: string, delivery: string, engineSource: string | undefined): NonNullable<InspectReport['checks']> {
-  const island = scriptElement(html, 'orz-src');
-  const end = /<\/html\s*>\s*$/i.test(html) ? 'closed' : 'unclosed';
-  const engineEl = scriptElement(html, 'orz-engine');
-  let engine: NonNullable<InspectReport['checks']>['engine'];
-  if (!engineEl) engine = 'missing';
-  else if (delivery === 'cdn' || /\bsrc\s*=/i.test(engineEl.attrs)) {
-    const src = /\bsrc\s*=\s*["']([^"']*)["']/i.exec(engineEl.attrs)?.[1];
-    engine = src === cdnBundleUrl(shell) && engineEl.end !== null ? 'cdn' : 'different';
-  } else if (engineEl.end === null) engine = 'different';
-  else if (engineSource === undefined || shell !== VERSION) engine = 'unverified';
-  else engine = html.slice(engineEl.start, engineEl.end) === engineSource ? 'same' : 'different';
-  return { island: island && island.end !== null ? 'closed' : 'unclosed', end, engine };
 }
