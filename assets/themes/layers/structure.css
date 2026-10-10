@@ -33,6 +33,10 @@
 /* a page's text block is narrow (A5: about 108 mm): two columns stay two
    (the screen minimum, 12rem, stacked them there at the default margins) */
 .orz-doc.markdown-body { --orz-col-min: 9rem; }
+/* three auto columns stay three on A5 too (closed loop round 2, F11: at 9rem
+   they wrapped into two rows there); four or more wrap into rows on a narrow
+   page (documented); a ratio (`::: cols 1 2 1`) is never wrapped */
+.orz-doc.markdown-body .cols:has(> .col:nth-child(3):last-child) { --orz-col-min: 7rem; }
 .orz-doc.markdown-body::before,
 .orz-doc.markdown-body::after { content: none; }
 .orz-doc.markdown-body > :first-child { margin-top: 0; }

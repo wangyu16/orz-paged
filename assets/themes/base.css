@@ -457,6 +457,10 @@
   --orz-col-min: 9rem;
 }
 
+.orz-doc.markdown-body .cols:has(> .col:nth-child(3):last-child) {
+  --orz-col-min: 7rem;
+}
+
 .orz-doc.markdown-body::before,
 .orz-doc.markdown-body::after {
   content: none;

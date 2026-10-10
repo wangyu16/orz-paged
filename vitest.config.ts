@@ -17,6 +17,9 @@ const HEAVY = ['tests/conformance.test.ts'];
 const CHROME = [
   'tests/standalone.test.ts',
   'tests/columns.test.ts',
+  'tests/integrity.test.ts',
+  'tests/toc.test.ts',
+  'tests/relayout.test.ts',
   'tests/ruled-paper.test.ts',
   'tests/themes.test.ts',
   'tests/webapp.test.ts',

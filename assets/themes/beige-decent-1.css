@@ -50,6 +50,8 @@
   --font-heading: 'Libre Caslon Display', 'Noto Serif SC', 'Noto Serif TC', Georgia, serif;
   --font-code: 'Red Hat Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
   --heading-color: var(--heading);
+  --orz-furniture-font: var(--font-body);
+  --orz-furniture-color: var(--text-muted);
 }
 
 .markdown-body {

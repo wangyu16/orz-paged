@@ -50,11 +50,41 @@ export function choiceAttributes(html: string): Array<[string, string]> {
 const rendered = new Map<string, Array<[string, string]>>();
 const RENDERED_KEEP = 4;
 
+/**
+ * Bumped whenever a render changes what a text offers (closed loop round 2,
+ * F12): the same text can offer other versions after a render (an include's
+ * content changed), so what was answered for the text before is stale — the
+ * {@link versionChoices} cache and the kit's `hidden` memo (which keeps the
+ * last answer per setting, function and text: see {@link versionsHiddenAsker}).
+ */
+let generation = 0;
+
 /** Record the choice attributes of a text's rendered body (with its includes): read by {@link versionChoices} instead of rendering again. */
 export function rememberRendered(text: string, bodyHtml: string): void {
+  const pairs = choiceAttributes(bodyHtml);
+  const before = rendered.get(text);
   rendered.delete(text);
-  rendered.set(text, choiceAttributes(bodyHtml));
+  rendered.set(text, pairs);
   while (rendered.size > RENDERED_KEEP) rendered.delete(rendered.keys().next().value as string);
+  if (before === undefined || JSON.stringify(before) !== JSON.stringify(pairs)) {
+    generation++;
+    cache = null;
+  }
+}
+
+let asker: { generation: number; fn: (text: string) => boolean } | null = null;
+
+/**
+ * The Version setting's `hidden` function — a new function after each render
+ * that changed what a text offers. The kit asks `hidden(text)` once per text
+ * and keeps the answer per setting while its `hidden` function is the same
+ * (orz-markdown carrier/app `hiddenFor`); a fresh function makes it ask
+ * again, so a render that found versions (or found none) is seen for the
+ * same text.
+ */
+export function versionsHiddenAsker(): (text: string) => boolean {
+  if (!asker || asker.generation !== generation) asker = { generation, fn: (text: string) => versionsHidden(text) };
+  return asker.fn;
 }
 
 /**

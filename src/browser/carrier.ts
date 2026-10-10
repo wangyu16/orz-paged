@@ -22,11 +22,15 @@ import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
 import { assemble as assembleSync, cdnBundleUrl, FORMATS, readDocument as pagedReadDocument, type AssembleOptions } from '../assemble.js';
 import { applyDynamicChoices } from '../doc/dynamic.js';
 import { VERSION } from '../version.js';
+import { PREVIEW_ACK_MS } from '../paged/constants.js';
 import { pagedFrameDocument, pagedPreviewPresentation } from './paged/preview.js';
 import { renderPaged, renderPagedPreview } from './paged/render.js';
 import { PAGED_SETTINGS } from './paged/settings.js';
 
 export const kind = 'paged' as const;
+
+/** The preview payload of a text that changed while it rendered: no runtime input, so the frame paginates nothing. */
+const STALE_PREVIEW = '<!-- orz-paged: superseded -->';
 export const version: string = VERSION;
 export const formats: number[] = [...FORMATS];
 
@@ -185,14 +189,23 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
   const hooks: EditorHooks = { ...appHooks, ...(ai ? { ai } : {}), ...(fetchInclude ? { fetchInclude } : {}) };
   const preferences = options.preferences ?? ctx?.preferences;
 
-  const shell = createEditorShell(element as never, {
+  // eslint-disable-next-line prefer-const
+  let shell: EditorShell;
+  const shellText = (): string | null => { try { return shell ? shell.getText() : null; } catch { return null; } };
+  shell = createEditorShell(element as never, {
     text: options.text,
-    render: (text, rc) => renderPagedPreview(text, {
-      ...(rc.includes ? { includes: rc.includes } : {}),
-      ...(rc.fetchInclude ? { fetchInclude: rc.fetchInclude } : {}),
-      ...(rc.twinLinks === false ? { twinLinks: false } : {}),
-      ...(rc.cache ? { cache: rc.cache } : {}),
-    }),
+    render: async (text, rc) => {
+      const html = await renderPagedPreview(text, {
+        ...(rc.includes ? { includes: rc.includes } : {}),
+        ...(rc.fetchInclude ? { fetchInclude: rc.fetchInclude } : {}),
+        ...(rc.twinLinks === false ? { twinLinks: false } : {}),
+        ...(rc.cache ? { cache: rc.cache } : {}),
+      });
+      // a key arrived while the text rendered: no pagination of a text already gone (the frame keeps its pages and
+      // the "updating…" mark; the kit renders the newer text after the next pause — closed loop round 2, E.5)
+      const now = shellText();
+      return now !== null && now !== text ? STALE_PREVIEW : html;
+    },
     kind: 'paged',
     formats: [...FORMATS],
     ...(options.mode ? { mode: options.mode } : {}),
@@ -224,14 +237,22 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
       assets: false,
       diff: false,
       frameDocument: pagedFrameDocument,
-      // a pagination reflows every page in the frame, in the editor's process (seconds for a long document, the
-      // page blocked meanwhile): it runs only after a real pause in typing (1.5 s, grown by the kit to twice the
-      // last render), never forced while keys keep arriving (the kit's `maxWaitMs: Infinity`, 2.3.0), and the next
-      // waits for the frame's acknowledgement — the preview lags, typing never freezes (E.4)
+      // a pagination reflows every page in the frame, in the editor's process (seconds for a long document; Paged.js
+      // lays out one page per frame): it runs only after a real pause in typing (1.5 s, grown by the kit to twice
+      // the last render), never forced while keys keep arriving (the kit's `maxWaitMs: Infinity`, 2.3.0); the frame
+      // acknowledges a render within PREVIEW_ACK_MS (1 s) so a long layout does not stretch that pause, and abandons
+      // a pagination when an edit arrives — the preview lags, marked "updating…", typing never freezes (E.4, E.5)
       debounceMs: 1500,
       maxWaitMs: Infinity,
+      // the frame acknowledges every render within PREVIEW_ACK_MS (its first layout included): the kit waits a little
+      // longer for the first acknowledgement, so even the first render is paced by the frame (orz-markdown 2.3.0)
+      firstAckWaitMs: PREVIEW_ACK_MS + 1000,
     },
   });
+
+  // every edit is reported to the preview frame (the kit's preview channel): the frame marks its pages "updating…"
+  // and abandons a pagination of an older text at its next page, so a layout never freezes typing after a pause
+  const offEdit = shell.on('change', () => { shell.preview.post({ type: 'orz-paged-edit' }); });
 
   // the carrier's tools in the toolbar (FC-19 §1: the same tools for every host)
   const iconOnly = options.chrome === 'compact';
@@ -244,6 +265,7 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
   const destroy = shell.destroy.bind(shell);
   shell.destroy = () => {
     unfollow();
+    offEdit();
     settings.destroy();
     aiMenu?.destroy();
     destroy();

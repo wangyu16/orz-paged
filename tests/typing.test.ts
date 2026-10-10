@@ -83,4 +83,95 @@ chrome('typing on a long document (real Chrome)', () => {
     expect(r.lt.filter((d) => d > 200)).toEqual([]);
     await ctx.close();
   }, 240_000);
+
+  it('[E.5] typing again after a pause that started a pagination: no freeze (key round trip max ≤ 800 ms, no long task over 700 ms; the stale pagination is abandoned at its next page), the preview marked "updating…" while behind, caught up within 12 s of the last key (the frame acknowledges within 1 s, so the kit\'s pacing stays short), and the read view marked while it re-lays out after Done', async () => {
+    const ctx = await browser!.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx.addInitScript(PICKER_INIT);
+    await routeCdn(ctx);
+    const page = await ctx.newPage();
+    const path = files.write('big-pause.paged.html', await assembleReal(readFileSync('tests/fixtures/big-exam.paged.md', 'utf8')));
+    await page.goto(`file://${path}`);
+    await bootDone(page);
+    expect(await pagesIdle(page)).toBeGreaterThanOrEqual(20);
+    await page.keyboard.press(`${MOD}+e`);
+    const frame = await (async () => {
+      for (let i = 0; i < 100; i++) {
+        const f = page.frames().find((x) => x !== page.mainFrame());
+        if (f && await f.evaluate(() => document.querySelectorAll('#orz-doc .pagedjs_page').length).catch(() => 0) > 0) return f;
+        await page.waitForTimeout(200);
+      }
+      throw new Error('no preview pages');
+    })();
+    await frame.evaluate(() => (window as unknown as { __orzPaged: { idle(): Promise<void> } }).__orzPaged.idle());
+    await page.waitForTimeout(500);
+    await page.locator('.cm-content').click();
+    await page.keyboard.press(`${MOD}+End`);
+    await page.keyboard.press('Enter');
+    await page.evaluate(() => {
+      const w = window as unknown as { __lt: number[] };
+      w.__lt = [];
+      new PerformanceObserver((l) => { for (const e of l.getEntries()) w.__lt.push(Math.round(e.duration)); }).observe({ type: 'longtask' });
+    });
+    // a word, then a pause long enough for the preview to start its pagination (1.5 s), then typing again through it
+    type Stats = { paginations: number; abandoned: number; measured: number };
+    const stats = (): Promise<Stats> => frame.evaluate(() => (window as unknown as { __orzPaged: { stats(): Stats } }).__orzPaged.stats());
+    const before = await stats();
+    await page.keyboard.type('Alpha ');
+    await page.waitForTimeout(1800);
+    // no pagination's pages are swapped in while the reader types (a stale one is abandoned instead)
+    await frame.evaluate(() => { const w = window as unknown as { __swaps: number }; w.__swaps = 0; new MutationObserver(() => { w.__swaps++; }).observe(document.getElementById('orz-doc')!, { childList: true }); });
+    const marked = await frame.evaluate(() => document.getElementById('orz-doc')!.hasAttribute('data-orz-updating'));
+    const trip: number[] = [];
+    let typed = '';
+    for (let i = 0; i < 40; i++) {
+      const c = 'kw'[i % 2]!;
+      const k0 = Date.now();
+      await page.keyboard.type(c);
+      trip.push(Date.now() - k0);
+      typed += c;
+      await page.waitForTimeout(80);
+    }
+    const lt = await page.evaluate(() => [...(window as unknown as { __lt: number[] }).__lt]);
+    const swaps = await frame.evaluate(() => (window as unknown as { __swaps: number }).__swaps);
+    const during = await stats();
+    const behind = await frame.evaluate(() => document.getElementById('orz-doc')!.hasAttribute('data-orz-updating'));
+    const t0 = Date.now();
+    await frame.waitForFunction((s) => document.body.innerText.includes(s) && !document.getElementById('orz-doc')!.hasAttribute('data-orz-updating'), typed, { timeout: 30_000, polling: 100 });
+    const caughtUp = Date.now() - t0;
+    const max = Math.max(...trip);
+    // eslint-disable-next-line no-console
+    console.log(`[E.5] after a pause: key round trip max ${max} ms (median ${[...trip].sort((a, b) => a - b)[20]} ms); long tasks ${lt.join(', ') || 'none'}; the preview caught up ${caughtUp} ms after the last key`);
+    expect(marked, 'the preview is marked while its pagination of the new text runs').toBe(true);
+    expect(behind, 'and while the editor is ahead of it').toBe(true);
+    expect(max).toBeLessThanOrEqual(800);
+    expect(lt.filter((d) => d > 700)).toEqual([]);
+    expect(caughtUp).toBeLessThanOrEqual(12_000);
+    expect(swaps, 'no pages swapped in while typing').toBe(0);
+    expect(during.abandoned - before.abandoned, 'the stale pagination was abandoned').toBeGreaterThanOrEqual(1);
+    expect(during.measured, 'no stage styled for measuring: the fonts are known').toBe(before.measured);
+    // one more key after a settled preview: the next layout follows within the short pacing (the frame acknowledged
+    // within 1 s, not after its whole layout: the kit waits twice the acknowledged time)
+    await frame.evaluate(() => (window as unknown as { __orzPaged: { idle(): Promise<void> } }).__orzPaged.idle());
+    await page.waitForTimeout(300);
+    await page.keyboard.type('Z');
+    const t1 = Date.now();
+    await frame.waitForFunction((s) => document.body.innerText.includes(s) && !document.getElementById('orz-doc')!.hasAttribute('data-orz-updating'), `${typed}Z`, { timeout: 30_000, polling: 100 });
+    const single = Date.now() - t1;
+    // eslint-disable-next-line no-console
+    console.log(`[E.5] one key on a settled preview: shown after ${single} ms`);
+    expect(single).toBeLessThanOrEqual(12_000); // ~8 s on a 26-page exam (pacing ~2.6 s + the layout); ~16 s when the frame acknowledged only after its layout
+    // Done: the read view lays out the edited text under the quiet mark, which goes when the pages are final
+    const seen = page.evaluate(() => new Promise<boolean>((res) => {
+      const p = document.getElementById('orz-pages')!;
+      const mo = new MutationObserver(() => { if (p.hasAttribute('data-orz-updating')) { mo.disconnect(); res(true); } });
+      mo.observe(p, { attributes: true, attributeFilter: ['data-orz-updating'] });
+      setTimeout(() => res(p.hasAttribute('data-orz-updating')), 10_000);
+    }));
+    await page.keyboard.press(`${MOD}+e`);
+    expect(await seen).toBe(true);
+    await pagesIdle(page);
+    expect(await page.evaluate(() => document.getElementById('orz-pages')!.hasAttribute('data-orz-updating'))).toBe(false);
+    expect(await page.evaluate(() => getComputedStyle(document.getElementById('orz-pages')!, '::before').content)).toBe('none');
+    await ctx.close();
+  }, 240_000);
 });

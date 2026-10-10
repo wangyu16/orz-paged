@@ -244,6 +244,18 @@ describe('[T.1] question answer reveal (dynamic switch)', () => {
   });
 });
 
+describe('question header', () => {
+  it('[T.23] a question header reads "1. (2 pts)": the space is in the points\' own text, so it survives pagination (a whitespace-only node between the spans did not); no number → no leading space; no points → the number alone', () => {
+    // what the page shows once whitespace-only text between tags is gone (Paged.js laid the header out as "1.(2 pts)")
+    const shown = (html: string): string => /<div class="orz-q-header">([\s\S]*?)<\/div>/.exec(html)![1]!.replace(/>\s+</g, '><').replace(/<[^>]+>/g, '');
+    for (const kind of ['question-mc', 'question-open'] as const) {
+      expect(shown(renderElement(spec(kind, { n: '1', pts: '2 pts', body: 'Q?', options: 'A. a' }), ctx).html), kind).toBe('1. (2 pts)');
+      expect(shown(renderElement(spec(kind, { pts: '2 pts', body: 'Q?', options: 'A. a' }), ctx).html), kind).toBe('(2 pts)');
+      expect(shown(renderElement(spec(kind, { n: '3', body: 'Q?', options: 'A. a' }), ctx).html), kind).toBe('3.');
+    }
+  });
+});
+
 describe('[T.1] abstract', () => {
   it('renders text via block ctx and shows keywords', () => {
     const r = renderElement(

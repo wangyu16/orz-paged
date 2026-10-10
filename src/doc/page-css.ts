@@ -18,6 +18,10 @@ import { fontPreset } from './fonts.js';
 
 /* ─────────────────────────── helpers ─────────────────────────── */
 
+/** The page furniture's font and colour when the theme sets none (theme `none`). */
+export const FURNITURE_FALLBACK_FONT = 'system-ui, "Segoe UI", Helvetica, Arial, sans-serif';
+export const FURNITURE_FALLBACK_COLOR = '#555555';
+
 /** Escape a user string for safe use inside a CSS `content: "..."` value. */
 function cssString(raw: string): string {
   return '"' + raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
@@ -82,9 +86,15 @@ export function buildPageCss(s: DocSettings): string {
   // fontPreset; otherwise leave it to the theme (or base.css fallback).
   const bodyFamily = s.fontFamily ?? (s.fontPreset ? fontPreset(s.fontPreset).family : undefined);
   const headingFamily = s.fontHeadingPreset ? fontPreset(s.fontHeadingPreset).family : bodyFamily;
+  // The page furniture (running headers/footers, page numbers) takes the theme:
+  // its body font and its muted text colour, the tokens every print theme sets
+  // (`--orz-furniture-font` / `--orz-furniture-color`, scripts/build-themes.ts);
+  // an explicit body font (`font_preset` / `font_family`) re-points --font-body,
+  // which the theme's token follows. Theme `none` has neither token: the
+  // fallbacks apply. `font_margin_box_preset` still wins.
   const marginBoxFamily = s.fontMarginBoxPreset
     ? fontPreset(s.fontMarginBoxPreset).family
-    : (bodyFamily ?? 'system-ui, "Segoe UI", Helvetica, Arial, sans-serif');
+    : `var(--orz-furniture-font, var(--font-body, ${bodyFamily ?? FURNITURE_FALLBACK_FONT}))`;
 
   const headerRuleColor = s.headerRuleColor || s.decorationColor;
   const footerRuleColor = s.footerRuleColor || s.decorationColor;
@@ -233,6 +243,7 @@ export function buildPageCss(s: DocSettings): string {
     `.pagedjs_margin-top-left, .pagedjs_margin-top-center, .pagedjs_margin-top-right,\n` +
     `.pagedjs_margin-bottom-left, .pagedjs_margin-bottom-center, .pagedjs_margin-bottom-right {\n` +
     `  font-family: var(--font-margin-box);\n` +
+    `  color: var(--orz-furniture-color, var(--text-muted, ${FURNITURE_FALLBACK_COLOR}));\n` +
     `}`;
 
   // Layout-behavior CSS.
@@ -244,7 +255,10 @@ export function buildPageCss(s: DocSettings): string {
     layout.push('img, figure { break-inside: avoid; }');
   }
   if (s.repeatTableHeader) {
-    layout.push('thead { display: table-header-group; }');
+    // the table-head handler (src/paged/table-head.ts) repeats a split table's
+    // <thead> on each continuation page; Paged.js does not (table-header-group
+    // does nothing there)
+    layout.push('table { --orz-repeat-thead: 1; }');
   }
   if (s.avoidTableRowBreaks) {
     layout.push('tr { break-inside: avoid; }');

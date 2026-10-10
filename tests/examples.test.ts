@@ -41,3 +41,40 @@ describe('examples', () => {
     expect([...deliveries].sort()).toEqual(['cdn', 'inline']);
   });
 });
+
+describe('docs say what is true', () => {
+  const read = (f: string): string => readFileSync(f, 'utf8');
+  const section = (text: string, heading: string): string => {
+    const at = text.indexOf(heading);
+    expect(at, heading).toBeGreaterThanOrEqual(0);
+    const next = text.slice(at + heading.length).search(/\n#{2,3} /);
+    return next < 0 ? text.slice(at) : text.slice(at, at + heading.length + next);
+  };
+
+  it('[D.2] README and CHANGELOG: the release state (1.0.0 prepared on rebuild/1.0, not published; it needs orz-markdown at the range package.json declares, published first); "Migrating" shows `new` with `--title` (gone are only the 0.x forms)', () => {
+    const pkg = JSON.parse(read('package.json')) as { dependencies: Record<string, string> };
+    const range = pkg.dependencies['orz-markdown']!;
+    const readme = read('README.md');
+    const versions = section(readme, '## Versions');
+    expect(versions).toMatch(/1\.0\.0 is prepared on the branch `rebuild\/1\.0` and is\s+> not published yet/);
+    expect(versions).toContain(`\`orz-markdown ${range}\`, which must be published first`);
+    expect(read('CHANGELOG.md')).toContain(`Requires \`orz-markdown ${range}\``);
+    const migrating = section(readme, '## Migrating from 0.x');
+    expect(migrating).toMatch(/orz-paged@1 new \S+\.paged\.md --template \S+ --title "/);
+    expect(migrating).not.toMatch(/`--list-templates` and `--title` are gone/);
+    expect(read('CHANGELOG.md')).not.toMatch(/`--list-templates` and `--title` \(refused/);
+  });
+
+  it('[D.3] the skill and the README describe the table and furniture behaviour, and the skill says a `placement: page` table of contents numbers the body only with `front_matter: clean`', () => {
+    const skill = read('orz-paged-skills/SKILL.md');
+    const toc = section(skill, '### `toc` & `placement`');
+    expect(toc).toMatch(/With `placement: page`, also set `front_matter: clean`/);
+    expect(toc).toMatch(/TOC's page numbers are those body numbers/);
+    expect(skill).toMatch(/repeats its header row \(`thead`\)/);
+    expect(skill).toMatch(/`repeat_table_header`: a table that runs onto the next page repeats its header row/);
+    expect(skill).toMatch(/take the theme's body\s+font and its muted text colour/);
+    const readme = read('README.md');
+    expect(readme).toMatch(/in the theme's body font and muted colour/);
+    expect(readme).toMatch(/header row repeated on each page/);
+  });
+});

@@ -170,6 +170,26 @@ export function storedText(text: string): string {
 const RUNNING_KEYS = ['header_left', 'header_center', 'header_right', 'footer_left', 'footer_center', 'footer_right'] as const;
 
 /**
+ * A plain title as Markdown inline text that renders back to exactly that
+ * text (N.7): every character the parser (orz-markdown: CommonMark, the
+ * typographer, its inline plugins) would read as syntax is backslash-escaped
+ * — emphasis, code, links, HTML, math, marks, quotes and apostrophes (smart
+ * quotes), `--` / `...` / `(c)` (typographic replacements), `:name:` (emoji),
+ * `|` and `#`. Used for the body's title (a `# ` heading or a title element's
+ * value, rendered as inline Markdown); the header's `title` is plain text and
+ * is written by the kit's `editHeader`.
+ */
+export function markdownLiteral(text: string): string {
+  return text.replace(/[\\`*_[\]<>!~^=+${}&|#"']|-(?=-)|\.(?=\.)|\((?=(?:c|r|tm|p)\))|:(?=[\w+-]+:)/gi, '\\$&');
+}
+
+/** The line `key: value` as the kit's header writer encodes `value` (the same flat nyml reader reads element blocks). */
+function nymlLine(key: string, value: string): string {
+  const text = editHeader('{{nyml\nkind: document\n}}\n', { [key]: value });
+  return text.split('\n').find((l) => l.startsWith(`${key}:`)) ?? `${key}: ${value}`;
+}
+
+/**
  * `newDocument`'s `title` beyond the header's `title` (N.6): the template's
  * placeholder title (its header `title`) is also replaced where the skeleton
  * repeats it — in the running header/footer keys that carry it (added to
@@ -177,7 +197,7 @@ const RUNNING_KEYS = ['header_left', 'header_center', 'header_right', 'footer_le
  * `title:` line (`article-title`, `report-title`, `exam-title`) or the first
  * `# ` heading, whichever comes first, when it reads the placeholder exactly.
  */
-function replacePlaceholderTitle(text: string, title: string, changes: Record<string, HeaderChange>): string {
+export function replacePlaceholderTitle(text: string, title: string, changes: Record<string, HeaderChange>): string {
   const header = readHeader(text);
   const placeholder = header?.fields['title']?.trim();
   if (!header || !placeholder) return text;
@@ -202,7 +222,7 @@ function replacePlaceholderTitle(text: string, title: string, changes: Record<st
       if (k) { inBlock = k[1]; continue; }
       if (/^(article|report|exam)-title$/.test(inBlock) && /^title:\s*/.test(line)) {
         if (line.replace(/^title:\s*/, '').trim() !== placeholder) return text;
-        lines[i] = `title: ${title}`;
+        lines[i] = nymlLine('title', markdownLiteral(title.trim()));
         return lines.join('\n');
       }
       continue;
@@ -210,7 +230,7 @@ function replacePlaceholderTitle(text: string, title: string, changes: Record<st
     const h = /^#\s+(.*?)\s*$/.exec(line);
     if (h) {
       if (h[1] !== placeholder) return text;
-      lines[i] = `# ${title}`;
+      lines[i] = `# ${markdownLiteral(title.trim())}`;
       return lines.join('\n');
     }
   }

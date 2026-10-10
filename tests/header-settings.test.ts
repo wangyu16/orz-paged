@@ -123,6 +123,15 @@ describe('enumerated values', () => {
     for (const ok of ['page_size: letter', 'page_size: A4 landscape', 'page_size: 6in 9in', 'page_size: 210mm 297mm', 'template: exam', 'page_number_style: page-n-of-N', 'front_matter: clean', 'front_matter: true', 'font_preset: lora']) {
       expect(readDocument(`{{nyml\nkind: document\n${ok}\n}}\n\nx`).lint, ok).toEqual([]);
     }
+    // closed loop round 2 (mutants L4, L5): the CSS size is anchored at both ends; a key of Object.prototype is no template
+    for (const bad of ['page_size: 210mm 297mm junk', 'page_size: 210mm 297mm 3mm', 'page_size: junk 210mm', 'page_size: A4 sideways', 'template: constructor', 'template: toString', 'template: __proto__', 'template: hasOwnProperty', 'front_matter: sometimes', 'front_matter_clean: maybe']) {
+      const key = bad.slice(0, bad.indexOf(':'));
+      expect(readDocument(`{{nyml\nkind: document\n${bad}\n}}\n\nx`).lint.map((l) => [l.code, l.key]), bad).toEqual([['invalid-value', key]]);
+    }
+    // front_matter takes what the settings reader reads: clean / plain / normal and the boolean words (`yes` is clean, as in 0.x)
+    for (const ok of ['front_matter: normal', 'front_matter: yes', 'front_matter: no', 'front_matter: Plain', 'front_matter_clean: on']) {
+      expect(readDocument(`{{nyml\nkind: document\n${ok}\n}}\n\nx`).lint, ok).toEqual([]);
+    }
     for (const t of Object.values((await import('./helpers.js')).TEMPLATE_TEXTS)) expect(readDocument(t).lint.filter((l) => l.code === 'invalid-value')).toEqual([]);
     for (const c of corpus('paged')) expect(readDocument(c.text).lint.filter((l) => l.code === 'invalid-value'), c.path).toEqual([]);
   });

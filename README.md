@@ -26,8 +26,9 @@ workflow; what paged adds is pages.
 - **Pages, in the page.** The document is laid out by Paged.js as print pages
   right in the page (no frame): the header's page size, margins, theme and
   typography; running headers and footers and page numbers in the page
-  margins; title pages, an abstract and a table of contents with the page
-  number of each section; clean front matter (title, abstract and contents
+  margins, in the theme's body font and muted colour; long tables broken
+  between rows with their header row repeated on each page; title pages,
+  an abstract and a table of contents with the page number of each section; clean front matter (title, abstract and contents
   pages without furniture, the body numbered from 1). What you see is what
   prints.
 - **One quiet control.** The page shows a small pencil at the bottom-left.
@@ -65,10 +66,14 @@ workflow; what paged adds is pages.
   *Version* in its bar, undo per document. **Done** goes back to the read view.
   The bar ends, quietly, with the orz seal (https://markdown.orz.how) and this
   tool's GitHub link. Print from the read view, not the editor preview
-  (Cmd/Ctrl+P while editing leaves the editor and prints the pages of the
-  current text). On a long document the preview lays the pages out again only
-  after a pause in typing (about 1.5 s, longer for long documents): it may lag
-  behind the text, typing never waits for it.
+  (Cmd/Ctrl+P while editing — in the editor or in its preview — leaves the
+  editor and prints the pages of the current text; Print and Cmd/Ctrl+P wait
+  for the final layout, "Preparing pages…" meanwhile). On a long document the
+  preview lays the pages out again only after a pause in typing (about 1.5 s,
+  up to about 3 s for long documents); typing again stops that layout, so
+  typing never waits for it. While the preview is behind the text it shows a
+  quiet "updating…" mark (so does the read view while it lays the pages out
+  again, e.g. after Done).
 - **Save, New, Copy.** **Save** (Cmd/Ctrl+S) writes `assemble(text)` — never
   the laid-out pages — back to the file. A save never silently overwrites a
   file that changed on disk since the page opened it: it asks — *Replace it*
@@ -392,11 +397,27 @@ wherever 0.x found it) and a `{{nyml kind: meta}}` block become ONE header at
 the top (with `carrier: paged` and a `uid`), the 0.x file's `#orz-meta`
 metadata and title move into it, the settings mean what they meant, and the
 file's delivery is kept. The 0.x API (`buildPagedHtml`, `composeInlineHtml`,
-…), the 0.x in-file runtime and the CLI options `--template`, `--new`,
-`--list-templates` and `--title` are gone: `orz-paged new --template` and
-`orz-paged templates` replace them, and content lives in the text's header.
+…), the 0.x in-file runtime and the 0.x CLI forms are gone: `--template`,
+`--new` and `--list-templates` (and `--title` / `--theme` when assembling)
+are refused with the 1.0 command that does the same. A new document is made
+with `new`, which takes the title and theme:
+
+```bash
+npx orz-paged@1 new report.paged.md --template report-page --title "Q3 Review" --theme light-neat-1
+npx orz-paged@1 templates                    # the template ids
+```
+
+After that, content (title, theme, page settings) lives in the text's header:
+edit it there and assemble again.
 
 ## Versions
+
+> **Release status.** 1.0.0 is prepared on the branch `rebuild/1.0` and is
+> not published yet; the latest published version is 0.7.3 (the 0.x line
+> described in [Migrating from 0.x](#migrating-from-0x)). 1.0.0 depends on
+> `orz-markdown ^2.3.0`, which must be published first; until then the
+> `npx orz-paged@1` and `orz-paged-browser@1` commands in this README do not
+> resolve.
 
 Two packages, released together with the same version: `orz-paged` (the CLI
 and the Node library) and `orz-paged-browser` (the browser engine and editor

@@ -24,10 +24,11 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
 - Removed: `buildPagedHtml`, `composeInlineHtml`, `loadThemes`,
   `loadTemplates`, `pickDefaultTheme`, `findAsset`, `stripBaseImport`,
   `selfVersion`, `CDN`; the 0.x runtime (`assets/app.js`, `src/template.ts`,
-  `src/browser-entry.ts`, the legacy bundle); the CLI's `--template`, `--new`,
-  `--list-templates` and `--title` (refused with the 1.0 command that does the
-  same: `orz-paged new --template`, `orz-paged templates`; content comes only
-  from the text's header).
+  `src/browser-entry.ts`, the legacy bundle); the 0.x CLI forms `--template`,
+  `--new`, `--list-templates`, and `--title` / `--theme` on assemble (refused
+  with the 1.0 command that does the same: `orz-paged new x.paged.md
+  --template <t> --title "…"`, `orz-paged templates`; after creation, content
+  comes only from the text's header).
 - The 7 vendored themes are replaced by 9 print themes derived from
   orz-markdown's light themes (plus `none`); the 0.x ids stay valid; the
   default stays `light-academic-1`.
@@ -42,7 +43,12 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
 - **Pages in the page** (no frame): Paged.js lays the document out in the read
   view with the header's page size, margins, theme and typography; running
   headers and footers, page numbers, TOC page numbers, clean front matter;
-  re-renders are double-buffered (never an empty view).
+  re-renders are double-buffered (never an empty view). The page furniture
+  (running headers and footers, page numbers) takes the theme's body font and
+  muted text colour (`--orz-furniture-font` / `--orz-furniture-color`). A
+  long table repeats its header row on each page it continues on
+  (`repeat_table_header`, on by default: a Paged.js handler — 0.x's
+  `table-header-group` rule did nothing under Paged.js).
 - **One quiet control**, the pencil: Edit, **Print**, Save, Download a copy,
   New document, Save as new copy, the settings Theme, Page size, Template,
   Page numbers, Number style, **Version** (header edits, undoable; Version
@@ -148,6 +154,44 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
 - Packaging: `npm run build` starts from an empty `dist/` (stale modules no
   longer ship); the real-Chrome test files run one at a time (vitest project
   `chrome`).
+
+#### Closed loop, round 2 (fixes before the release)
+
+- **Table of contents laid out with the pages.** The list is built before
+  Paged.js lays out (text, leader, a fixed-width placeholder number; only the
+  numbers are set afterwards, in every fragment of a TOC that runs over
+  pages): filled in afterwards it pushed what followed it off its page — the
+  stock `report-section` template never printed its *Findings*.
+- **Columns:** a ratio block (`::: cols 1 2`, an inline style) is no longer
+  skipped by Paged.js' undisplayed filter (its continuation never broke: text
+  lost or repeated); a re-planned cut moves by at least a line; the empty
+  head of a block moved whole no longer leaves a blank page; an exam question
+  taller than the space at a page top is split instead of clipped (Paged.js
+  then broke the grid); three auto columns stay three on A5
+  (`--orz-col-min: 7rem` for exactly three). The whole-document integrity
+  oracle (per-column text, tags, clipping, the hidden off-page column, blank
+  pages, grid breaks) is a test over the column fixtures and a theme × size
+  matrix; `scripts/columns-matrix.ts` runs all 360 cases (all clean).
+- **Late webfonts:** a CDN that never answers costs at most 2 s + 20 s
+  before the final layout (the re-flow waited 20 s a second time: Print
+  waited 44.5 s).
+- **Typing after a pause** no longer freezes: a pagination of an older text
+  stops at its next page when the editor reports an edit; the stage is not
+  styled or laid out again when the fonts are loaded; Paged.js' setup lets
+  the input in between its steps; the frame acknowledges a render within
+  1 s, so the editor's pacing stays about 3 s on a long document (the
+  preview was 9–13 s behind on a 27-page report). The preview and the read
+  view show a quiet "updating…" mark while they are behind.
+- **Theme switch:** the old theme's styles (light-playful-1's grid) no longer
+  shape the new layout.
+- **Print:** Print and Cmd/Ctrl+P (read view, edit mode, the editor and its
+  preview frame — the kit's key, orz-markdown 2.3.0) wait for the final
+  layout, with a quiet "Preparing pages…"; a print from the browser's menu in
+  edit mode shows the pages, not a blank sheet.
+- **Tables** repeat their header row on continuation pages (a Paged.js
+  handler); the **page furniture** takes the theme's body font and muted
+  colour; an exam question header reads "1. (2 pts)"; `new --title`
+  round-trips any title; Version's `hidden` follows renders.
 
 ## [0.7.3] — 2026-07-17
 

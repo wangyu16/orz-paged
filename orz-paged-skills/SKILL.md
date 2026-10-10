@@ -154,9 +154,9 @@ front_matter: clean
 | `page_number_position` | `header-left\|center\|right`, `footer-left\|center\|right`, `none` | |
 | `page_number_style` | `simple`, `page-n`, `page-n-of-N`, `n-of-N`, `n-slash-N`, `dash-n-dash`, `brackets`, `parentheses` | |
 | `page_number_start_page`, `first_page_skip_number` | | |
-| `front_matter` | `clean` / `normal` | `clean`: title/abstract/contents pages with `placement: page` get no furniture; the body is numbered from 1 |
+| `front_matter` | `clean` / `normal` (or a boolean word) | `clean`: title/abstract/contents pages with `placement: page` get no furniture; the body is numbered from 1 |
 | `dynamic_choices` | a `key: value` map (`\|` block) | versions, below |
-| `limit_image_to_page`, `keep_image_together`, `repeat_table_header`, `avoid_table_row_breaks` | `true` / `false` | |
+| `limit_image_to_page`, `keep_image_together`, `repeat_table_header`, `avoid_table_row_breaks` | `true` / `false` | all on by default; `repeat_table_header`: a table that runs onto the next page repeats its header row there |
 | `custom_css` | CSS (`\|` block) | must not contain `}}` |
 
 - One `key: value` per line; `key: |` then more-indented lines for a
@@ -270,7 +270,12 @@ front_matter: clean
 
 `toc` builds a table of contents (with live page numbers) from your headings.
 `max_level` is the deepest heading included (1–6, default 3). `placement: page`
-puts it on its own page.
+puts it on its own page. **With `placement: page`, also set `front_matter: clean`
+in the header** (`article-page` and `report-page` do): then the contents page
+(and a title or abstract page) is left out of the numbering, the body is
+numbered 1…N, and the TOC's page numbers are those body numbers — the numbers
+printed in the footers. Without it every page counts, the cover included, and
+the TOC shows those physical numbers.
 
 ```
 {{nyml
@@ -388,6 +393,10 @@ your own keys (`audience: student`) and tag HTML in the body
 ## Page breaks, columns and print
 
 - `::: page-break` then `:::` on the next line starts a new page.
+- A long table breaks between rows and repeats its header row (`thead`) at
+  the top of each page it continues on (`repeat_table_header: false` turns
+  that off). Running headers, footers and page numbers take the theme's body
+  font and its muted text colour.
 - `:::: cols` / `::: col` … `:::` / `::::` lays text side by side. Across a
   page break a short block moves whole to the next page; a long one splits
   column by column (column 1 continues in column 1). **Limits:** a lone long

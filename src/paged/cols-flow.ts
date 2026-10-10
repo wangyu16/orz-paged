@@ -94,12 +94,17 @@ function rectOf(n: Node): DOMRect | null {
   return null;
 }
 
+/** True while a column's first block, which does not fit even at the top of a page, is split (`break-inside: avoid` ignored). */
+let splitAvoided = false;
+
 /** Things never cut through: replaced and atomic content, code, tables, math, boxed asides, nested grids. */
 function unbreakable(el: HTMLElement): boolean {
   if (/^(IMG|FIGURE|PRE|TABLE|SVG|CANVAS|VIDEO|IFRAME|H[1-6]|HR)$/i.test(el.tagName)) return true;
   if (el.classList.contains('katex-display') || el.classList.contains('katex') || el.classList.contains('mermaid')) return true;
   const cs = getComputedStyle(el);
-  if (cs.breakInside === 'avoid' || (cs as unknown as { pageBreakInside?: string }).pageBreakInside === 'avoid') return true;
+  // `break-inside: avoid` (an exam question) is kept whole — except at the top of a page where it does not fit
+  // (`splitAvoided`): it never will, so it is split through its children like any block (round 2, C.4)
+  if (!splitAvoided && (cs.breakInside === 'avoid' || (cs as unknown as { pageBreakInside?: string }).pageBreakInside === 'avoid')) return true;
   if (/(grid|flex)/.test(cs.display)) return true;
   return false;
 }
@@ -133,7 +138,7 @@ function atPath(root: Node, p: number[]): Node {
  * whose line box crosses `limit`; return the continuation (moved out of `s`),
  * or null when not even the first line fits.
  */
-function splitText(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement | null {
+export function splitText(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement | null {
   type Hit = { node: Node; offset: number | null };
   let hit: Hit | null = null;
   let firstAtom = true;
@@ -282,6 +287,21 @@ function below(el: Element | null): number {
   return (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
 }
 
+/** True when nothing visible precedes `el` inside `area` (the page's content so far). */
+function nothingBefore(el: HTMLElement, area: HTMLElement): boolean {
+  for (let n: HTMLElement | null = el; n && n !== area; n = n.parentElement) {
+    for (let s = n.previousSibling; s; s = s.previousSibling) {
+      if (isText(s) && /\S/.test(s.data)) return false;
+      if (!isEl(s)) continue;
+      if (getComputedStyle(s).display === 'none') continue;
+      if ((s.textContent || '').trim() || s.querySelector('img, svg, canvas, hr, table')) return false;
+      const r = s.getBoundingClientRect();
+      if (r.height > 0 && /^(IMG|SVG|CANVAS|HR|TABLE)$/i.test(s.tagName)) return false;
+    }
+  }
+  return true;
+}
+
 /** Fill the page clone with deep copies of `from`'s children (to measure them where the block will be). */
 function fill(clone: HTMLElement, from: HTMLElement): void {
   while (clone.firstChild) clone.removeChild(clone.firstChild);
@@ -338,6 +358,17 @@ function plan(clone: HTMLElement, trial: HTMLElement, limit: number, atTop: bool
         // this page (clipped at the bottom, as Paged.js clips any over-tall box), never deferred forever
         const sc = sCells[i];
         while (r.rest.firstChild) sc.appendChild(r.rest.firstChild);
+        // first, split it through its children even when it asks to be kept whole (an exam question taller than
+        // the page: forced whole, it was clipped and Paged.js broke the grid itself — closed loop round 2, C.4)
+        splitAvoided = true;
+        let r2: ReturnType<typeof splitChildren>;
+        try { r2 = splitChildren(mCells[i], sc, limit); } finally { splitAvoided = false; }
+        if (r2.rest && !r2.nothingFit) {
+          anyKept = true;
+          restCells.push(r2.rest);
+          continue;
+        }
+        if (r2.rest) while (r2.rest.firstChild) sc.appendChild(r2.rest.firstChild);
         const firstBlock = Array.from(sc.childNodes).find((k) => isEl(k) || (isText(k) && /\S/.test(k.data)));
         let k = firstBlock ? firstBlock.nextSibling : null;
         while (k) {
@@ -386,6 +417,9 @@ const ATTEMPTS = 4;
 
 /** The largest overflow a re-plan corrects (px): trailing space under a last line, never a forced over-tall block. */
 const MAX_TRAILING = 64;
+
+/** The least a re-plan lowers the limit (px): about one line of body text, so the cut moves a line. */
+export const REPLAN_STEP = 12;
 
 /**
  * Lay out one `.cols` block whose page clone is `clone` (empty, appended by
@@ -438,7 +472,9 @@ export function splitColsAt(clone: HTMLElement, src: HTMLElement, area: HTMLElem
     // the page (clipped there, the documented limit): only the small ones are corrected
     const over = Math.max(0, ...Array.from(clone.children).map((c) => c.getBoundingClientRect().bottom - bottom).filter((d) => d <= MAX_TRAILING));
     if (over <= 0.5) break;
-    limit -= Math.ceil(over) + 1;
+    // the cut must move by at least a line: a limit lowered by a couple of px finds the same line break again, and
+    // the re-plans run out with the head still overflowing — Paged.js then breaks the grid (closed loop round 2, C.2)
+    limit -= Math.max(Math.ceil(over) + 1, REPLAN_STEP);
   }
   cleanup();
   const p = chosen!.plan;
@@ -450,7 +486,11 @@ export function splitColsAt(clone: HTMLElement, src: HTMLElement, area: HTMLElem
   return cut.outcome;
 }
 
+/** The mark of a source `.cols` whose cells all moved to its continuation (an empty head). */
+const MOVED = 'data-cols-moved';
+
 function finishRest(clone: HTMLElement, src: HTMLElement, rest: HTMLElement): void {
+  if (!src.firstElementChild) src.setAttribute(MOVED, '');
   rest.setAttribute('data-break-before', 'page');
   rest.setAttribute('data-cols-cont', '');
   rest.style.marginTop = '0';
@@ -475,11 +515,35 @@ export class ColsFlowHandler extends Handler {
   /** The handler of the latest previewer (the runtime reports its stats). */
   static last: ColsFlowHandler | null = null;
 
+  /**
+   * Paged.js 0.4.3's undisplayed filter (`filters/undisplayed.js`) marks EVERY
+   * element with an inline `style` `data-undisplayed` — and a marked element is
+   * never given its forced page break (`needsPageBreak`). orz-markdown writes a
+   * ratio (`::: cols 1 2`) as an inline `grid-template-columns`, so such a block's
+   * continuation (`data-break-before="page"`) did not break: its text was lost or
+   * repeated (closed loop round 2). The grid and its cells are always displayed:
+   * the mark is taken off them here — in `filter`, which runs on the parsed
+   * content right after the built-in filter (registered before this handler) and
+   * before the layout reads it (`afterParsed` is too late for the first page).
+   */
+  filter(parsed: DocumentFragment | Element): void {
+    parsed.querySelectorAll('.cols[data-undisplayed], .col[data-undisplayed]').forEach((e) => e.removeAttribute('data-undisplayed'));
+  }
+
   renderNode(clone: Node, node: Node, layout: { element: HTMLElement }): void {
     if (!isEl(node) || !node.classList.contains('cols')) return;
     if (node.parentElement && node.parentElement.closest('.cols')) return; // nested: moved or split with its cell
     if (this.stats.split + this.stats.moved > MAX_CUTS) return; // the runaway guard
     const area = layout.element;
+    if (node.hasAttribute(MOVED) && !node.firstElementChild) {
+      // the empty head of a block moved whole: never drawn. Paged.js can lay it out again at the top of the next
+      // page (the page before overflowed at it); its continuation then follows at once, not after another page
+      // break — that left a blank page (closed loop round 2, C.4)
+      (clone as HTMLElement).style.display = 'none';
+      const rest = node.nextElementSibling;
+      if (rest && rest.hasAttribute('data-cols-cont') && nothingBefore(clone as HTMLElement, area)) rest.removeAttribute('data-break-before');
+      return;
+    }
     // measure outside Paged.js' multicol page area (see the module comment)
     const prev = area.style.columnWidth;
     area.style.columnWidth = 'auto';

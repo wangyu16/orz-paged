@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { buildPageCss } from '../src/doc/page-css.js';
+import { buildPageCss, FURNITURE_FALLBACK_COLOR, FURNITURE_FALLBACK_FONT } from '../src/doc/page-css.js';
+import { readFileSync } from 'node:fs';
+import { THEME_INFO } from '../src/themes.js';
 import type { DocSettings } from '../src/types.js';
 
 /** A fully-resolved DocSettings literal (no imports from other modules). */
@@ -164,7 +166,7 @@ describe('[T.2] buildPageCss — layout behavior', () => {
     const css = buildPageCss(makeSettings());
     expect(css).toContain('img { max-width: 100%; max-height: 100%; }');
     expect(css).toContain('img, figure { break-inside: avoid; }');
-    expect(css).toContain('thead { display: table-header-group; }');
+    expect(css).toContain('table { --orz-repeat-thead: 1; }');
     expect(css).toContain('tr { break-inside: avoid; }');
   });
 
@@ -177,7 +179,7 @@ describe('[T.2] buildPageCss — layout behavior', () => {
         avoidTableRowBreaks: false,
       }),
     );
-    expect(css).not.toContain('table-header-group');
+    expect(css).not.toContain('--orz-repeat-thead');
     expect(css).not.toContain('max-height: 100%');
   });
 });
@@ -196,5 +198,26 @@ describe('[T.2] buildPageCss — first-page suppression', () => {
   it('no @page:first rule when nothing is hidden', () => {
     const css = buildPageCss(makeSettings());
     expect(css).not.toContain('@page:first');
+  });
+});
+
+describe('page furniture takes the theme', () => {
+  it('[P.12] the margin boxes (running headers/footers, page numbers) use the theme\'s furniture tokens — every theme (none too) sets --orz-furniture-font to its body font and --orz-furniture-color to its muted text colour — with fallbacks when a theme sets none; an explicit font_margin_box_preset still wins', () => {
+    const css = buildPageCss(makeSettings({ fontPreset: undefined, fontFamily: undefined }));
+    expect(css).toContain(`--font-margin-box: var(--orz-furniture-font, var(--font-body, ${FURNITURE_FALLBACK_FONT}));`);
+    expect(css).toMatch(/\.pagedjs_margin-bottom-right \{\n  font-family: var\(--font-margin-box\);\n  color: var\(--orz-furniture-color, var\(--text-muted, #555555\)\);\n\}/);
+    expect(FURNITURE_FALLBACK_COLOR).toBe('#555555');
+    // an explicit body font: the theme's token follows --font-body, which the page CSS sets
+    const lora = buildPageCss(makeSettings({ fontPreset: 'lora' }));
+    expect(lora).toMatch(/--font-body: .*Lora/);
+    expect(lora).toMatch(/--font-margin-box: var\(--orz-furniture-font, var\(--font-body, .*Lora/);
+    // font_margin_box_preset wins
+    expect(buildPageCss(makeSettings({ fontMarginBoxPreset: 'inter' }))).toMatch(/--font-margin-box: [^;]*Inter/);
+    for (const t of THEME_INFO) {
+      const text = readFileSync(t.stylesheet, 'utf8');
+      expect(text, t.id).toContain('--orz-furniture-font: var(--font-body);');
+      expect(text, t.id).toContain('--orz-furniture-color: var(--text-muted);');
+      expect(text, t.id).toMatch(/--text-muted: [^;]+;/);
+    }
   });
 });

@@ -6,7 +6,8 @@ import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { lintHeader, readHeader, UID_PATTERN } from 'orz-markdown/carrier';
-import { newDocument, readDocument, assemble, extract, DEFAULT_TEMPLATE, TEMPLATE_IDS } from '../src/assemble.js';
+import { newDocument, readDocument, assemble, extract, markdownLiteral, replacePlaceholderTitle, DEFAULT_TEMPLATE, TEMPLATE_IDS } from '../src/assemble.js';
+import type { HeaderChange } from 'orz-markdown/carrier';
 import { TEMPLATES, templateList } from '../src/doc/templates.js';
 import { resolveSettings } from '../src/doc/settings.js';
 import { renderDocument } from '../src/render-paged.js';
@@ -132,5 +133,56 @@ describe('newDocument --title', () => {
     }
     // a blank title changes nothing; the skeleton is used as is
     expect(newDocument({ template: 'note', title: '  ', uid: UID })).toBe(newDocument({ template: 'note', uid: UID }));
+  });
+});
+
+describe('newDocument --title: any title round-trips', () => {
+  const TITLES = ['"quoted"', 'Q: what?', '| draft', '|', '#hash', 'trailing #', '>folded', "Owner's 'guide'", '"a" b "c"', 'a -- b --- c', 'wait...', '(c) 2026 (tm)',
+    'H~2~O x^2^', '==mark== ++ins++', '$x$ and $$y$$', '<b>bold</b>', '<!-- c -->', '&amp; & co', '*em* _u_ `code`', '[link](x) ![i](y)', ':smile: :+1:', 'a\\b', 'x {y} z',
+    '1. not a list', '- dash', '100%', '  spaced  ', 'π ≈ 3.14 — ok'];
+  /** The text of the document's first title (a title element's h1, else the first h1), entities decoded. */
+  const shownTitle = (text: string): string | null => {
+    const html = renderDocument(text).bodyHtml;
+    const m = /<h1 class="orz-title">([\s\S]*?)<\/h1>/.exec(html) ?? /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html);
+    return m ? m[1]!.replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&') : null;
+  };
+
+  it('[N.7] the header title is written by the kit\'s header writer and the body\'s title as literal Markdown: readDocument(text).title is the title, and the rendered title reads exactly it (quotes, `Q:`, `|`, `#`, markup, typographic sequences, emoji codes, HTML) — in a title element and in a `# ` heading; a title with `}}` (which no header can hold) is refused', () => {
+    for (const title of TITLES) {
+      for (const template of ['exam-page', 'report-page', 'article-section', 'note']) {
+        const text = newDocument({ template, title, uid: UID });
+        const at = `${template} ${JSON.stringify(title)}`;
+        expect(readDocument(text).title, at).toBe(title.trim());
+        expect(readHeader(text)!.fields['title'], at).toBe(title);
+        expect(shownTitle(text), at).toBe(title.trim());
+        expect(lintHeader(text, 'paged'), at).toEqual([]);
+      }
+    }
+    // plain words stay as they are (nothing to escape)
+    expect(markdownLiteral('Thermodynamics — Final, part 2: notes')).toBe('Thermodynamics — Final, part 2: notes');
+    expect(() => newDocument({ template: 'note', title: 'a {{x}} b', uid: UID })).toThrow(/"\}\}"/);
+  });
+
+  it('[N.8] only the template\'s placeholder title is replaced, never another first title: a first `# ` heading or title element that reads otherwise is left (and nothing after it is touched); a heading-like line inside a fenced code block before the title is skipped', () => {
+    const head = '{{nyml\nkind: document\ntitle: Placeholder\nheader_center: Placeholder\n}}\n';
+    const run = (body: string): { text: string; changes: Record<string, HeaderChange> } => {
+      const changes: Record<string, HeaderChange> = {};
+      return { text: replacePlaceholderTitle(head + body, 'New', changes), changes };
+    };
+    // N2: the first heading is not the placeholder → unchanged (a later placeholder heading too)
+    const h = run('\n# Something else\n\n# Placeholder\n');
+    expect(h.text).toBe(head + '\n# Something else\n\n# Placeholder\n');
+    expect(h.changes).toEqual({ header_center: 'New' });
+    // N3: the first title element's title is not the placeholder → unchanged
+    const e = run('\n{{nyml\nkind: exam-title\ntitle: Another exam\n}}\n\n# Placeholder\n');
+    expect(e.text).toBe(head + '\n{{nyml\nkind: exam-title\ntitle: Another exam\n}}\n\n# Placeholder\n');
+    // the placeholder is replaced where it is the first title
+    expect(run('\n{{nyml\nkind: report-title\ntitle: Placeholder\n}}\n').text).toBe(head + '\n{{nyml\nkind: report-title\ntitle: New\n}}\n');
+    expect(run('\n# Placeholder\n\n# Placeholder\n').text).toBe(head + '\n# New\n\n# Placeholder\n');
+    // N4: a fenced block before the title holds heading-like lines: they are code, not the title
+    for (const fence of ['```', '~~~']) {
+      expect(run(`\n${fence}md\n# Placeholder\n# Other\n${fence}\n\n# Placeholder\n`).text, fence).toBe(head + `\n${fence}md\n# Placeholder\n# Other\n${fence}\n\n# New\n`);
+    }
+    expect(run('\n```\n# Other\n```\n\n# Placeholder\n').text).toBe(head + '\n```\n# Other\n```\n\n# New\n');
   });
 });

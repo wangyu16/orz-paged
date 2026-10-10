@@ -21,7 +21,7 @@ describe('the handler (Node)', () => {
   it('[C.2] the hybrid handler is the prototype\'s, ported: registered by the paged runtime, hybrid only (no mode switch), the page area\'s column-width auto while measuring, a runaway guard, the over-tall first block forced', () => {
     const src = readFileSync('src/paged/cols-flow.ts', 'utf8');
     const runtime = readFileSync('src/paged/runtime.ts', 'utf8');
-    expect(runtime).toMatch(/registerHandlers\((?:BaselineGridHandler, )?ColsFlowHandler\)/);
+    expect(runtime).toMatch(/registerHandlers\(AbandonHandler, BaselineGridHandler, ColsFlowHandler(?:, \w+)*\)/);
     expect(src).not.toMatch(/__COLS_MODE__|mode\(\)|__COLS_DEBUG__/);
     expect(src).toMatch(/area\.style\.columnWidth = 'auto';[\s\S]*finally \{\s*area\.style\.columnWidth = prev;/);
     expect(src).toContain('if (this.stats.split + this.stats.moved > MAX_CUTS) return;');
@@ -189,3 +189,32 @@ chrome('the 8-document regression (real Chrome)', () => {
     await ctx.close();
   }, 300_000);
 });
+
+chrome('a text block cut at its last line box (real Chrome)', () => {
+  it('[C.3] a paragraph whose glyphs all end above the limit but whose last line box does not is cut before that line — not moved whole; a paragraph whose first line does not fit is moved whole', async () => {
+    const { build } = await import('esbuild');
+    const out = await build({ entryPoints: ['src/paged/cols-flow.ts'], bundle: true, format: 'iife', globalName: 'ColsFlow', write: false, logLevel: 'silent' });
+    const page = await browser!.newPage();
+    await page.setContent('<!doctype html><body style="margin:0"><p id="m" style="margin:0;width:220px;font:12px/30px sans-serif">alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau upsilon phi chi psi omega one two three four five six seven eight nine ten</p></body>');
+    await page.addScriptTag({ content: out.outputFiles[0]!.text });
+    const r = await page.evaluate(() => {
+      const split = (globalThis as unknown as { ColsFlow: { splitText(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement | null } }).ColsFlow.splitText;
+      const m = document.getElementById('m')!;
+      const box = m.getBoundingClientRect();
+      const lines = Math.round(box.height / 30);
+      // the last line's glyphs end about 22 px into its 30 px line box: a limit 5 px above the box's bottom
+      const s1 = m.cloneNode(true) as HTMLElement;
+      const rest = split(m, s1, box.bottom - 5);
+      const s2 = m.cloneNode(true) as HTMLElement;
+      const none = split(m, s2, box.top + 10);
+      return { lines, kept: s1.textContent, rest: rest?.textContent ?? null, none: none === null };
+    });
+    expect(r.lines).toBeGreaterThanOrEqual(3);
+    expect(r.rest, 'the last line goes on').not.toBeNull();
+    expect((r.kept + ' ' + r.rest).replace(/\s+/g, ' ')).toContain('alpha beta');
+    expect(r.kept!.length).toBeGreaterThan(r.rest!.length);
+    expect(r.none).toBe(true);
+    await page.close();
+  });
+});
+

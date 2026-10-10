@@ -34,15 +34,20 @@
  *   5. the pages swapped into `target` with the scroll position kept, the old
  *      pagination's styles removed only then (no unstyled flash);
  *   6. front-matter renumbering (`--orz-pageno` per body page,
- *      `--orz-body-pages`), the TOC's page numbers, copy-as-Markdown on the
- *      pages.
+ *      `--orz-body-pages`), the TOC's page numbers (the TOC itself is built on
+ *      the stage in step 2, so it is laid out with the pages), copy-as-Markdown
+ *      on the pages.
  */
-import { Polisher, Previewer, registerHandlers } from 'pagedjs';
+import { Handler, Polisher, Previewer, registerHandlers } from 'pagedjs';
 import { enhanceDocument } from 'orz-markdown/preview-frame';
 import { applyDynamicChoices, collectDynamicChoices } from '../doc/dynamic.js';
 import { BaselineGridHandler, type GridStats } from './baseline-grid.js';
 import { ColsFlowHandler, type ColsStats } from './cols-flow.js';
 import { INPUT_ATTRIBUTE, type PagedInput } from './input.js';
+import { TableHeadHandler } from './table-head.js';
+import { FINAL_WAIT_MS, FIRST_WAIT_MS, LATE_WAIT_MS, PREVIEW_ACK_MS, UPDATING_ATTRIBUTE } from './constants.js';
+
+export { FINAL_WAIT_MS, FIRST_WAIT_MS, LATE_WAIT_MS, PREVIEW_ACK_MS, UPDATING_ATTRIBUTE };
 
 export interface PaginateOptions {
   /** False once the caller no longer wants this pagination (a newer one superseded it). */
@@ -84,6 +89,10 @@ export interface PagedRuntime {
   applyPreview(html: string): Promise<PaginateResult | null>;
   /** Resolves when no pagination runs or waits, the re-flow after late fonts or libraries included. */
   idle(): Promise<void>;
+  /** True while a pagination runs or waits, or a re-flow is announced (`idle()` would wait). */
+  busy(): boolean;
+  /** Counts since the runtime started: paginations run, abandoned (superseded mid-way), with a styled stage (`measured`). */
+  stats(): { paginations: number; abandoned: number; measured: number };
 }
 
 declare const __ORZ_PAGED_RUNTIME_VERSION__: string;
@@ -91,6 +100,8 @@ declare const __ORZ_PAGED_RUNTIME_VERSION__: string;
 const W = window as unknown as Window & {
   __orzPaged?: PagedRuntime;
   __orzPreviewApply?: (html: string, msg: unknown) => Promise<unknown>;
+  __orzPreviewMessage?: (msg: unknown) => void;
+  __orzPreview?: { report?(): void };
   OrzMarkdownRuntime?: { init?(root: unknown): void };
 };
 
@@ -106,15 +117,6 @@ const NONCE: string | undefined = (() => {
 
 const later = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-/**
- * How long a layout waits for the content's fonts, stylesheets, libraries
- * (enhancement) and images before it lays out the pages with what has
- * arrived (fallback fonts, unenhanced content): a slow or hanging CDN never
- * keeps the page blank (R.6).
- */
-export const FIRST_WAIT_MS = 2000;
-/** How long the late assets are awaited for the one re-flow after a provisional layout (and Print, which waits for it). */
-export const LATE_WAIT_MS = 20_000;
 const within = <T>(p: Promise<T>, ms: number): Promise<T | void> => Promise.race([p, later(ms)]);
 
 /** Add the stylesheet links the content needs (once each). */
@@ -148,49 +150,80 @@ function stylesheetsSettled(ms: number): Promise<unknown> {
   return within(Promise.all(pending), ms);
 }
 
+/** The heading a TOC entry lists (set on the stage, kept by Paged.js on every fragment of the heading). */
+const TOC_HEADING = 'data-orz-toc-h';
+/** The page-number slot of a TOC entry: the index of its heading. */
+const TOC_SLOT = 'data-orz-toc-for';
+/** The page number a TOC entry shows while the pages are laid out: fixed width, so filling it never re-flows a page. */
+const TOC_PLACEHOLDER = '000';
+
 /**
- * Fill `.orz-toc` with the headings of the pages (levels 1 to the TOC's
- * `data-max-level`) and their page numbers, in the structure the print
- * layer styles (assets/themes/layers/structure.css): per heading
+ * Build every `.orz-toc` list from the content's headings (levels 1 to the
+ * TOC's `data-max-level`) on the stage, BEFORE Paged.js lays out the pages —
+ * so the list takes its place in the flow (inline or on its own pages, split
+ * across pages like any list) and nothing after it is pushed off a page by a
+ * list added later (closed loop round 2: a TOC filled after the layout hid a
+ * report's sections). The structure is the one the print layer styles
+ * (assets/themes/layers/structure.css): per heading
  * `li.orz-toc-item.orz-toc-l<level>.orz-toc-d<depth below the top level listed> > span.orz-toc-entry > span.orz-toc-text,
- * span.orz-toc-leader (the dotted leader), span.orz-toc-page` — the number
- * right-aligned after the leader, never against the text.
+ * span.orz-toc-leader (the dotted leader), span.orz-toc-page` — the number a
+ * fixed-width placeholder until {@link fillTocNumbers} sets it.
  */
-function fillToc(root: HTMLElement): void {
-  const nav = root.querySelector('.orz-toc');
-  if (!nav) return;
-  const maxLevel = Math.min(6, Math.max(1, Number(nav.getAttribute('data-max-level') || '3') || 3));
-  const list = document.createElement('ol');
-  list.className = 'orz-toc-list';
-  const levels = Array.from({ length: maxLevel }, (_, i) => `.pagedjs_page_content h${i + 1}`).join(', ');
-  const heads = Array.from(root.querySelectorAll<HTMLElement>(levels)).filter((h) =>
-    // the contents list the document's sections: not its own heading, nor the title block's or the CV header's;
-    // a heading Paged.js split across pages (its continuation) is listed once
-    !h.closest('.orz-el-toc, .orz-el-article-title, .orz-el-report-title, .orz-el-exam-title, .orz-el-cv-header') && !h.hasAttribute('data-split-from'));
-  const top = Math.min(...heads.map((h) => Number(h.tagName.slice(1))));
-  heads.forEach((h) => {
-    const level = Number(h.tagName.slice(1));
-    if (level > maxLevel) return;
+function buildToc(root: ParentNode): void {
+  const navs = Array.from(root.querySelectorAll<HTMLElement>('.orz-toc'));
+  if (!navs.length) return;
+  const all = Array.from(root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')).filter((h) =>
+    // the contents list the document's sections: not its own heading, nor the title block's or the CV header's
+    !h.closest('.orz-el-toc, .orz-el-article-title, .orz-el-report-title, .orz-el-exam-title, .orz-el-cv-header, .orz-toc'));
+  all.forEach((h, i) => h.setAttribute(TOC_HEADING, String(i)));
+  for (const nav of navs) {
+    const maxLevel = Math.min(6, Math.max(1, Number(nav.getAttribute('data-max-level') || '3') || 3));
+    const heads = all.filter((h) => Number(h.tagName.slice(1)) <= maxLevel);
+    if (!heads.length) continue;
+    const top = Math.min(...heads.map((h) => Number(h.tagName.slice(1))));
+    const list = document.createElement('ol');
+    list.className = 'orz-toc-list';
+    for (const h of heads) {
+      const level = Number(h.tagName.slice(1));
+      const li = document.createElement('li');
+      li.className = `orz-toc-item orz-toc-l${level} orz-toc-d${level - top + 1}`;
+      const entry = document.createElement('span');
+      entry.className = 'orz-toc-entry';
+      const t = document.createElement('span');
+      t.className = 'orz-toc-text';
+      t.textContent = (h.textContent || '').trim();
+      const leader = document.createElement('span');
+      leader.className = 'orz-toc-leader';
+      leader.setAttribute('aria-hidden', 'true');
+      const n = document.createElement('span');
+      n.className = 'orz-toc-page';
+      n.setAttribute(TOC_SLOT, h.getAttribute(TOC_HEADING)!);
+      n.textContent = TOC_PLACEHOLDER;
+      entry.append(t, leader, n);
+      li.append(entry);
+      list.append(li);
+    }
+    nav.replaceChildren(list);
+  }
+}
+
+/**
+ * After the layout (and the front-matter renumbering): set each TOC entry's
+ * page number — in every fragment of a TOC Paged.js split across pages — from
+ * the page its heading STARTS on (a heading split across pages is listed once,
+ * at its first fragment). Only the numbers change: no page re-flows.
+ */
+function fillTocNumbers(root: HTMLElement): void {
+  const slots = Array.from(root.querySelectorAll<HTMLElement>(`.orz-toc-page[${TOC_SLOT}]`));
+  if (!slots.length) return;
+  const pageOf = new Map<string, string>();
+  root.querySelectorAll<HTMLElement>(`[${TOC_HEADING}]`).forEach((h) => {
+    const k = h.getAttribute(TOC_HEADING)!;
+    if (pageOf.has(k)) return; // the first fragment (document order)
     const page = h.closest('.pagedjs_page') as HTMLElement | null;
-    const no = page ? (page.style.getPropertyValue('--orz-pageno').replace(/"/g, '') || page.getAttribute('data-page-number') || '') : '';
-    const li = document.createElement('li');
-    li.className = `orz-toc-item orz-toc-l${level} orz-toc-d${level - top + 1}`;
-    const entry = document.createElement('span');
-    entry.className = 'orz-toc-entry';
-    const t = document.createElement('span');
-    t.className = 'orz-toc-text';
-    t.textContent = (h.textContent || '').trim();
-    const leader = document.createElement('span');
-    leader.className = 'orz-toc-leader';
-    leader.setAttribute('aria-hidden', 'true');
-    const n = document.createElement('span');
-    n.className = 'orz-toc-page';
-    n.textContent = no;
-    entry.append(t, leader, n);
-    li.append(entry);
-    list.append(li);
+    pageOf.set(k, page ? (page.style.getPropertyValue('--orz-pageno').replace(/"/g, '') || page.getAttribute('data-page-number') || '') : '');
   });
-  if (list.childElementCount) nav.replaceChildren(list);
+  for (const s of slots) s.textContent = pageOf.get(s.getAttribute(TOC_SLOT)!) ?? '';
 }
 
 /** Clean front matter: number the body pages 1, 2, … (Paged.js' counter is unreliable across later breaks). */
@@ -215,7 +248,57 @@ function fitTo(root: HTMLElement): void {
   root.style.setProperty('--orz-page-zoom', String(Math.round(z * 1000) / 1000));
 }
 
+/** Thrown from a page hook to stop a pagination nobody wants any more (Paged.js lays out one page per frame). */
+class Abandoned extends Error {}
+/** While a pagination runs: true when it is no longer wanted. */
+let abandonIf: (() => boolean) | null = null;
+
+/**
+ * Stops the running pagination before its next page when it is no longer
+ * wanted (registered first), and lets the page's input in between the steps
+ * of a pagination's setup: Paged.js lays out one page per animation frame,
+ * but parses the stylesheets, then the content, then filters it, in one go —
+ * a key typed meanwhile waited for all of it (closed loop round 2, E.5).
+ */
+class AbandonHandler extends Handler {
+  private check(): void {
+    if (abandonIf?.()) throw new Abandoned('orz-paged: pagination superseded');
+  }
+  async beforeParsed(): Promise<void> {
+    await later(0);
+    this.check();
+  }
+  async afterParsed(): Promise<void> {
+    await later(0);
+    this.check();
+  }
+  beforePageLayout(): void {
+    this.check();
+  }
+}
+
 let current: Previewer | null = null;
+/** Paginations started (a prefix for the `data-ref`s of each). */
+let paginations = 0;
+/** Paginations abandoned mid-way, and stages styled and laid out for measuring (`stats()`). */
+let abandoned = 0;
+let measuredStages = 0;
+/** The theme and webfonts of the last layout made with everything loaded (its fonts need no stage layout to load). */
+let loadedFonts = '';
+/** The theme stylesheets of the pagination shown (`current`): another theme's styles must not shape a new layout. */
+let currentTheme = '';
+
+/** The theme part of an input's stylesheets (base and theme; the page CSS changes with the header and is the same rules). */
+const themeKey = (input: PagedInput): string => input.sheets.filter((s) => s.name !== 'orz-page.css').map((s) => s.css).join('\n');
+
+/** Switch the style elements a pagination inserted on or off (its pages stay; another pagination's styles apply). */
+function styles(p: Previewer, on: boolean): void {
+  const pol = p.polisher as unknown as { inserted?: HTMLStyleElement[]; styleEl?: HTMLStyleElement };
+  for (const el of [...(pol.inserted ?? []), ...(pol.styleEl ? [pol.styleEl] : [])]) {
+    el.disabled = !on;
+    if (el.sheet) el.sheet.disabled = !on;
+  }
+}
 let queue: Promise<unknown> = Promise.resolve();
 let waiting = 0;
 
@@ -238,23 +321,37 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
   stage.innerHTML = input.bodyHtml;
   const choices = collectDynamicChoices(stage);
   applyDynamicChoices(stage, input.dynamicChoices);
+  buildToc(stage); // the contents laid out with the pages (their numbers set after the layout)
+  // the stage is styled and laid out (a whole-document style and layout pass — about a second on a long document, in
+  // the editor's process) only when something needs it: fonts that may still have to load (another theme or webfonts
+  // than the last complete layout's), or content enhancement draws to its size (Mermaid, charts, SMILES); otherwise
+  // it is not rendered at all (each re-render while typing; closed loop round 2, E.5)
+  const fontsKey = `${themeKey(input)}\n${input.links.join('\n')}`;
+  const fontsKnown = fontsKey === loadedFonts && document.fonts?.status === 'loaded';
+  const measured = !fontsKnown || !!stage.querySelector('.mermaid, canvas[data-smiles], canvas.orz-chart');
   const measure = document.createElement('style');
-  if (NONCE) measure.setAttribute('nonce', NONCE);
-  measure.setAttribute('data-orz-paged-measure', '');
-  measure.textContent = input.sheets.filter((s) => s.name !== 'orz-page.css').map((s) => s.css).join('\n');
-  document.head.appendChild(measure);
+  if (measured) {
+    measuredStages++;
+    if (NONCE) measure.setAttribute('nonce', NONCE);
+    measure.setAttribute('data-orz-paged-measure', '');
+    measure.textContent = input.sheets.filter((s) => s.name !== 'orz-page.css').map((s) => s.css).join('\n');
+    document.head.appendChild(measure);
+  } else stage.style.display = 'none';
   document.body.appendChild(stage);
   const out = document.createElement('div');
   out.className = 'orz-paged-buffer';
   out.setAttribute('aria-hidden', 'true');
   out.style.cssText = 'position:absolute;left:-99999px;top:0;';
   let previewer: Previewer | null = null;
+  let other: Previewer | null = null;
   let late: Promise<unknown> | null = null;
   try {
     // 3. enhancement, images, stylesheets, fonts — all started at once; the layout waits for them at most
-    //    FIRST_WAIT_MS (a final pass: LATE_WAIT_MS), then goes ahead with what has arrived and reports the rest
+    //    FIRST_WAIT_MS, then goes ahead with what has arrived and reports the rest. The final pass (the re-flow) runs
+    //    after the late assets settled or LATE_WAIT_MS passed: it waits only FINAL_WAIT_MS more — a CDN that never
+    //    answers must not cost a second LATE_WAIT_MS (Print waited 44 s; closed loop round 2, R.6)
     const root = (stage.querySelector('.orz-doc') as HTMLElement | null) ?? stage;
-    const cap = o.final ? LATE_WAIT_MS : FIRST_WAIT_MS;
+    const cap = o.final ? FINAL_WAIT_MS : FIRST_WAIT_MS;
     // static (print): everything drawn, then each drawn chart / SMILES canvas an image (Paged.js re-parses the
     // HTML); the orz runtime installed too (copy-as-Markdown on the pages, step 6)
     const enhanced = Promise.resolve().then(() => enhanceDocument(root, { scheme: 'light', static: true, runtime: true, ...(NONCE ? { nonce: NONCE } : {}) })).catch(() => undefined);
@@ -264,12 +361,15 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     let ready = false;
     const settled = (async () => {
       await assets;
-      void stage.offsetHeight; // layout: the fonts the content uses start loading
-      if (document.fonts?.ready) await document.fonts.ready.catch(() => undefined);
+      if (!fontsKnown) {
+        void stage.offsetHeight; // layout: the fonts the content uses start loading
+        // (reading `document.fonts.ready` lays the document out too: only when fonts may be on their way)
+        if (document.fonts?.ready) await document.fonts.ready.catch(() => undefined);
+      }
       ready = true;
     })();
     await within(settled, cap);
-    if (!ready) void stage.offsetHeight; // the fonts known so far start loading; the pages lay out with fallbacks
+    if (!ready && !fontsKnown) void stage.offsetHeight; // the fonts known so far start loading; the pages lay out with fallbacks
     if (!isCurrent()) return { result: { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices, ms: performance.now() - t0, provisional: false }, late: null };
     // what is still on its way: the re-flow waits for it (the pages now in the page request the fonts)
     late = ready || o.final ? null : within((async () => {
@@ -281,10 +381,39 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
 
     // 4. Paged.js into the off-screen buffer
     document.body.appendChild(out);
+    // a theme switch: the shown pages' styles (the old theme's rules and custom properties — its `--orz-grid` made the
+    // new theme's text snap to the old ruling) would shape this layout too; they are switched off while it runs (the
+    // shown pages take the new theme's styles meanwhile) and on again when it is cancelled (closed loop round 2, R.10)
+    const key = themeKey(input);
+    other = current && currentTheme !== key ? current : null;
+    if (other) styles(other, false);
+    await later(0); // the page's input first (the stage's setup and enhancement ran in this task)
+    if (!isCurrent()) return { result: { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices, ms: performance.now() - t0, provisional: false }, late: null };
+    // the content for Paged.js: every element given its `data-ref` here (Paged.js' own, a random UUID per element,
+    // took a third of a second on a long document), then the stage and its measuring styles leave the document
+    // before the layout — so they are not laid out or restyled again with every page
+    const prefix = `o${++paginations}-`;
+    let refs = 0;
+    stage.querySelectorAll('*').forEach((el) => { if (!el.hasAttribute('data-ref')) el.setAttribute('data-ref', prefix + (++refs).toString(36)); });
+    const content = stage.innerHTML;
+    stage.remove();
+    measure.remove();
     previewer = new Previewer();
     ColsFlowHandler.last = null;
     BaselineGridHandler.last = null;
-    const flow = await previewer.preview(stage.innerHTML, input.sheets.map((s) => ({ [s.name]: s.css })), out);
+    // a pagination nobody wants any more (a newer render, the reader typing again in the editor) stops at the next
+    // page instead of laying out every page and swapping them in (closed loop round 2, E.5)
+    let flow: Awaited<ReturnType<Previewer['preview']>>;
+    abandonIf = () => !isCurrent();
+    try {
+      flow = await previewer.preview(content, input.sheets.map((s) => ({ [s.name]: s.css })), out);
+    } catch (e) {
+      if (e instanceof Abandoned) abandoned++;
+      if (e instanceof Abandoned || !isCurrent()) return { result: { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices, ms: performance.now() - t0, provisional: false }, late: null };
+      throw e;
+    } finally {
+      abandonIf = null;
+    }
     const cols = ColsFlowHandler.last ? { ...(ColsFlowHandler.last as ColsFlowHandler).stats } : empty;
     const gridStats = BaselineGridHandler.last ? { ...(BaselineGridHandler.last as BaselineGridHandler).stats, grid: Math.max(0, (BaselineGridHandler.last as BaselineGridHandler).stats.grid) } : noGrid;
     if (!isCurrent()) {
@@ -299,17 +428,20 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     se.scrollTop = top;
     const old = current;
     current = previewer;
+    currentTheme = key;
+    if (late === null) loadedFonts = fontsKey;
     previewer = null;
     old?.polisher.destroy();
 
     // 6. front matter, TOC, copy-as-Markdown, fit
     renumber(target, input.frontMatterClean);
-    fillToc(target);
+    fillTocNumbers(target);
     target.setAttribute('data-orz-copy', '');
     try { W.OrzMarkdownRuntime?.init?.(target); } catch { /* the runtime's own error */ }
     if (o.fit) fitTo(target);
     return { result: { cancelled: false, pages: flow.total, cols, grid: gridStats, choices, ms: performance.now() - t0, provisional: late !== null }, late };
   } finally {
+    if (other && current === other) styles(other, true); // cancelled or failed: the shown pages keep their styles
     previewer?.polisher.destroy();
     stage.remove();
     out.remove();
@@ -384,12 +516,39 @@ function decodePreviewHtml(html: string): PagedInput | null {
 
 let previewSeq = 0;
 
+/** Edits the editor reported since the frame started (`orz-paged-edit` messages, src/browser/carrier.ts). */
+let edits = 0;
+
+/**
+ * The preview frame's render: decode the payload and paginate into `#orz-doc`.
+ * An edit reported after the payload was made (the reader typing again)
+ * abandons the pagination at its next page — its text is stale and a newer
+ * render follows the next pause — so typing is not frozen by a layout of a
+ * text already gone. The pages carry the "updating…" mark until a layout of
+ * the latest text is shown; the bridge re-reports the anchors then.
+ */
 async function applyPreview(html: string): Promise<PaginateResult | null> {
   const doc = document.getElementById('orz-doc');
   const input = decodePreviewHtml(String(html));
   if (!doc || !doc.hasAttribute('data-orz-paged-preview') || !input) return null;
   const mine = ++previewSeq;
-  return paginate(input, doc, { fit: true, isCurrent: () => mine === previewSeq });
+  const seen = edits;
+  doc.setAttribute(UPDATING_ATTRIBUTE, '');
+  const wanted = (): boolean => mine === previewSeq && edits === seen;
+  const shown = (r: PaginateResult): PaginateResult => {
+    if (!r.cancelled && wanted()) doc.removeAttribute(UPDATING_ATTRIBUTE);
+    if (!r.cancelled) { try { W.__orzPreview?.report?.(); } catch { /* the bridge's own error */ } }
+    return r;
+  };
+  const run = paginate(input, doc, { fit: true, isCurrent: wanted, onReflow: (r) => { shown(r); } }).then(shown);
+  return Promise.race([run, later(PREVIEW_ACK_MS).then(() => null)]);
+}
+
+/** The editor's own messages to the frame (the kit's `preview.post` → `__orzPreviewMessage`). */
+function previewMessage(m: unknown): void {
+  if (!m || typeof m !== 'object' || (m as { type?: unknown }).type !== 'orz-paged-edit') return;
+  edits++;
+  document.getElementById('orz-doc')?.setAttribute(UPDATING_ATTRIBUTE, '');
 }
 
 /**
@@ -424,17 +583,20 @@ function stampPagedStyles(): void {
 }
 
 if (!W.__orzPaged) {
-  registerHandlers(BaselineGridHandler, ColsFlowHandler); // the grid first: a block is placed before the column handler measures it
+  registerHandlers(AbandonHandler, BaselineGridHandler, ColsFlowHandler, TableHeadHandler); // the grid before the columns: a block is placed before the column handler measures it
   stampPagedStyles();
   const api: PagedRuntime = Object.freeze({
     version: typeof __ORZ_PAGED_RUNTIME_VERSION__ === 'string' ? __ORZ_PAGED_RUNTIME_VERSION__ : '',
     paginate,
     applyPreview,
     idle,
+    busy: () => waiting > 0 || reflows.size > 0,
+    stats: () => ({ paginations, abandoned, measured: measuredStages }),
   });
   W.__orzPaged = api;
   // the preview frame's page hook (FC-19 §8.4): the bridge acknowledges the render when it settles
   W.__orzPreviewApply = (html: string) => applyPreview(html);
+  W.__orzPreviewMessage = previewMessage;
   // the editor preview's pages follow the pane's width
   if (typeof ResizeObserver === 'function') {
     let pending = 0;

@@ -326,3 +326,110 @@ chrome('the table of contents in every theme (real Chrome)', () => {
     console.log('[P.10]', report.join('; '));
   }, 300_000);
 });
+
+/** A document with a long table (`rows` rows, the first cell `r<n>`) after an exam question and some text. */
+function tableText(o: { pageSize: string; rows: number; repeat?: boolean; theme?: string }): string {
+  const rows = Array.from({ length: o.rows }, (_, i) => `| r${i + 1} | value ${i + 1} | a note on row ${i + 1} |`).join('\n');
+  return `{{nyml\nkind: document\ntitle: Long table\ntheme: ${o.theme ?? 'light-neat-1'}\npage_size: ${o.pageSize}\nheader_right: Long table\n${o.repeat === false ? 'repeat_table_header: false\n' : ''}}}\n\n# Long table\n\n{{nyml\nkind: question-open\nn: 1\npts: 2 pts\nbody: What does the table show?\n}}\n\nSome text before the table.\n\n| Key | Value | Note |\n|:--|--:|:--|\n${rows}\n\nText after the table.\n`;
+}
+
+/** Per page that holds a table fragment: its header row's text, the rows' first cells, and rows outside the page area. */
+async function tableReport(page: import('playwright-core').Page) {
+  return page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>('.pagedjs_page')).flatMap((pg, n) => {
+    const area = pg.querySelector<HTMLElement>('.pagedjs_area')!.getBoundingClientRect();
+    return Array.from(pg.querySelectorAll<HTMLTableElement>('table')).map((t) => {
+      const head = Array.from(t.children).find((c) => c.tagName === 'THEAD') as HTMLElement | undefined;
+      const first = Array.from(t.children).find((c) => c.tagName !== 'CAPTION' && c.tagName !== 'COLGROUP');
+      const rows = Array.from(t.querySelectorAll<HTMLTableRowElement>(':scope > tbody > tr'));
+      const r = head?.getBoundingClientRect();
+      return {
+        page: n + 1,
+        split: t.hasAttribute('data-split-from'),
+        head: head ? (head.textContent ?? '').replace(/\s+/g, ' ').trim() : null,
+        headFirst: !!head && first === head,
+        headInside: !r || (r.top >= area.top - 0.5 && r.bottom <= area.bottom + 0.5),
+        cells: rows.map((tr) => (tr.cells[0]?.textContent ?? '').trim()),
+        clipped: rows.filter((tr) => { const b = tr.getBoundingClientRect(); return b.bottom > area.bottom + 0.5 || b.top < area.top - 0.5 || b.left >= area.right - 1; }).map((tr) => (tr.cells[0]?.textContent ?? '').trim()),
+      };
+    });
+  }));
+}
+
+chrome('long tables and the page furniture (real Chrome)', () => {
+  for (const pageSize of ['A5', 'A4']) {
+    it(`[P.11] [T.23] a 90-row table on ${pageSize}: its header row on every page it spans (the first child of each fragment, inside the page area), all 90 rows exactly once and in order, none clipped below the page area; the exam question header reads "1. (2 pts)"`, async () => {
+      const r = await renderPaged(browser!, tableText({ pageSize, rows: 90 }), { scale: 1 });
+      try {
+        expect(r.errors).toEqual([]);
+        const frags = await tableReport(r.page);
+        expect(frags.length, 'the table spans pages').toBeGreaterThanOrEqual(pageSize === 'A5' ? 4 : 2);
+        for (const f of frags) {
+          expect(f.head, `page ${f.page}`).toBe('Key Value Note');
+          expect(f.headFirst, `page ${f.page}: the header first`).toBe(true);
+          expect(f.headInside, `page ${f.page}: the header inside the page area`).toBe(true);
+          expect(f.clipped, `page ${f.page}: rows outside the page area`).toEqual([]);
+          expect(f.cells.length, `page ${f.page}: rows under the header`).toBeGreaterThan(0);
+        }
+        expect(frags.slice(1).every((f) => f.split)).toBe(true);
+        expect(frags.flatMap((f) => f.cells)).toEqual(Array.from({ length: 90 }, (_, i) => `r${i + 1}`));
+        // the header is a repeat, not a row: no header text among the rows; the text after the table is laid out
+        expect(await r.page.evaluate(() => document.querySelectorAll('[data-orz-repeated-head]').length)).toBe(frags.length - 1);
+        expect(await r.page.evaluate(() => Array.from(document.querySelectorAll('.markdown-body p')).some((p) => p.textContent === 'Text after the table.'))).toBe(true);
+        expect(await r.page.evaluate(() => (document.querySelector('.orz-q-header') as HTMLElement).innerText)).toBe('1. (2 pts)');
+      } finally {
+        await r.page.close();
+      }
+    });
+  }
+
+  it('[P.11] repeat_table_header: false — the continuation pages carry no header row; every row still once', async () => {
+    const r = await renderPaged(browser!, tableText({ pageSize: 'A5', rows: 90, repeat: false }), { scale: 1 });
+    try {
+      const frags = await tableReport(r.page);
+      expect(frags.length).toBeGreaterThanOrEqual(4);
+      expect(frags[0]!.head).toBe('Key Value Note');
+      for (const f of frags.slice(1)) expect(f.head, `page ${f.page}`).toBeNull();
+      expect(frags.flatMap((f) => f.cells)).toEqual(Array.from({ length: 90 }, (_, i) => `r${i + 1}`));
+    } finally {
+      await r.page.close();
+    }
+  });
+
+  it('[P.12] the page furniture takes the theme: the running header, footer and page number are set in the theme\'s body font (the font of its paragraphs) and its muted text colour — light-academic-1, light-playful-1, beige-decent-1 and none; screenshots in /tmp/paged-furniture', async () => {
+    const dir = '/tmp/paged-furniture';
+    mkdirSync(dir, { recursive: true });
+    for (const theme of ['light-academic-1', 'light-playful-1', 'beige-decent-1', 'none']) {
+      const text = `{{nyml\nkind: document\ntitle: Furniture\ntheme: ${theme}\npage_size: A5\nheader_left: A running header\nheader_right: Furniture\nfooter_left: orz-paged\npage_number_position: footer-right\npage_number_style: page-n-of-N\n}}\n\n# Furniture\n\n${'A paragraph of body text set in the theme\'s body font. '.repeat(40)}\n\n${'Another paragraph on the next page. '.repeat(60)}\n`;
+      const r = await renderPaged(browser!, text, { scale: 2 });
+      try {
+        expect(r.errors, theme).toEqual([]);
+        const got = await r.page.evaluate(() => {
+          const pg = document.querySelectorAll<HTMLElement>('.pagedjs_page')[1]!;
+          const probe = document.createElement('span');
+          probe.style.cssText = 'color: var(--text-muted); font-family: var(--font-body)';
+          pg.querySelector('.pagedjs_area')!.appendChild(probe);
+          const muted = getComputedStyle(probe).color;
+          probe.remove();
+          const para = getComputedStyle(pg.querySelector('.markdown-body p')!);
+          const box = (sel: string) => {
+            const el = pg.querySelector<HTMLElement>(sel)!;
+            const c = getComputedStyle(el.querySelector('.pagedjs_margin-content') ?? el, '::after');
+            return { font: c.fontFamily, color: c.color, content: c.content };
+          };
+          return { para: para.fontFamily, paraColor: para.color, muted, boxes: { tl: box('.pagedjs_margin-top-left'), tr: box('.pagedjs_margin-top-right'), bl: box('.pagedjs_margin-bottom-left'), br: box('.pagedjs_margin-bottom-right') } };
+        });
+        for (const [k, b] of Object.entries(got.boxes)) {
+          expect(b.content, `${theme} ${k}`).not.toBe('none');
+          expect(b.font, `${theme} ${k}: the body font`).toBe(got.para);
+          expect(b.color, `${theme} ${k}: the muted colour`).toBe(got.muted);
+        }
+        expect(got.muted, `${theme}: muted is not the body colour`).not.toBe(got.paraColor);
+        const pg = r.page.locator('.pagedjs_page').nth(1);
+        await pg.locator('.pagedjs_margin-top').screenshot({ path: `${dir}/${theme}-header.png` });
+        await pg.locator('.pagedjs_margin-bottom').screenshot({ path: `${dir}/${theme}-footer.png` });
+      } finally {
+        await r.page.close();
+      }
+    }
+  }, 120_000);
+});

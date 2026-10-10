@@ -686,9 +686,11 @@ function questionHeader(spec: ElementSpec): string {
     `<span class="orz-q-num">${escapeHtml(n || '')}${n ? '.' : ''}</span>`,
   );
   if (pts) {
-    parts.push(`<span class="orz-q-pts">(${escapeHtml(pts)})</span>`);
+    // the space is the points' own first character: a whitespace-only text node between the two spans
+    // does not survive pagination (the page read "1.(2 pts)"; closed loop round 2)
+    parts.push(`<span class="orz-q-pts">${n ? ' ' : ''}(${escapeHtml(pts)})</span>`);
   }
-  return `<div class="orz-q-header">${parts.join(' ')}</div>`;
+  return `<div class="orz-q-header">${parts.join('')}</div>`;
 }
 
 function renderQuestionMc(spec: ElementSpec, ctx: ElementCtx): ElementResult {

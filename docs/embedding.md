@@ -150,13 +150,18 @@ elements, includes, page CSS, the print theme — pure data, no DOM) and posts
 it to the frame; the frame's `window.__orzPreviewApply` lays it out as pages
 (content libraries and webfonts loaded first, then Paged.js into a hidden
 buffer, then swapped in keeping the scroll position) and the frame
-acknowledges the render only when the pages are laid out, so a long document
-is never re-laid-out while the last layout runs (`diff: false`: every render
-replaces the pages whole). A layout reflows every page in the frame, which
-shares your page's process: it runs only after a real pause in typing
-(`debounceMs` 1.5 s, which the editor grows to twice the last layout's time)
-and is never forced while keys keep arriving (`maxWaitMs: Infinity`) — the
-preview lags behind the text, typing never waits for it. Fonts, stylesheets
+acknowledges the render when the pages are laid out or after at most 1 s,
+whichever comes first (`diff: false`: every render replaces the pages whole).
+A layout reflows every page in the frame, which shares your page's process:
+it runs only after a real pause in typing (`debounceMs` 1.5 s, which the
+editor grows to twice the last render's time — so about 3 s at most) and is
+never forced while keys keep arriving (`maxWaitMs: Infinity`). Paged.js lays
+out one page per frame; the editor reports every edit to the frame (a
+carrier message, `orz-paged-edit`), and a layout of an older text stops at
+its next page — a newer render follows the next pause. The preview lags
+behind the text, marked "updating…" meanwhile; typing never waits for it.
+Cmd/Ctrl+P in the preview is forwarded to your page (the editor's `print`
+event, orz-markdown 2.3.0). Fonts, stylesheets
 and libraries are awaited at most 2 s; the pages then show with what has
 arrived and are laid out once more when the rest settles. The pages are scaled to the pane's width; blocks
 keep their source lines (`data-src-line`), so scroll sync maps a line to its

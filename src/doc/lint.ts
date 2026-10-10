@@ -10,7 +10,7 @@
  * `portrait` / `landscape`, or a CSS size of one or two lengths),
  * `page_number_position`, `page_number_style`, `template` (an id or a legacy
  * alias), the three font presets, and the booleans `front_matter` /
- * `front_matter_clean` (`clean`, `plain` or a boolean word).
+ * `front_matter_clean` (`clean`, `plain`, `normal` or a boolean word).
  */
 import { readHeader, type Lint } from 'orz-markdown/carrier';
 import { FONT_PRESETS } from './fonts.js';
@@ -23,7 +23,8 @@ export const PAGE_NUMBER_STYLE_VALUES: readonly string[] = Object.freeze(['simpl
 const LENGTH = String.raw`\d+(?:\.\d+)?(?:mm|cm|in|pt|pc|px|Q)`;
 const CSS_SIZE = new RegExp(String.raw`^${LENGTH}(?:\s+${LENGTH})?$`);
 const NAMED_SIZE = new RegExp(String.raw`^(?:${PAGE_SIZE_NAMES.join('|')})(?:\s+(?:portrait|landscape))?$`, 'i');
-const BOOL_WORDS = ['clean', 'plain', 'true', 'false', 'yes', 'no', 'on', 'off', '1', '0'];
+/** What `front_matter` / `front_matter_clean` take (src/doc/settings.ts): `clean` / `plain` / a true word → clean, `normal` / a false word → not. */
+const BOOL_WORDS = ['clean', 'plain', 'normal', 'true', 'false', 'yes', 'no', 'on', 'off', '1', '0'];
 
 const list = (vs: readonly string[]): string => vs.join(', ');
 

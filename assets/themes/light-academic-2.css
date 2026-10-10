@@ -54,6 +54,8 @@
   --font-heading: 'Fira Sans', 'Noto Sans SC', 'Noto Sans TC', 'Helvetica Neue', Arial, sans-serif;
   --font-code: 'Fira Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
   --heading-color: var(--heading);
+  --orz-furniture-font: var(--font-body);
+  --orz-furniture-color: var(--text-muted);
 }
 
 .markdown-body {

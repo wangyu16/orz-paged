@@ -4,8 +4,10 @@
  *
  * - **Print** (`bar`: right after Edit): prints the read view — the pages as
  *   they show, after the current layout settles (`window.print()`; the
- *   chrome, the grey desk and the shadows do not print). Read view only: the
- *   editor preview does not print.
+ *   chrome, the grey desk and the shadows do not print; "Preparing pages…"
+ *   while it waits). Read view only: the editor preview does not print. The
+ *   kit runs it for Cmd/Ctrl+P too — in the read view, in edit mode (leaving
+ *   it first), in the editor and in its preview frame (orz-markdown 2.3.0).
  * - **New document from template…**: a submenu of the 12 templates (the kit's
  *   action `items`, grouped by separators); choosing one saves a fresh file
  *   of the template's text through the kit's New document
@@ -27,6 +29,9 @@ export const PRINT_ACTION: CarrierAction = {
   placement: 'bar',
   async run(app) {
     const view = app.view as unknown as PagedReadView;
+    // the pages print as their final layout: a render or the re-flow after late fonts is awaited first (a quiet note
+    // while it takes), never the provisional pages (closed loop round 2, R.11)
+    if (view.busy?.()) app.toast('Preparing pages…', 'info');
     await view.idle?.();
     (view.element.ownerDocument.defaultView ?? window).print();
   },

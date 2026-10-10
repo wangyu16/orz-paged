@@ -54,6 +54,8 @@
   --font-heading: 'Josefin Sans', 'Noto Sans SC', 'Noto Sans TC', 'Avenir Next', sans-serif;
   --font-code: 'SFMono-Regular', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   --heading-color: var(--heading);
+  --orz-furniture-font: var(--font-body);
+  --orz-furniture-color: var(--text-muted);
 }
 
 .markdown-body {

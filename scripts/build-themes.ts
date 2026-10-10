@@ -408,6 +408,10 @@ function rootMapping(id: string, spec: ThemeSpec): (decls: Decl[]) => Decl[] {
     if (spec.text !== '--text-main') added.push({ prop: '--text-main', value: `var(${spec.text})`, important: false });
     if (spec.muted !== '--text-muted') added.push({ prop: '--text-muted', value: `var(${spec.muted})`, important: false });
     added.push({ prop: '--heading-color', value: `var(${spec.heading})`, important: false });
+    // The page furniture (running headers/footers, page numbers; src/doc/page-css.ts) takes the
+    // theme: its body font and its muted text colour.
+    added.push({ prop: '--orz-furniture-font', value: 'var(--font-body)', important: false });
+    added.push({ prop: '--orz-furniture-color', value: `var(${spec.muted})`, important: false });
     return [...out, ...added];
   };
 }

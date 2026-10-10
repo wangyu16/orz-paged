@@ -92,13 +92,17 @@ Adapted:
   and `font_preset` restyle a theme the way its author wired it (knock-outs
   follow the paper, rules and marks follow the accent). Element tokens
   `--text-main`, `--text-muted`, `--heading-color` are aliased for paged's own
-  elements.
+  elements, and the page furniture tokens `--orz-furniture-font` (the body
+  font) and `--orz-furniture-color` (the muted text colour) set the running
+  headers, footers and page numbers (`plain/none.css` sets them too).
 - Commas inside `:is()` / `:where()` / `:has()` / `:not()` are expanded:
   paged.js splits some selectors on every comma (rules with `display`,
   `break-*`, `page`, `+`) and fails on the pieces.
 - From `common.css`, the print rules always apply (tables as tables with
   repeating headers, tabs all shown, things kept whole, QR codes at a
-  scannable 2–3 cm); the 640px collapse is dropped.
+  scannable 2–3 cm); the 640px collapse is dropped. Under Paged.js the
+  header repeat itself is the paged runtime's table-head handler
+  (`src/paged/table-head.ts`): Paged.js 0.4.3 ignores `table-header-group`.
 
 Per-theme layers (`layers/<id>.css`):
 

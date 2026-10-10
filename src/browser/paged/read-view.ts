@@ -25,6 +25,7 @@
 import { readDocument } from 'orz-markdown/carrier';
 import type { CarrierReadView, ReadViewContext } from 'orz-markdown/carrier/app';
 import type { PagedRuntime, PaginateResult } from '../../paged/runtime.js';
+import { UPDATING_ATTRIBUTE } from '../../paged/constants.js';
 import { PAGES_ID, presentationOf } from '../../presentation.js';
 import { PAGED_RUNTIME } from '../runtime-source.js';
 import { renderPaged } from './render.js';
@@ -38,10 +39,14 @@ body { margin: 0; }
 #orz-view[hidden] { display: none !important; }
 .orz-pages .pagedjs_pages { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 24px 0 72px; zoom: var(--orz-page-zoom, 1); }
 :where(.orz-pages) .pagedjs_page { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 6px 18px rgba(0,0,0,.10); }
+.orz-pages[data-orz-updating]::before { content: "updating\\2026"; position: fixed; top: 10px; left: 12px; z-index: 5; font: 12px/1.6 system-ui, sans-serif; color: #5b616e; background: rgba(255,255,255,.85); padding: 0 8px; border-radius: 9px; pointer-events: none; }
 @media print {
   html, body { background: #fff !important; }
   #orz-chrome, .orz-paged-stage, .orz-paged-buffer { display: none !important; }
-  #orz-view { min-height: 0; }
+  .orz-pages[data-orz-updating]::before { content: none !important; display: none !important; }
+  /* a print from the browser's menu in edit mode: the pages, never a blank sheet (the editor does not print) */
+  body > *:not(#orz-view) { display: none !important; }
+  #orz-view, #orz-view[hidden] { display: block !important; min-height: 0; }
   .orz-pages .pagedjs_pages { display: block !important; gap: 0; padding: 0; zoom: 1 !important; }
   .orz-pages .pagedjs_page { box-shadow: none !important; }
 }
@@ -56,6 +61,8 @@ export interface PagedReadView extends CarrierReadView {
   render(text: string, ctx?: ReadViewContext): Promise<void>;
   /** Resolves when no render runs (Print waits for it). */
   idle(): Promise<void>;
+  /** True while a render or the runtime's layout (a re-flow after late fonts included) is pending: `idle()` would wait. */
+  busy(): boolean;
   /** The last shown render (pages, the `.cols` outcomes, the dynamic choices the content uses), or null. */
   lastResult(): PaginateResult | null;
   /** The reader's page zoom (the kit stores it per uid as the reader preference `reader.pageZoom` and sets it). */
@@ -107,6 +114,8 @@ export function createReadView(doc: Document): PagedReadView {
   installViewCss(doc);
   const win = doc.defaultView as Window;
   let generation = 0;
+  /** Renders started and not finished (the runtime's queue and re-flows are its own `busy()`). */
+  let rendering = 0;
   let destroyed = false;
   let running: Promise<void> = Promise.resolve();
   let last: PaginateResult | null = null;
@@ -120,22 +129,16 @@ export function createReadView(doc: Document): PagedReadView {
   };
   win.addEventListener('resize', onResize);
 
-  // Cmd/Ctrl+P in edit mode (R.7): the page then shows the editor, which does not print (the browser printed a blank
-  // page) — leave the editor (the read view lays out the current text, nothing is lost: the text stays unsaved as it
-  // was), wait for the final layout, then print the pages
-  const onKey = (e: KeyboardEvent): void => {
-    if (destroyed || e.altKey || e.shiftKey || !(e.metaKey || e.ctrlKey) || (e.key !== 'p' && e.key !== 'P')) return;
-    if (!main!.hidden && !main!.closest('[hidden]')) return; // the read view shows: the browser prints it as it is
-    e.preventDefault();
-    e.stopPropagation();
-    const app = (win as unknown as { OrzCarrier?: { standalone?: { leave?(): Promise<void> } } }).OrzCarrier?.standalone;
-    void (async () => {
-      try { await app?.leave?.(); } catch { /* still print what the view has */ }
-      await view.idle();
-      win.print();
-    })();
+  // Cmd/Ctrl+P — in the read view, in edit mode, in the editor and in its preview frame (the kit's bridge reports the
+  // key): the kit runs the Print action (./actions.ts), which leaves edit mode first and waits for the final layout
+  // (orz-markdown 2.3.0, A.30 / E.33). A print from the browser's menu cannot wait: while the pages are still being
+  // laid out the reader is told to print again (best effort; the print CSS shows the pages, never the editor)
+  const app = (): { toast?(m: string, tone?: string): void } | undefined => (win as unknown as { OrzCarrier?: { standalone?: { toast?(m: string, tone?: string): void } } }).OrzCarrier?.standalone;
+  const onBeforePrint = (): void => {
+    if (destroyed || !view.busy()) return;
+    try { app()?.toast?.('The pages are still being laid out: print again in a moment for the final layout.', 'warning'); } catch { /* no chrome */ }
   };
-  win.addEventListener('keydown', onKey, true);
+  win.addEventListener('beforeprint', onBeforePrint);
 
   /** The shell writes its stylesheets switched off (`media="not all"`, so a slow CDN never blocks the page): switch them on. */
   const enableStylesheets = (): void => {
@@ -163,6 +166,10 @@ export function createReadView(doc: Document): PagedReadView {
     render(text, ctx = {}) {
       const mine = ++generation;
       present(text);
+      rendering++;
+      // the quiet "updating…" mark while the pages are not the final layout of the latest text (L3)
+      pages!.setAttribute(UPDATING_ATTRIBUTE, '');
+      const settledMark = (r: PaginateResult): void => { if (mine === generation && !destroyed && !r.provisional) pages!.removeAttribute(UPDATING_ATTRIBUTE); };
       const run = (async () => {
         const input = await renderPaged(text, {
           ...(ctx.includes ? { includes: ctx.includes } : {}),
@@ -172,12 +179,13 @@ export function createReadView(doc: Document): PagedReadView {
         const result = await pageRuntime(doc).paginate(input, pages!, {
           isCurrent: () => mine === generation && !destroyed,
           // the one re-flow after late fonts or libraries (R.6): its pages are the final ones
-          onReflow: (r) => { if (mine === generation && !destroyed) { last = r; reZoom(); } },
+          onReflow: (r) => { if (mine === generation && !destroyed) { last = r; reZoom(); settledMark(r); } },
         });
         if (result.cancelled) return;
         last = result;
         reZoom();
-      })();
+        settledMark(result);
+      })().finally(() => { rendering--; });
       running = run.catch(() => undefined);
       return run;
     },
@@ -191,6 +199,7 @@ export function createReadView(doc: Document): PagedReadView {
         if (w.__orzPaged) await w.__orzPaged.idle();
       } while (seen !== running);
     },
+    busy: () => rendering > 0 || !!(doc.defaultView as RuntimeWindow).__orzPaged?.busy(),
     lastResult: () => last,
     zoom: () => zoom,
     setZoom(z) {
@@ -201,7 +210,7 @@ export function createReadView(doc: Document): PagedReadView {
       destroyed = true;
       generation++;
       win.removeEventListener('resize', onResize);
-      win.removeEventListener('keydown', onKey, true);
+      win.removeEventListener('beforeprint', onBeforePrint);
       clearTimeout(resizeTimer);
     },
   };

@@ -10,7 +10,8 @@
  *
  * R.7 — Cmd/Ctrl+P in edit mode (where the page shows the editor, which does
  * not print: the browser printed a blank page) leaves the editor, waits for
- * the read view's layout of the current text and prints the pages.
+ * the read view's layout of the current text and prints the pages; in the
+ * read view it is the Print action too (the kit's key, orz-markdown 2.3.0).
  */
 import { describe, it, expect, afterAll } from 'vitest';
 import { assembleReal, bootDone, launch, PICKER_INIT, pagesIdle, routeCdn, tempDir, type Browser, type Route } from './browser-env.js';
@@ -91,7 +92,7 @@ chrome('the read view on a slow network (real Chrome)', () => {
     await ctx.close();
   }, 120_000);
 
-  it('[R.7] Cmd/Ctrl+P in edit mode leaves the editor, lays out the current (edited, unsaved) text and prints the pages — never the editor', async () => {
+  it('[R.7] Cmd/Ctrl+P in edit mode leaves the editor, lays out the current (edited, unsaved) text and prints the pages — never the editor; in the read view it prints the pages once', async () => {
     const ctx = await browser!.newContext({ viewport: { width: 1280, height: 900 } });
     await ctx.addInitScript(PICKER_INIT);
     await routeCdn(ctx);
@@ -113,10 +114,11 @@ chrome('the read view on a slow network (real Chrome)', () => {
     expect(await page.evaluate(`${APP}.editor()`)).toBeNull();
     expect(await page.evaluate(`${APP}.isDirty()`)).toBe(true);
     expect(await page.evaluate(`${APP}.getText()`)).toContain('Printed from edit mode.');
-    // in the read view the browser's own print runs (the pages are what shows)
+    // in the read view Cmd/Ctrl+P is the Print action too (the kit's key, orz-markdown 2.3.0): one print of the settled pages
     await page.keyboard.press(`${MOD}+p`).catch(() => undefined);
+    await page.waitForFunction(() => (window as unknown as { __printed: unknown[] }).__printed.length === 2, null, { timeout: 30_000 });
     await page.waitForTimeout(300);
-    expect(await page.evaluate(() => (window as unknown as { __printed: unknown[] }).__printed.length)).toBe(1);
+    expect(await page.evaluate(() => (window as unknown as { __printed: unknown[] }).__printed.length)).toBe(2);
     await ctx.close();
   }, 120_000);
 });

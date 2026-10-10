@@ -91,6 +91,8 @@
   --font-code: 'Fira Code', 'JetBrains Mono', monospace;
   --text-main: var(--text);
   --heading-color: var(--heading);
+  --orz-furniture-font: var(--font-body);
+  --orz-furniture-color: var(--text-muted);
 }
 
 :where(.markdown-body),

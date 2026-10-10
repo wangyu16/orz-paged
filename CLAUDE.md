@@ -129,7 +129,13 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   handler, D-48), `baseline-grid.ts` (a theme's page ruling under the text:
   `--orz-grid` / `--orz-rule-at`, every top-level block placed on the grid —
   light-playful-1 opts in; its ruling is the page box's `::before`, never a
-  positioned `.pagedjs_area`), `input.ts`. The runtime is built without
+  positioned `.pagedjs_area`), `table-head.ts` (a split table's `thead`
+  repeated on each continuation page, as Paged.js lays it out:
+  `repeat_table_header`), `constants.ts` (the waits, the "updating…"
+  attribute: readable without a DOM), `input.ts`. The TOC is built on the
+  stage before the layout; only its numbers are set after (R.8). The column
+  integrity oracle is `tests/integrity.ts`; the full matrix
+  `npx tsx scripts/columns-matrix.ts` (C.4). The runtime is built without
   css-tree's validation data (build/bundle.ts `noCssTreeData`).
 - **Browser engine** `src/browser/`: `index.ts` (the IIFE: captures its
   engine source, then the kit's `startCarrier(PAGED_KIND)`), `esm.ts`,
@@ -168,7 +174,10 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   `::: page-break`. Do not reopen these without the owner.
 - **A layout must never block typing or keep the page blank** (closed loop
   round 1): the editor preview paginates only after a typing pause
-  (`debounceMs` 1.5 s, `maxWaitMs: Infinity`, frame-acknowledged — E.4);
+  (`debounceMs` 1.5 s, `maxWaitMs: Infinity`, frame-acknowledged within
+  `PREVIEW_ACK_MS` 1 s — E.4); each edit is posted to the frame
+  (`orz-paged-edit`) and abandons a pagination of an older text at its next
+  page (E.5);
   anything run per pause (a setting's `hidden`, `current`) is a cheap text
   test, never a render (K.6); the runtime waits at most `FIRST_WAIT_MS` (2 s)
   for fonts and libraries, then lays out and re-flows once when they arrive

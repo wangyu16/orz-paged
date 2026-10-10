@@ -43,6 +43,8 @@
   --font-heading: 'Indie Flower', 'Hannotate SC', 'HanziPen SC', 'Wawati SC', 'KaiTi', cursive;
   --font-code: 'Recursive', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --heading-color: var(--text-strong);
+  --orz-furniture-font: var(--font-body);
+  --orz-furniture-color: var(--text-muted);
 }
 
 .markdown-body {

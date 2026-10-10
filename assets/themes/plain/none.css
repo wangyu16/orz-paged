@@ -20,6 +20,9 @@
   --code-bg: #f4f4f2;
   --success-bg: #e6f4ea;
   --success-text: #1e6b2e;
+  /* the page furniture (running headers/footers, page numbers): body font, muted colour */
+  --orz-furniture-font: var(--font-body);
+  --orz-furniture-color: var(--text-muted);
 }
 
 .markdown-body { color: var(--text-main); }

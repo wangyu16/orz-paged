@@ -39,6 +39,8 @@
   --font-heading: 'Chewy', 'ZCOOL KuaiLe', 'HanziPen SC', 'Hannotate SC', 'Wawati SC', 'KaiTi', cursive;
   --font-code: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --heading-color: var(--text-main);
+  --orz-furniture-font: var(--font-body);
+  --orz-furniture-color: var(--text-muted);
 }
 
 .markdown-body {

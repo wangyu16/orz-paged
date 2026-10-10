@@ -151,6 +151,12 @@ describe('upgrade on synthetic 0.x files', () => {
     // indented continuation lines only: repaired as before
     const fixed = headerFromLegacySource('{{nyml\nkind: document\ncustom_css: |\n  .a { color: red; }}\n  .b { margin: 0; }\n}}\n\n# Body\n');
     expect(readHeader(fixed.text)!.fields['custom_css']).toBe('.a { color: red; } }\n.b { margin: 0; }');
+    // the lone closing `}}` may carry trailing spaces or a tab (mutant U6): still the intended end
+    for (const closer of ['}}  ', '}}\t', '}} \t ']) {
+      const t = headerFromLegacySource(`{{nyml\nkind: document\ncustom_css: |\n  .a { color: red; }}\n  .b { margin: 0; }\n${closer}\n\n# Body\n`);
+      expect(readHeader(t.text)!.fields['custom_css'], JSON.stringify(closer)).toBe('.a { color: red; } }\n.b { margin: 0; }');
+      expect(withoutHeader(t.text).body, JSON.stringify(closer)).toBe(`${closer.slice(2)}\n\n# Body\n`); // the trailing blanks kept: no character is dropped
+    }
   });
 
   it('[U.7] F6: a `{{nyml kind: document}}` block inside a code block or an HTML comment — the one 0.x applied (it read the raw text) — is noted: format 1 does not read it there', () => {

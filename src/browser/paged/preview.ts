@@ -20,6 +20,8 @@
  * - Scroll sync: the blocks keep their `data-src-line` anchors inside the
  *   pages (Paged.js copies attributes), so the kit's anchor mapping maps a
  *   line to its place on its page.
+ * - While the pages are not the editor's text (an edit since, a layout
+ *   running) they carry a quiet "updating…" mark (`data-orz-updating`).
  * - The pages are scaled to the pane's width (never above 100 %); the
  *   preview does not print (REBUILD §3b decision 5) and does not follow the
  *   reader's page zoom.
@@ -36,6 +38,7 @@ body { margin: 0 !important; padding: 0 !important; }
 #orz-doc { display: block; margin: 0; padding: 0; min-height: 100vh; }
 #orz-doc .pagedjs_pages { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px 0 48px; zoom: var(--orz-page-zoom, 1); }
 :where(#orz-doc) .pagedjs_page { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 4px 14px rgba(0,0,0,.10); }
+#orz-doc[data-orz-updating]::before { content: "updating\\2026"; position: fixed; top: 8px; left: 10px; z-index: 5; font: 12px/1.6 system-ui, sans-serif; color: #5b616e; background: rgba(255,255,255,.85); padding: 0 8px; border-radius: 9px; pointer-events: none; }
 `;
 
 /** FC-19 §8.4 `preview.frameDocument` for the paged preview. */
