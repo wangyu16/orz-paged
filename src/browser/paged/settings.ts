@@ -15,7 +15,7 @@ import { resolveSettings } from '../../doc/settings.js';
 import { canonicalTemplate, templateList } from '../../doc/templates.js';
 import { presentationOf } from '../../presentation.js';
 import { themeChoices } from './themes.js';
-import { versionChange, versionChoices } from './versions.js';
+import { versionChange, versionChoices, versionsHidden } from './versions.js';
 
 /** The page sizes offered (the header also takes a custom CSS size, which no choice checks). */
 export const PAGE_SIZES: ReadonlyArray<{ value: string; label: string }> = Object.freeze([
@@ -77,7 +77,8 @@ export const VERSION_SETTING: SettingControl = {
     const [key, v] = JSON.parse(value) as [string, string | null];
     return versionChoices(text).find((c) => c.key === key)?.current === v ? {} : versionChange(text, key, v);
   },
-  hidden: (text: string) => versionChoices(text).length === 0,
+  // cheap: a header/text test, never a render (typing stays fast; K.6) — the full render is `choicesFor`'s, at each opening
+  hidden: (text: string) => versionsHidden(text),
 };
 
 export const PAGED_SETTINGS: readonly SettingControl[] = Object.freeze([

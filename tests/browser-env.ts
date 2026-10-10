@@ -23,6 +23,7 @@ type PW = typeof import('playwright-core');
 export type Browser = import('playwright-core').Browser;
 export type BrowserContext = import('playwright-core').BrowserContext;
 export type Page = import('playwright-core').Page;
+export type Route = import('playwright-core').Route;
 
 const builds = new Map<string, Promise<BrowserBuild>>();
 /** The browser bundle of this package (or of another version), built once per test file. */

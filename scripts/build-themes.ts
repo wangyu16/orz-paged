@@ -194,7 +194,7 @@ const ARTICLE = /^(:where\()?\.markdown-body\)?$/;
 const ARTICLE_PSEUDO = /^(:where\()?\.markdown-body\)?::?(before|after)$/;
 
 /** Properties that do nothing on paper. */
-const SCREEN_ONLY_PROPS = /^(-webkit-)?(transition|animation)(-[\w-]+)?$|^cursor$|^scroll-(behavior|margin|padding)(-[\w-]+)?$|^(-webkit-)?user-select$|^will-change$|^(-webkit-)?backdrop-filter$/;
+const SCREEN_ONLY_PROPS = /^(-webkit-)?(transition|animation)(-[\w-]+)?$|^cursor$|^scroll-(behavior|margin|padding)(-[\w-]+)?$|^scrollbar-[\w-]+$|^(-webkit-)?user-select$|^will-change$|^(-webkit-)?backdrop-filter$/;
 
 /** What the article root may keep: text rendering, not geometry or paint. */
 const ARTICLE_KEEP = /^(color|font-variant[\w-]*|font-feature-settings|font-variation-settings|font-kerning|-webkit-font-smoothing|text-rendering|hyphens|overflow-wrap|word-break|letter-spacing|word-spacing|isolation|position|text-align|display)$/;

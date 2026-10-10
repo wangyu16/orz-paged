@@ -38,11 +38,14 @@ shallow clone, in a fresh sandbox.
 npx orz-paged@1 templates                                   # the templates, by group
 npx orz-paged@1 new exam.paged.md --template exam-page --title "Chemistry 101 — Exam 1" [--theme light-academic-2]
 # edit exam.paged.md (the header keys and elements below)
-npx orz-paged@1 assemble exam.paged.md          # → exam.paged.html (inline engine, ~2 MB, works as a file)
+npx orz-paged@1 assemble exam.paged.md          # → exam.paged.html (inline engine, ~1.7 MB, works as a file)
 npx orz-paged@1 assemble exam.paged.md --cdn    # → a small file that loads the engine from jsDelivr (for web pages)
 ```
 
-`new` writes the template's starter text with a fresh `uid`; keep the `uid`
+`new` writes the template's starter text with a fresh `uid` (`--title` also
+replaces the template's placeholder title in its title block or first heading
+and in a running header that repeats it; `--json` reports `themeEffective`, the
+theme the pages use); keep the `uid`
 (it keys the reader's preferences and the save handle). `new --html` writes
 both files at once; without a file name the text goes to stdout. A paged text
 twin's name ends in `.paged.md`; a plain `x.md` also assembles (to
@@ -391,10 +394,15 @@ your own keys (`audience: student`) and tag HTML in the body
   column stays narrow; only paragraphs, list items, blockquotes and plain
   blocks split (images, figures, code, tables, math, headings, boxed asides
   move whole); one-line widows happen; a block taller than a page is clipped.
+  Nested and numbered lists split too (a continued list keeps its numbers and
+  repeats no bullet).
   Keep each column's blocks short, or avoid columns for long material.
 - Print = the file's *Print* (pencil list, right after Edit), or the
   browser's print, from the read view: the pages print as laid out (*Save as
-  PDF* in the dialog). The CLI makes no PDF.
+  PDF* in the dialog); Cmd/Ctrl+P while editing leaves the editor first. The
+  CLI makes no PDF. On a slow network the pages show after about 2 s with
+  fallback fonts and are laid out again when the fonts arrive; Print waits for
+  that.
 - Print-first content: math, code, tables, Mermaid, `{{smiles}}`, `{{chart}}`,
   `{{qr}}`, images, callouts (`::: info` / `success` / `warning` / `danger`),
   footnotes all print. Tabs, `::: spoil` and video are discouraged (they hide
@@ -428,6 +436,8 @@ structure), `sha256` (the `--replaces` token), `twin` (the sibling
 - an older shell → `upgrade`; a newer shell or text `format` → `npx
   orz-paged@latest` (do not force a downgrade);
 - lint errors, a `stray-document-block` → fix the header, then assemble;
+  `invalid-value` (a warning: `page_number_style: roman`, `page_size: B9`…)
+  names the values the key takes — the default is used until you fix it;
 - another kind (`md`, `slides`) → its own tool (`npx orz-mdhtml`, …).
 
 ## When a command refuses (`--json`)

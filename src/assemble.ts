@@ -33,6 +33,7 @@ import {
   type ShellParts,
 } from 'orz-markdown/carrier';
 import { bundleUrl, isScriptSafe } from 'orz-markdown/carrier/shell';
+import { pagedValueLint } from './doc/lint.js';
 import { canonicalTemplate, TEMPLATES } from './doc/templates.js';
 import { presentationOf, readViewMarkup, shellHead, type Presentation } from './presentation.js';
 import { STARTERS } from './starters.js';
@@ -64,7 +65,8 @@ const KINDS: readonly string[] = ['md', 'slides', 'paged'];
  * the header `title`, else the first top-level level-1 heading, else the
  * `title` (else `text`) of the first `*-title` element, else `Untitled`.
  * For kind `paged` the lint checks the header's `theme` against this
- * carrier's print themes (`unknown-theme`, a warning).
+ * carrier's print themes (`unknown-theme`, a warning) and its enumerated
+ * values (`invalid-value`, a warning: src/doc/lint.ts).
  */
 export function readDocument(text: string, opts: { kind?: Kind; filename?: string } = {}): DocumentInfo {
   const carrier = readHeader(text)?.fields['carrier']?.trim();
@@ -73,7 +75,11 @@ export function readDocument(text: string, opts: { kind?: Kind; filename?: strin
     (opts.filename !== undefined ? kindFromFilename(opts.filename) : null) ??
     (carrier !== undefined && KINDS.includes(carrier) ? (carrier as Kind) : 'paged');
   // a paged header names a paged theme (its own list): any other is the kit's `unknown-theme` warning
-  return readKitDocument(text, kind === 'paged' ? { kind, themes: THEMES } : { kind });
+  if (kind !== 'paged') return readKitDocument(text, { kind });
+  const info = readKitDocument(text, { kind, themes: THEMES });
+  // and its enumerated values are ones the renderer knows (`invalid-value`, S.6)
+  const extra = pagedValueLint(text);
+  return extra.length === 0 ? info : { ...info, lint: [...info.lint, ...extra] };
 }
 
 /** Options of {@link assemble} (FC-18 §8.2, FC-19 §2). */
@@ -160,6 +166,57 @@ export function storedText(text: string): string {
 
 /* ─────────────────────────── newDocument ─────────────────────────── */
 
+/** The running header and footer keys a template may fill with its placeholder title (report-page's `header_center`). */
+const RUNNING_KEYS = ['header_left', 'header_center', 'header_right', 'footer_left', 'footer_center', 'footer_right'] as const;
+
+/**
+ * `newDocument`'s `title` beyond the header's `title` (N.6): the template's
+ * placeholder title (its header `title`) is also replaced where the skeleton
+ * repeats it — in the running header/footer keys that carry it (added to
+ * `changes`) and in the body's FIRST title: the first title element's
+ * `title:` line (`article-title`, `report-title`, `exam-title`) or the first
+ * `# ` heading, whichever comes first, when it reads the placeholder exactly.
+ */
+function replacePlaceholderTitle(text: string, title: string, changes: Record<string, HeaderChange>): string {
+  const header = readHeader(text);
+  const placeholder = header?.fields['title']?.trim();
+  if (!header || !placeholder) return text;
+  for (const k of RUNNING_KEYS) {
+    const v = header.fields[k];
+    if (typeof v === 'string' && v.includes(placeholder)) changes[k] = v.split(placeholder).join(title);
+  }
+  const lines = text.split('\n');
+  let i = 0;
+  // past the header block
+  while (i < lines.length && lines[i] !== '}}') i++;
+  let inBlock: string | null = null; // the kind of the nyml block the line is in
+  let fence = false;
+  for (i++; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^(```|~~~)/.test(line)) { fence = !fence; continue; }
+    if (fence) continue;
+    if (line === '{{nyml') { inBlock = ''; continue; }
+    if (inBlock !== null) {
+      if (line === '}}') { inBlock = null; continue; }
+      const k = /^kind:\s*(.+?)\s*$/.exec(line);
+      if (k) { inBlock = k[1]; continue; }
+      if (/^(article|report|exam)-title$/.test(inBlock) && /^title:\s*/.test(line)) {
+        if (line.replace(/^title:\s*/, '').trim() !== placeholder) return text;
+        lines[i] = `title: ${title}`;
+        return lines.join('\n');
+      }
+      continue;
+    }
+    const h = /^#\s+(.*?)\s*$/.exec(line);
+    if (h) {
+      if (h[1] !== placeholder) return text;
+      lines[i] = `# ${title}`;
+      return lines.join('\n');
+    }
+  }
+  return text;
+}
+
 /** The template a new document starts from when none is named. */
 export const DEFAULT_TEMPLATE: TemplateName = 'note';
 
@@ -204,7 +261,10 @@ export function newDocument(options: NewDocumentOptions = {}): string {
   if (skeleton === undefined || !skeleton.startsWith(SKELETON_OPENING)) throw new Error(`orz-paged: the ${id} template skeleton does not start with a format-1 header`);
   let text = `${SKELETON_OPENING}carrier: paged\nuid: ${uid}\n${skeleton.slice(SKELETON_OPENING.length)}`;
   const changes: Record<string, HeaderChange> = {};
-  if (title !== undefined && title.trim() !== '') changes['title'] = title;
+  if (title !== undefined && title.trim() !== '') {
+    changes['title'] = title;
+    if (!/[\r\n\u0000]/.test(title) && !title.includes('}}')) text = replacePlaceholderTitle(text, title, changes);
+  }
   if (theme !== undefined) changes['theme'] = theme;
   text = editHeader(text, changes);
   const errors = lintHeader(text, { kind: 'paged', themes: THEMES }).filter((l) => l.level === 'error');

@@ -1,12 +1,12 @@
 /**
- * upgrade: legacy 0.x files to text format 1 (claims U.1–U.6), on real 0.7.3
+ * upgrade: legacy 0.x files to text format 1 (claims U.1–U.7), on real 0.7.3
  * files (tests/fixtures/legacy, made with the 0.7.3 CLI and library before
  * the rebuild changed them) and on synthetic ones made from them by
  * replacing the island the 0.x way.
  */
 import { describe, it, expect } from 'vitest';
 import { lintHeader, readHeader, withoutHeader, UID_PATTERN } from 'orz-markdown/carrier';
-import { upgrade, readLegacy, headerFromLegacySource } from '../src/legacy.js';
+import { upgrade, readLegacy, headerFromLegacySource, assertKeepsLegacySource } from '../src/legacy.js';
 import { inspect } from '../src/inspect.js';
 import { assemble, extract, readDocument, newDocument } from '../src/assemble.js';
 import { resolveSettings } from '../src/doc/settings.js';
@@ -137,6 +137,47 @@ describe('upgrade on synthetic 0.x files', () => {
     // a `}}` that really ends the block (body text follows) is not touched
     const real = headerFromLegacySource('{{nyml\nkind: document\nfooter_left: x}}\n\n# Body\n');
     expect(real.text).toBe('{{nyml\nkind: document\nfooter_left: x}}\n\n# Body\n');
+  });
+
+  it('[U.7] the `}}` repair runs only when the lines up to the lone `}}` are indented or blank (the rest of a value): with a bare `key:` line between (F7) nothing is repaired — the block ends where 0.x ended it, the lines stay body text — and a note says so; no text is lost', () => {
+    const source = '{{nyml\nkind: document\ncustom_css: |\n  .a { color: red; }}\nNote: this line was body text in 0.x\n}}\n\n# Body\n';
+    const r = headerFromLegacySource(source);
+    expect(r.text).toBe(source);
+    expect(r.notes.join('\n')).toMatch(/a lone `\}\}` follows after a `Note:` line: not repaired/);
+    const u = upgrade(withLegacySource(LETTER_HTML, source), { delivery: 'cdn', uid: UID });
+    expect(withoutHeader(u.text).body).toContain('Note: this line was body text in 0.x\n}}\n\n# Body\n');
+    expect(u.notes.join('\n')).toMatch(/not repaired/);
+    expectInkKept(u.text, source);
+    // indented continuation lines only: repaired as before
+    const fixed = headerFromLegacySource('{{nyml\nkind: document\ncustom_css: |\n  .a { color: red; }}\n  .b { margin: 0; }\n}}\n\n# Body\n');
+    expect(readHeader(fixed.text)!.fields['custom_css']).toBe('.a { color: red; } }\n.b { margin: 0; }');
+  });
+
+  it('[U.7] F6: a `{{nyml kind: document}}` block inside a code block or an HTML comment — the one 0.x applied (it read the raw text) — is noted: format 1 does not read it there', () => {
+    const fenced = '# Doc\n\n```\n{{nyml\nkind: document\npage_size: A5\n}}\n```\n\ntext\n';
+    const a = upgrade(withLegacySource(LETTER_HTML, fenced), { delivery: 'cdn', uid: UID });
+    expect(a.notes.join('\n')).toMatch(/0\.x read its settings from the `\{\{nyml kind: document\}\}` block at line 4, inside a code block or an HTML comment/);
+    expect(resolveSettings(a.text).pageSize).toBe('A4');
+    expectInkKept(a.text, fenced);
+    const commented = '<!--\n{{nyml\nkind: document\ntheme: light-neat-1\n}}\n-->\n\n{{nyml\nkind: document\npage_size: A5\n}}\n\nx\n';
+    const c = upgrade(withLegacySource(LETTER_HTML, commented), { delivery: 'cdn', uid: UID });
+    expect(c.notes.join('\n')).toMatch(/block at line 2, inside a code block or an HTML comment.*\(the block at line 8 is the header now\)/);
+    // the usual case says nothing of it
+    const plain = upgrade(withLegacySource(LETTER_HTML, '{{nyml\nkind: document\npage_size: A5\n}}\n\nx\n'), { delivery: 'cdn', uid: UID });
+    expect(plain.notes.join('\n')).not.toMatch(/raw text/);
+  });
+
+  it('[U.7] the "never lose text" net throws when the body is not the arranged source exactly (P02) or a character is missing, counting each dropped character once (P03)', () => {
+    const arranged = '{{nyml\nkind: document\ntitle: T\n}}\n\nbody one\n';
+    // what upgrade writes: header lines added, the body kept
+    expect(() => assertKeepsLegacySource(arranged, arranged, '{{nyml\nkind: document\ncarrier: paged\ntitle: T\n}}\n\nbody one\n', [])).not.toThrow();
+    // every character is there, but the body changed (reordered): refused
+    expect(() => assertKeepsLegacySource(arranged, arranged, '{{nyml\nkind: document\ntitle: T\n}}\n\none body\n', [])).toThrow(/does not keep the legacy source/);
+    // a character lost from the source: refused
+    expect(() => assertKeepsLegacySource('{{nyml\nkind: document\ntitle: TT\n}}\n\nbody one\n', arranged, arranged, [])).toThrow(/does not keep/);
+    // a dropped entry covers its characters once, not more
+    expect(() => assertKeepsLegacySource('{{nyml\nkind: document\ntitle: T\nzq\n}}\n\nbody one\n', arranged, arranged, ['zq'])).not.toThrow();
+    expect(() => assertKeepsLegacySource('{{nyml\nkind: document\ntitle: T\nzzq\n}}\n\nbody one\n', arranged, arranged, ['zq'])).toThrow(/does not keep/);
   });
 
   it('[U.1] hazard sources survive the 0.x escaping and the upgrade', () => {

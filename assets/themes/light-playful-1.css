@@ -730,19 +730,18 @@
   --rule: var(--orz-grid);
 }
 
-.pagedjs_area {
-  position: relative;
+.pagedjs_pagebox {
   isolation: isolate;
 }
 
-.pagedjs_area::before {
+.pagedjs_pagebox::before {
   content: '';
   position: absolute;
   z-index: -1;
-  top: 0;
-  bottom: 0;
-  left: calc(-1 * var(--margin-l, 20mm));
-  right: calc(-1 * var(--margin-r, 20mm));
+  top: var(--pagedjs-margin-top, 20mm);
+  bottom: var(--pagedjs-margin-bottom, 20mm);
+  left: 0;
+  right: 0;
   background: repeating-linear-gradient(to bottom,
     transparent 0,
     transparent calc(var(--orz-rule-at, calc(var(--orz-grid) * 0.72)) - 1px),

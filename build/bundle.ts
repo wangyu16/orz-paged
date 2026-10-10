@@ -83,6 +83,20 @@ const oneKatex: Plugin = {
   },
 };
 
+/**
+ * Paged.js parses CSS with css-tree, whose default syntax builds a validating
+ * lexer from mdn-data (about 230 KB minified). Paged.js only parses, walks and
+ * generates CSS (and uses `keyword` / `property`, string helpers): the lexer
+ * gets empty dictionaries, and the runtime is a third smaller (boot: less to
+ * compile; W.9).
+ */
+const noCssTreeData: Plugin = {
+  name: 'no-css-tree-data',
+  setup(b) {
+    b.onLoad({ filter: /[\\/]css-tree[\\/]data[\\/]index\.js$/ }, () => ({ contents: 'module.exports = { types: {}, atrules: {}, properties: {} };\n', loader: 'js' }));
+  },
+};
+
 /** src/version.ts replaced by another version (a `next` build); the package version otherwise. */
 const versionAs = (version: string | undefined): Plugin => ({
   name: 'version-as',
@@ -146,7 +160,8 @@ const common = (version: string | undefined) => ({
 /** Build the paged runtime (src/paged/runtime.ts) in memory: an IIFE, script-safe and ASCII. */
 export async function buildRuntime(o: { version?: string } = {}): Promise<string> {
   const version = o.version ?? VERSION;
-  const out = await build({ ...common(o.version), entryPoints: ['src/paged/runtime.ts'], format: 'iife', define: { __ORZ_PAGED_RUNTIME_VERSION__: JSON.stringify(version) } });
+  const c = common(o.version);
+  const out = await build({ ...c, plugins: [...c.plugins, noCssTreeData], entryPoints: ['src/paged/runtime.ts'], format: 'iife', define: { __ORZ_PAGED_RUNTIME_VERSION__: JSON.stringify(version) } });
   const code = scriptSafe(asciiOnly(out.outputFiles![0].text));
   checkBundleRule(code, 'the paged runtime');
   return code;

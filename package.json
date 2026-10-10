@@ -24,7 +24,7 @@
     "PROTOCOL.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && npm run bundle",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && npm run bundle",
     "prebuild": "tsx scripts/sync-version.ts && tsx scripts/sync-templates.ts && tsx scripts/build-themes.ts",
     "bundle": "tsx build/bundle.ts",
     "examples": "tsx scripts/examples.ts",

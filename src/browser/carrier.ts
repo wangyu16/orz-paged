@@ -13,15 +13,14 @@
  * function the Node library runs, so Node and the browser write the same
  * bytes (FC-18 law 2).
  */
-import { extract as kitExtract, readDocument as kitReadDocument, type DocumentInfo, type Extracted, type HeaderChange } from 'orz-markdown/carrier';
+import { extract as kitExtract, type DocumentInfo, type Extracted, type HeaderChange } from 'orz-markdown/carrier';
 import { attachAiMenu, attachSettings, captureEngineSource, followPresentation, type EngineSource, type StandaloneContext } from 'orz-markdown/carrier/app';
 import { createEditorShell, type EditorHooks, type EditorShell } from 'orz-markdown/carrier/editor';
 import type { PreferenceStore } from 'orz-markdown/carrier/shell';
 import { escapeAttr, escapeHtml } from 'orz-markdown/carrier/read';
 import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
-import { assemble as assembleSync, cdnBundleUrl, FORMATS, type AssembleOptions } from '../assemble.js';
+import { assemble as assembleSync, cdnBundleUrl, FORMATS, readDocument as pagedReadDocument, type AssembleOptions } from '../assemble.js';
 import { applyDynamicChoices } from '../doc/dynamic.js';
-import { THEMES } from '../themes.js';
 import { VERSION } from '../version.js';
 import { pagedFrameDocument, pagedPreviewPresentation } from './paged/preview.js';
 import { renderPaged, renderPagedPreview } from './paged/render.js';
@@ -72,9 +71,9 @@ export function extract(html: string): Extracted | null {
   return kitExtract(html);
 }
 
-/** The header and derived facts of a paged text, without rendering (the kit's `readDocument`, kind `paged`, linted against the print themes). */
+/** The header and derived facts of a paged text, without rendering (the kit's `readDocument`, kind `paged`, linted against the print themes and the paged keys' values — the Node library's `readDocument`). */
 export function readDocument(text: string): DocumentInfo {
-  return kitReadDocument(text, { kind: 'paged', themes: THEMES });
+  return pagedReadDocument(text, { kind: 'paged' });
 }
 
 /** Options of {@link renderPreview}. */
@@ -225,7 +224,12 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
       assets: false,
       diff: false,
       frameDocument: pagedFrameDocument,
-      debounceMs: 300,
+      // a pagination reflows every page in the frame, in the editor's process (seconds for a long document, the
+      // page blocked meanwhile): it runs only after a real pause in typing (1.5 s, grown by the kit to twice the
+      // last render), never forced while keys keep arriving (the kit's `maxWaitMs: Infinity`, 2.3.0), and the next
+      // waits for the frame's acknowledgement — the preview lags, typing never freezes (E.4)
+      debounceMs: 1500,
+      maxWaitMs: Infinity,
     },
   });
 

@@ -93,6 +93,9 @@ export function readLegacy(html: string): LegacyFile | null {
 
 /* ─────────────────────────── the 0.x source → one header ─────────────────────────── */
 
+/** A `{{nyml kind: document}}` opening as the 0.x parser found it: anywhere in the raw source. */
+const RAW_DOCUMENT_BLOCK = /\{\{nyml[ \t]*(?:\r\n|\n|\r)[ \t]*kind[ \t]*:[ \t]*document[ \t]*(?:\r\n|\n|\r|\}\})/;
+
 /** The line break style of a text (its first line break; LF when it has none). */
 const eolOf = (s: string): string => /\r\n|\n|\r/.exec(s)?.[0] ?? '\n';
 
@@ -118,28 +121,41 @@ const lineStartOf = (s: string, at: number): number => Math.max(s.lastIndexOf('\
  * `@media print { .a { color: red; }}`) ends the block early: the 0.x parser
  * and the format-1 reader both end a block at the first `}}`. When the block
  * evidently goes on — its closing `}}` sits on an indented or non-empty line,
- * and after it only indented, blank or `key:` lines follow up to a lone `}}`
- * line — that lone line is the intended end, and every `}}` before it is
- * written `} }` (in CSS the same thing; FC-18 §5: "write `} }` in CSS").
- * Returns the repaired source and what changed, or `null` when the block
- * ends where it ends.
+ * and after it only indented or blank lines (the rest of the value) follow
+ * up to a lone `}}` line — that lone line is the intended end, and every `}}`
+ * before it is written `} }` (in CSS the same thing; FC-18 §5: "write `} }`
+ * in CSS"). When a bare `key:` line comes between (F7: it may as well be body
+ * text that 0.x showed), nothing is repaired and a note says so (`note`).
+ * Returns the repaired source and what changed, a note, or `null` when the
+ * block ends where it ends.
  */
-function repairCloser(source: string, block: NymlBlock): { source: string; count: number; keys: string[] } | null {
+function repairCloser(source: string, block: NymlBlock): { source: string; count: number; keys: string[] } | { note: string } | null {
   const closeAt = block.end - 2;
   const lineAt = lineStartOf(source, closeAt);
   const before = source.slice(lineAt, closeAt);
   if (before === '') return null;
   let end = -1;
+  let bareKey: string | null = null;
   for (const line of linesFrom(source, block.end).slice(1)) {
     if (line.text === '}}' || /^\}\}[ \t]*$/.test(line.text)) {
       end = line.at;
       break;
     }
-    if (line.text.trim() === '' || /^[ \t]/.test(line.text) || /^[A-Za-z0-9_]+[ \t]*[:：]/.test(line.text)) continue;
+    if (line.text.trim() === '' || /^[ \t]/.test(line.text)) continue;
+    const k = /^([A-Za-z0-9_]+)[ \t]*[:：]/.exec(line.text);
+    if (k) {
+      bareKey ??= k[1]!;
+      continue;
+    }
     return null;
   }
   // the rest of the cut line (after its `}}`) must not be the start of a new block or of body text
   if (end < 0) return null;
+  // a bare `key:` line between: the block may as well end where it ends (0.x ended it there and showed the rest)
+  if (bareKey !== null) {
+    const line = source.slice(0, closeAt).split(/\r\n|\n|\r/).length;
+    return { note: `the settings block ends at a \`}}\` inside a value (line ${line}; 0.x ended it there too), and a lone \`}}\` follows after a \`${bareKey}:\` line: not repaired — the lines in between stay body text; if they belong to the settings, write the value's \`}}\` as \`} }\`` };
+  }
   const region = source.slice(block.start + 2, end);
   const keys = new Set<string>();
   let count = 0;
@@ -214,12 +230,19 @@ export function headerFromLegacySource(source: string): LegacySourceResult {
   let doc = blocks.find((b) => b.kind === 'document');
   if (doc) {
     const fix = repairCloser(src, doc);
-    if (fix) {
+    if (fix && 'note' in fix) notes.push(fix.note);
+    else if (fix) {
       src = fix.source;
       notes.push(`the settings block held \`}}\` inside ${fix.keys.length ? fix.keys.map((k) => `\`${k}\``).join(', ') : 'a value'} (${fix.count}×), which ended the block early (in 0.x too): written \`} }\`${fix.keys.every((k) => k === 'custom_css') ? ', the same CSS' : ' — check the value'}`);
       blocks = scanNymlBlocks(src);
       doc = blocks.find((b) => b.kind === 'document');
     }
+  }
+  // F6: 0.x took the first `{{nyml kind: document}}` in the RAW text — also one in a code block or an HTML comment, which format 1 does not read
+  const raw = RAW_DOCUMENT_BLOCK.exec(src);
+  if (raw && (!doc || raw.index < doc.start)) {
+    const line = src.slice(0, raw.index).split(/\r\n|\n|\r/).length;
+    notes.push(`0.x read its settings from the \`{{nyml kind: document}}\` block at line ${line}, inside a code block or an HTML comment (0.x searched the raw text); format 1 does not read it there${doc ? ` (the block at line ${src.slice(0, doc.start).split(/\r\n|\n|\r/).length} is the header now)` : ''} — copy its lines into the header if the document needs them`);
   }
   const meta = blocks.find((b) => b.kind === 'meta');
   const extraDocs = blocks.filter((b) => b.kind === 'document' && b !== doc).length;
@@ -395,11 +418,24 @@ export function upgrade(html: string, options: UpgradeOptions = {}): UpgradeResu
   // (a repaired `}}` is `} }`: the same characters; a `kind: meta` entry the
   // settings block overrides is counted as kept — it is noted), and the body
   // after the header is the arranged body exactly.
+  assertKeepsLegacySource(source, base, text, arranged.dropped);
+  return { text, html: assemble(text, assembleOptions), from: 'legacy', moved, notes };
+}
+
+/**
+ * The upgrade's "never lose text" net (U.1, U.7): throws unless `text` (the
+ * upgraded text) keeps `arranged` (the source with its blocks moved to the
+ * top) as its body exactly, after its header, AND holds every non-whitespace
+ * character of `source` — each as often as the source has it, counting once
+ * each character of what the one header no longer holds (`dropped`: overridden
+ * `kind: meta` entries, the meta block's markers). Exported for its unit test.
+ */
+export function assertKeepsLegacySource(source: string, arranged: string, text: string, dropped: readonly string[]): void {
   const after = withoutHeader(text).body;
-  const arrangedBody = header ? withoutHeader(base).body : base.replace(/^\uFEFF/, '');
+  const arrangedBody = readHeader(arranged) ? withoutHeader(arranged).body : arranged.replace(/^\uFEFF/, '');
   const kept = after.endsWith(arrangedBody) && after.slice(0, after.length - arrangedBody.length).trim() === '';
   const pool = countChars(ink(text));
-  for (const d of arranged.dropped) for (const c of ink(d)) pool.set(c, (pool.get(c) ?? 0) + 1);
+  for (const d of dropped) for (const c of ink(d)) pool.set(c, (pool.get(c) ?? 0) + 1);
   let all = true;
   for (const c of ink(source)) {
     const n = pool.get(c) ?? 0;
@@ -410,7 +446,6 @@ export function upgrade(html: string, options: UpgradeOptions = {}): UpgradeResu
     pool.set(c, n - 1);
   }
   if (!kept || !all) throw new Error('orz-paged upgrade: the upgraded text does not keep the legacy source; nothing was written');
-  return { text, html: assemble(text, assembleOptions), from: 'legacy', moved, notes };
 }
 
 function countChars(s: string): Map<string, number> {

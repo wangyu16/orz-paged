@@ -30,7 +30,59 @@ export interface VersionChoice {
 
 let cache: { text: string; choices: VersionChoice[] } | null = null;
 
-/** The dynamic choices a text offers (cached for the last text). */
+/** `data-show-when` / `data-hide-when` attribute values of rendered HTML, as `[key, value]` pairs. */
+export function choiceAttributes(html: string): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  for (const m of html.matchAll(/data-(?:show|hide)-when="([^"]*)"/g)) {
+    const raw = m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+    const eq = raw.indexOf('=');
+    out.push([eq < 0 ? raw : raw.slice(0, eq), eq < 0 ? '' : raw.slice(eq + 1).trim()]);
+  }
+  return out;
+}
+
+/**
+ * What the last renders of a text found (the read view's and the editor
+ * preview's renderer, src/browser/paged/render.ts, after includes were
+ * resolved): text → its rendered body's choice attributes. A few recent texts
+ * only (the read view's and the editor's).
+ */
+const rendered = new Map<string, Array<[string, string]>>();
+const RENDERED_KEEP = 4;
+
+/** Record the choice attributes of a text's rendered body (with its includes): read by {@link versionChoices} instead of rendering again. */
+export function rememberRendered(text: string, bodyHtml: string): void {
+  rendered.delete(text);
+  rendered.set(text, choiceAttributes(bodyHtml));
+  while (rendered.size > RENDERED_KEEP) rendered.delete(rendered.keys().next().value as string);
+}
+
+/**
+ * Whether a text MAY offer versions, without rendering (cheap: run by the
+ * kit's `hidden(text)` after each pause in typing): its header names
+ * `dynamic_choices`, or its body carries `data-show-when` / `data-hide-when`,
+ * an exam question (whose answer reveal is versioned), or an include
+ * directive (`{{md …}}`, `{{markdown …}}`, `{{md-include …}}`: versioned
+ * content may arrive through it).
+ */
+export function mayOfferVersions(text: string): boolean {
+  return /dynamic_choices|data-(?:show|hide)-when|kind:\s*question-|\{\{\s*(?:markdown|md|md-include)\s+\S/.test(text);
+}
+
+/**
+ * Whether the Version setting is hidden for a text — cheap (K.6): hidden when
+ * the text cannot offer versions ({@link mayOfferVersions}), or when a render
+ * of exactly this text (includes resolved) found none and the header sets
+ * none. Never renders.
+ */
+export function versionsHidden(text: string): boolean {
+  if (!mayOfferVersions(text)) return true;
+  const seen = rendered.get(text);
+  if (seen === undefined) return false;
+  return seen.length === 0 && !(readHeader(text)?.fields['dynamic_choices'] ?? '').trim();
+}
+
+/** The dynamic choices a text offers (cached for the last text). Renders the text only when no render of it was recorded. */
 export function versionChoices(text: string): VersionChoice[] {
   if (cache && cache.text === text) return cache.choices;
   const values = new Map<string, Set<string>>();
@@ -41,20 +93,19 @@ export function versionChoices(text: string): VersionChoice[] {
     if (!s) values.set(key, (s = new Set()));
     if (v !== '') s.add(v);
   };
-  let html = '';
-  // only a text that can offer versions is rendered (the editor asks after each pause in typing)
-  if (/data-(?:show|hide)-when|kind:\s*question-/.test(text)) {
-    try {
-      html = renderDocument(text).bodyHtml;
-    } catch {
-      /* a text the renderer refuses offers nothing */
+  let pairs = rendered.get(text);
+  if (pairs === undefined) {
+    pairs = [];
+    // only a text that can offer versions is rendered (choicesFor: at each opening of the picker)
+    if (/data-(?:show|hide)-when|kind:\s*question-/.test(text)) {
+      try {
+        pairs = choiceAttributes(renderDocument(text).bodyHtml);
+      } catch {
+        /* a text the renderer refuses offers nothing */
+      }
     }
   }
-  for (const m of html.matchAll(/data-(?:show|hide)-when="([^"]*)"/g)) {
-    const raw = m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"');
-    const eq = raw.indexOf('=');
-    add(eq < 0 ? raw : raw.slice(0, eq), eq < 0 ? '' : raw.slice(eq + 1).trim());
-  }
+  for (const [k, v] of pairs) add(k, v);
   const header = resolveSettings(text).dynamicChoices;
   for (const [k, v] of Object.entries(header)) add(k, v);
   const choices = [...values.entries()]

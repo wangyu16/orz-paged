@@ -55,12 +55,17 @@ describe('base', () => {
     expect(readFileSync('src/doc/elements.ts', 'utf8')).toMatch(/from 'orz-markdown\/carrier\/read'/);
   });
 
-  it('[B.5] the test setup is orz-mdhtml\'s: vitest projects (main, conformance), playwright-core for real Chrome, a live claims registry', () => {
+  it('[B.5] the test setup is orz-mdhtml\'s: vitest projects (main, chrome — one file at a time —, conformance), playwright-core for real Chrome, a live claims registry', () => {
     expect(pkg.devDependencies).toHaveProperty('playwright-core');
     expect(pkg.devDependencies).toHaveProperty('vitest');
     const config = readFileSync('vitest.config.ts', 'utf8');
     expect(config).toMatch(/name: 'main'/);
     expect(config).toMatch(/name: 'conformance'/);
+    // every file that launches Chrome runs in the serial lane
+    expect(config).toMatch(/name: 'chrome', include: CHROME, fileParallelism: false/);
+    for (const f of readdirSync('tests').filter((x) => x.endsWith('.test.ts') && x !== 'conformance.test.ts')) {
+      if (/\b(launch|launchChrome)\(\)/.test(readFileSync(`tests/${f}`, 'utf8'))) expect(config, f).toContain(`'tests/${f}'`);
+    }
     expect(existsSync('notes/CLAIMS.md')).toBe(true);
     expect(existsSync('tests/claims.test.ts')).toBe(true);
     expect(readFileSync('tsconfig.json', 'utf8')).toMatch(/"tests"/);

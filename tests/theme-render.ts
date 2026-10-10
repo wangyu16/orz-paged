@@ -110,8 +110,11 @@ export async function renderPaged(browser: Browser, text: string, opts: { scale?
   const sheets = [{ name: 'orz-base.css', css: baseCss }, ...(themeCss ? [{ name: 'orz-theme.css', css: themeCss }] : []), { name: 'orz-page.css', css: a.css }];
   const result = await page.evaluate(
     async (input) => {
-      const w = window as unknown as { __orzPaged: { paginate(i: unknown, t: Element): Promise<{ pages: number; grid: { grid: number; ruleAt: number; snapped: number; offGrid: number } }> } };
-      const r = await w.__orzPaged.paginate(input, document.getElementById('out')!);
+      type R = { pages: number; grid: { grid: number; ruleAt: number; snapped: number; offGrid: number } };
+      const w = window as unknown as { __orzPaged: { paginate(i: unknown, t: Element, o: { onReflow(r: R): void }): Promise<R>; idle(): Promise<void> } };
+      // the final layout: the first, or the one re-flow after late webfonts (R.6)
+      let r = await w.__orzPaged.paginate(input, document.getElementById('out')!, { onReflow: (x) => { r = x; } });
+      await w.__orzPaged.idle();
       await document.fonts.ready;
       return { pages: r.pages, grid: r.grid };
     },

@@ -46,11 +46,11 @@ Two npm packages live here, **versioned in lockstep**:
 ## Commands
 
 ```bash
-npm run build            # prebuild (version, templates, themes) + tsc -p tsconfig.build.json (dist/) + npm run bundle
+npm run build            # prebuild (version, templates, themes) + rm -rf dist + tsc -p tsconfig.build.json (dist/) + npm run bundle
 npm run bundle           # build/bundle.ts: the paged runtime, browser/orz-paged.browser.js (bundle rule) + esm/ + release.json,
                          #   and the same IIFE + release.json into dist/ (the Node library's engine)
 npm run themes           # scripts/build-themes.ts: the print themes from the installed orz-markdown (also in prebuild/pretest)
-npm test                 # vitest: project "main" (unit, corpus, CLI, real Chrome), then project "conformance"
+npm test                 # vitest: project "main" (unit, corpus, CLI), then "chrome" (real-Chrome files, one at a time), then "conformance"
 npm run typecheck        # tsc --noEmit over src, tests, scripts, build
 npm run gen -- new x.paged.md --template note   # the CLI from source (tsx src/cli.ts …)
 npm run examples         # regenerate examples/*.paged.html from examples/*.paged.md (after a build; D.1 fails when stale)
@@ -128,7 +128,9 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   preview frame's `__orzPreviewApply`), `cols-flow.ts` (the hybrid two-column
   handler, D-48), `baseline-grid.ts` (a theme's page ruling under the text:
   `--orz-grid` / `--orz-rule-at`, every top-level block placed on the grid —
-  light-playful-1 opts in), `input.ts`.
+  light-playful-1 opts in; its ruling is the page box's `::before`, never a
+  positioned `.pagedjs_area`), `input.ts`. The runtime is built without
+  css-tree's validation data (build/bundle.ts `noCssTreeData`).
 - **Browser engine** `src/browser/`: `index.ts` (the IIFE: captures its
   engine source, then the kit's `startCarrier(PAGED_KIND)`), `esm.ts`,
   `carrier.ts` (the FC-19 API), `paged/` (the kind: `kind.ts`, the read view
@@ -164,6 +166,13 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   constructs (tabs, spoilers, video) are discouraged, not forbidden. Templates
   own layout, themes own the look; a header key overrides both. Page break =
   `::: page-break`. Do not reopen these without the owner.
+- **A layout must never block typing or keep the page blank** (closed loop
+  round 1): the editor preview paginates only after a typing pause
+  (`debounceMs` 1.5 s, `maxWaitMs: Infinity`, frame-acknowledged — E.4);
+  anything run per pause (a setting's `hidden`, `current`) is a cheap text
+  test, never a render (K.6); the runtime waits at most `FIRST_WAIT_MS` (2 s)
+  for fonts and libraries, then lays out and re-flows once when they arrive
+  (R.6).
 - **Paged.js is pinned at 0.4.3**: the two-column handler, the baseline grid
   and the nonce stamping hook into its internals; a bump needs the column
   regression (C.1) and the ruled-paper check (P.9) green.

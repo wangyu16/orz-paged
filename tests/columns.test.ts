@@ -1,5 +1,5 @@
 /**
- * The two-column handler (claims C.1, C.2; REBUILD §3b decision 1, D-48: the
+ * The two-column handler (claims C.1–C.3; REBUILD §3b decision 1, D-48: the
  * hybrid) — the prototype's 8-document regression (/tmp/cols-proto run.mjs,
  * ported) through the real engine: each document is assembled with the real
  * bundle, opened over http in real Chrome, and its read view's pages checked:
@@ -28,7 +28,10 @@ describe('the handler (Node)', () => {
     expect(MAX_CUTS).toBe(2000);
     expect(src).toMatch(/if \(r\.rest && r\.nothingFit && atTop\)/);
     expect(src).toMatch(/if \(!atTop && box\.height <= areaRect\.height - SAFETY\)/); // a short block moves whole
-    expect(DOCS).toEqual(['a_long', 'b_unequal', 'c_short_bottom', 'd_three_custom', 'e_section', 'f_exam', 'g_edge', 'h_overtall']);
+    expect(DOCS).toEqual(['a_long', 'b_unequal', 'c_short_bottom', 'd_three_custom', 'e_section', 'f_exam', 'g_edge', 'h_overtall', 'i_nested_tight', 'j_nested_loose', 'k_ordered', 'l_nested_tight_a4']);
+    // C.3: a list item that cannot keep anything here moves whole — its children go back (they were lost); a continued
+    // ordered list keeps its numbering, a continued item does not repeat its marker, an ended column keeps only its track
+    expect(src).toContain('while (r.rest.firstChild) s.appendChild(r.rest.firstChild);');
   });
 });
 
@@ -45,10 +48,16 @@ interface Check {
   blank: number[];
   clipped: string[];
   merged: string[];
+  /** Ordered list items whose number is not their source number (tagged `[O<n>]`: number n + 1). */
+  numbering: string[];
+  /** Continued list items (no tag of their own) that draw a marker again. */
+  markers: string[];
+  /** Ended-column placeholders that draw anything (a theme's frame or background). */
+  placeholders: string[];
 }
 
 chrome('the 8-document regression (real Chrome)', () => {
-  it('[C.1] per-column text in order, columns side by side, no blank pages, no clipping (but the documented over-tall item), short blocks moved whole, long ones split; no page errors', async () => {
+  it('[C.1] [C.3] per-column text in order, columns side by side, no blank pages, no clipping (but the documented over-tall item), short blocks moved whole, long ones split; no page errors', async () => {
     const b = await bundle();
     files.write('fig.svg', readFileSync(join(FIX, 'fig.svg'), 'utf8'));
     const ctx = await browser!.newContext({ viewport: { width: 1100, height: 1200 } });
@@ -118,8 +127,39 @@ chrome('the 8-document regression (real Chrome)', () => {
             if (kids.length && kids.some((k) => k.getBoundingClientRect().width > cw * 0.9)) merged.push(`p${pi + 1}`);
           }
         });
+        // C.3: list numbering and markers across the column splits
+        const numbering: string[] = [];
+        const markers: string[] = [];
+        const ownText = (li: Element): string => {
+          let t = '';
+          const walk = (n: Node): void => {
+            for (const c of Array.from(n.childNodes)) {
+              if (c.nodeType === 3) t += c.textContent;
+              else if (c.nodeType === 1 && !/^(UL|OL)$/.test((c as Element).tagName)) walk(c);
+            }
+          };
+          walk(li);
+          return t.trim();
+        };
+        for (const c of top(area)) {
+          c.querySelectorAll('li').forEach((li) => {
+            const own = ownText(li);
+            const tag = /^\[([A-Za-z]+)(\d+)\]/.exec(own);
+            if (!tag) {
+              if (getComputedStyle(li).listStyleType !== 'none') markers.push(`"${own.slice(0, 24)}" (${li.closest('.pagedjs_page')?.getAttribute('data-page-number')})`);
+              return;
+            }
+            const list = li.parentElement!;
+            if (list.tagName === 'OL' && tag[1] === 'O') {
+              const items = Array.from(list.children).filter((k) => k.tagName === 'LI');
+              const n = Number(list.getAttribute('start') || '1') + items.indexOf(li);
+              if (n !== Number(tag[2]) + 1) numbering.push(`[O${tag[2]}] numbered ${n}`);
+            }
+          });
+        }
+        const placeholders = Array.from(area.querySelectorAll<HTMLElement>('[data-cols-placeholder]')).filter((ph) => getComputedStyle(ph).visibility !== 'hidden').map((ph) => ph.className);
         const last = C.standalone.view.lastResult();
-        return { pages: last.pages, cols: last.cols, integrity, blank, clipped, merged };
+        return { pages: last.pages, cols: last.cols, integrity, blank, clipped, merged, numbering, markers, placeholders };
       }, text);
     }
     const summary = Object.fromEntries(Object.entries(results).map(([d, r]) => [d, `${r.pages} pages ${JSON.stringify(r.cols)}`]));
@@ -127,6 +167,9 @@ chrome('the 8-document regression (real Chrome)', () => {
     console.log('[C.1] the columns regression:', JSON.stringify(summary, null, 1));
     for (const [doc, r] of Object.entries(results)) {
       expect(r.integrity, doc).toEqual([]);
+      expect(r.numbering, `${doc}: ordered items keep their numbers`).toEqual([]);
+      expect(r.markers, `${doc}: a continued item repeats no marker`).toEqual([]);
+      expect(r.placeholders, `${doc}: an ended column draws nothing`).toEqual([]);
       expect(r.blank, doc).toEqual([]);
       expect(r.merged, doc).toEqual([]);
       expect(r.pages, doc).toBeGreaterThan(0);
@@ -139,7 +182,7 @@ chrome('the 8-document regression (real Chrome)', () => {
       } else expect(r.clipped, doc).toEqual([]);
     }
     // the hybrid: long blocks are split column by column, a short block near a page bottom moves whole
-    for (const doc of ['a_long', 'b_unequal', 'd_three_custom', 'g_edge']) expect(results[doc]!.cols.split, doc).toBeGreaterThan(0);
+    for (const doc of ['a_long', 'b_unequal', 'd_three_custom', 'g_edge', 'i_nested_tight', 'j_nested_loose', 'k_ordered', 'l_nested_tight_a4']) expect(results[doc]!.cols.split, doc).toBeGreaterThan(0);
     expect(results['c_short_bottom']!.cols).toMatchObject({ split: 0, moved: 1 });
     expect(results['f_exam']!.cols.moved + results['f_exam']!.cols.split).toBeGreaterThan(0);
     expect(errors).toEqual([]);

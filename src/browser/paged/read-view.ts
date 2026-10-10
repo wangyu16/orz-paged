@@ -10,8 +10,10 @@
  * host, page CSS, the print theme, webfonts) → the paged runtime (injected
  * into the page once: enhancement, fonts, Paged.js with the two-column
  * handler, double-buffered swap keeping the scroll position, front-matter
- * renumbering, TOC page numbers). It resolves when the pages show; a newer
- * render supersedes an older one (its pages are never shown).
+ * renumbering, TOC page numbers). It resolves when the pages show — after
+ * at most a short wait for fonts and libraries (R.6: a slow CDN never keeps
+ * the page blank; one re-flow follows when they arrive, and `idle()` waits for
+ * it); a newer render supersedes an older one (its pages are never shown).
  * `present(text)`: switches the shell's deferred stylesheets on, follows the
  * header's title and theme (light paper: the chrome's scheme is light).
  *
@@ -118,6 +120,23 @@ export function createReadView(doc: Document): PagedReadView {
   };
   win.addEventListener('resize', onResize);
 
+  // Cmd/Ctrl+P in edit mode (R.7): the page then shows the editor, which does not print (the browser printed a blank
+  // page) — leave the editor (the read view lays out the current text, nothing is lost: the text stays unsaved as it
+  // was), wait for the final layout, then print the pages
+  const onKey = (e: KeyboardEvent): void => {
+    if (destroyed || e.altKey || e.shiftKey || !(e.metaKey || e.ctrlKey) || (e.key !== 'p' && e.key !== 'P')) return;
+    if (!main!.hidden && !main!.closest('[hidden]')) return; // the read view shows: the browser prints it as it is
+    e.preventDefault();
+    e.stopPropagation();
+    const app = (win as unknown as { OrzCarrier?: { standalone?: { leave?(): Promise<void> } } }).OrzCarrier?.standalone;
+    void (async () => {
+      try { await app?.leave?.(); } catch { /* still print what the view has */ }
+      await view.idle();
+      win.print();
+    })();
+  };
+  win.addEventListener('keydown', onKey, true);
+
   /** The shell writes its stylesheets switched off (`media="not all"`, so a slow CDN never blocks the page): switch them on. */
   const enableStylesheets = (): void => {
     doc.querySelectorAll('link[rel="stylesheet"][media="not all"]').forEach((l) => l.removeAttribute('media'));
@@ -150,7 +169,11 @@ export function createReadView(doc: Document): PagedReadView {
           ...(ctx.fetchInclude ? { fetchInclude: ctx.fetchInclude } : {}),
         });
         if (mine !== generation || destroyed) return; // a newer render won (or the view is gone)
-        const result = await pageRuntime(doc).paginate(input, pages!, { isCurrent: () => mine === generation && !destroyed });
+        const result = await pageRuntime(doc).paginate(input, pages!, {
+          isCurrent: () => mine === generation && !destroyed,
+          // the one re-flow after late fonts or libraries (R.6): its pages are the final ones
+          onReflow: (r) => { if (mine === generation && !destroyed) { last = r; reZoom(); } },
+        });
         if (result.cancelled) return;
         last = result;
         reZoom();
@@ -163,6 +186,9 @@ export function createReadView(doc: Document): PagedReadView {
       do {
         seen = running;
         await seen;
+        // the runtime's queue and its re-flow after late fonts or libraries (Print prints the final layout)
+        const w = doc.defaultView as RuntimeWindow;
+        if (w.__orzPaged) await w.__orzPaged.idle();
       } while (seen !== running);
     },
     lastResult: () => last,
@@ -175,6 +201,7 @@ export function createReadView(doc: Document): PagedReadView {
       destroyed = true;
       generation++;
       win.removeEventListener('resize', onResize);
+      win.removeEventListener('keydown', onKey, true);
       clearTimeout(resizeTimer);
     },
   };

@@ -1,5 +1,5 @@
 /**
- * The 8 documents of the two-column regression (tests/columns.test.ts), as the
+ * The documents of the two-column regression (tests/columns.test.ts), as the
  * prototype made them (2026-10-09, /tmp/cols-proto/docs.mjs, REBUILD §3b
  * decision 1): a long block, unequal columns, a short block near the bottom,
  * three and custom-width columns, columns in a section, an exam with
@@ -54,3 +54,14 @@ console.log(Object.keys(docs).join(' '));
 const tall = '![tall](fig.svg =600x1400)';
 writeFileSync(`${DIR}g_edge.md`, head('page_size: Letter\n') + `# Edge cases\n\n${para('INTRO', 2)}\n\n::::: cols\n:::: col\n${paras('L', 2, 3)}\n\n${tall}\n\n${paras('Lz', 2, 3)}\n::::\n:::: col\n${paras('R', 3, 4)}\n\n\`\`\`\ncode line 1\ncode line 2\ncode line 3\n\`\`\`\n\n${para('RLONG', 40)}\n::::\n:::::\n\n${para('AFTER', 2)}\n`);
 writeFileSync(`${DIR}h_overtall.md`, head('page_size: A4\n') + `# Over-tall item\n\n${para('INTRO', 2)}\n\n::::: cols\n:::: col\n${para('L1', 3)}\n\n<img src="fig.svg" style="width:100%;height:1250px;object-fit:fill">\n\n${para('L2', 3)}\n::::\n:::: col\n${paras('R', 6, 5)}\n::::\n:::::\n\n${para('AFTER', 2)}\n`);
+
+// closed loop round 1 (C.3): nested lists (tight and loose) and an ordered list continued in a column
+const S1 = 'The measured response follows the predicted curve closely across the full range of inputs. Small deviations appear near the boundary, where the approximation is known to weaken. We repeat the experiment with a finer grid.';
+const p1 = (tag, n = 1) => `**[${tag}]** ` + Array(n).fill(S1).join(' ');
+const nestedTight = Array.from({ length: 10 }, (_, i) => `- [A${i}] ${S1}\n  - [B${i}] ${S1}\n    - [C${i}] ${S1}`).join('\n');
+const nestedLoose = Array.from({ length: 8 }, (_, i) => `- [A${i}] ${S1}\n\n  [P${i}] ${S1}\n\n  - [B${i}] ${S1}\n\n    - [C${i}] ${S1}\n`).join('\n');
+const numbered = Array.from({ length: 30 }, (_, i) => `${i + 1}. [O${i}] ${S1}`).join('\n');
+writeFileSync(`${DIR}i_nested_tight.md`, head('page_size: A5\n') + `${p1('P0', 2)}\n\n::::: cols\n:::: col\n${nestedTight}\n::::\n:::: col\n${p1('R0', 2)}\n::::\n:::::\n\n${p1('AFTER')}\n`);
+writeFileSync(`${DIR}j_nested_loose.md`, head('page_size: A4\n') + `${p1('P0', 3)}\n\n::::: cols\n:::: col\n${nestedLoose}\n::::\n:::: col\n${p1('R0', 3)}\n::::\n:::::\n\n${p1('AFTER')}\n`);
+writeFileSync(`${DIR}k_ordered.md`, head('page_size: A5\n') + `${p1('P0', 4)}\n\n::::: cols\n:::: col\n${numbered}\n::::\n:::: col\n${Array.from({ length: 6 }, (_, i) => p1('R' + i)).join('\n\n')}\n::::\n:::::\n\n${p1('AFTER')}\n`);
+writeFileSync(`${DIR}l_nested_tight_a4.md`, head('page_size: A4\n') + `${p1('P0', 5)}\n\n::::: cols\n:::: col\n${nestedTight}\n::::\n:::: col\n${p1('R0', 2)}\n::::\n:::::\n\n${p1('AFTER')}\n`);

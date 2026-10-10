@@ -21,8 +21,11 @@
  *      that does not match is removed), styled by the theme for measuring;
  *   3. enhancement — orz-markdown's `enhanceDocument` (highlight.js, Mermaid,
  *      SMILES, Chart.js from their pinned URLs, only what the content needs;
- *      KaTeX's stylesheet) — awaited; then images decoded, stylesheets loaded
- *      and `document.fonts.ready` (pagination depends on final heights);
+ *      KaTeX's stylesheet), images decoded, stylesheets loaded and
+ *      `document.fonts.ready` (pagination depends on final heights) — all
+ *      started at once and awaited at most {@link FIRST_WAIT_MS}: a slow CDN
+ *      never keeps the page blank; what had not arrived makes the result
+ *      `provisional`, and ONE re-flow follows when it settles (R.6);
  *      `static: true`: drawn canvases become images (Paged.js re-parses the HTML);
  *   4. Paged.js into an off-screen container (double buffer), with the
  *      baseline-grid handler (src/paged/baseline-grid.ts: a theme's ruling
@@ -46,6 +49,11 @@ export interface PaginateOptions {
   isCurrent?(): boolean;
   /** Scale the pages to the target's width (the editor preview), never above 100 %. */
   fit?: boolean;
+  /**
+   * Called with the result of the one re-flow that follows a layout made
+   * before slow fonts, stylesheets or libraries arrived (see {@link paginate}).
+   */
+  onReflow?(result: PaginateResult): void;
 }
 
 export interface PaginateResult {
@@ -61,6 +69,12 @@ export interface PaginateResult {
   choices: Record<string, string[]>;
   /** Milliseconds, start to swap. */
   ms: number;
+  /**
+   * True when these pages were laid out before everything the content needs
+   * had arrived (fonts, stylesheets, libraries, images still loading after
+   * {@link FIRST_WAIT_MS}): one re-flow follows when they settle.
+   */
+  provisional: boolean;
 }
 
 export interface PagedRuntime {
@@ -68,7 +82,7 @@ export interface PagedRuntime {
   paginate(input: PagedInput, target: HTMLElement, options?: PaginateOptions): Promise<PaginateResult>;
   /** The preview frame's render (`__orzPreviewApply`): decode the payload and paginate into `#orz-doc`. */
   applyPreview(html: string): Promise<PaginateResult | null>;
-  /** Resolves when no pagination runs or waits. */
+  /** Resolves when no pagination runs or waits, the re-flow after late fonts or libraries included. */
   idle(): Promise<void>;
 }
 
@@ -91,6 +105,16 @@ const NONCE: string | undefined = (() => {
 })();
 
 const later = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * How long a layout waits for the content's fonts, stylesheets, libraries
+ * (enhancement) and images before it lays out the pages with what has
+ * arrived (fallback fonts, unenhanced content): a slow or hanging CDN never
+ * keeps the page blank (R.6).
+ */
+export const FIRST_WAIT_MS = 2000;
+/** How long the late assets are awaited for the one re-flow after a provisional layout (and Print, which waits for it). */
+export const LATE_WAIT_MS = 20_000;
 const within = <T>(p: Promise<T>, ms: number): Promise<T | void> => Promise.race([p, later(ms)]);
 
 /** Add the stylesheet links the content needs (once each). */
@@ -124,29 +148,46 @@ function stylesheetsSettled(ms: number): Promise<unknown> {
   return within(Promise.all(pending), ms);
 }
 
-/** Fill `.orz-toc` with the headings of the pages and their page numbers. */
+/**
+ * Fill `.orz-toc` with the headings of the pages (levels 1 to the TOC's
+ * `data-max-level`) and their page numbers, in the structure the print
+ * layer styles (assets/themes/layers/structure.css): per heading
+ * `li.orz-toc-item.orz-toc-l<level>.orz-toc-d<depth below the top level listed> > span.orz-toc-entry > span.orz-toc-text,
+ * span.orz-toc-leader (the dotted leader), span.orz-toc-page` — the number
+ * right-aligned after the leader, never against the text.
+ */
 function fillToc(root: HTMLElement): void {
   const nav = root.querySelector('.orz-toc');
   if (!nav) return;
-  const maxLevel = Number(nav.getAttribute('data-max-level') || '3');
+  const maxLevel = Math.min(6, Math.max(1, Number(nav.getAttribute('data-max-level') || '3') || 3));
   const list = document.createElement('ol');
   list.className = 'orz-toc-list';
-  root.querySelectorAll<HTMLElement>('.pagedjs_page_content h1, .pagedjs_page_content h2, .pagedjs_page_content h3, .pagedjs_page_content h4').forEach((h) => {
-    // the contents list the document's sections: not its own heading, nor the title block's or the CV header's
-    if (h.closest('.orz-el-toc, .orz-el-article-title, .orz-el-report-title, .orz-el-exam-title, .orz-el-cv-header')) return;
+  const levels = Array.from({ length: maxLevel }, (_, i) => `.pagedjs_page_content h${i + 1}`).join(', ');
+  const heads = Array.from(root.querySelectorAll<HTMLElement>(levels)).filter((h) =>
+    // the contents list the document's sections: not its own heading, nor the title block's or the CV header's;
+    // a heading Paged.js split across pages (its continuation) is listed once
+    !h.closest('.orz-el-toc, .orz-el-article-title, .orz-el-report-title, .orz-el-exam-title, .orz-el-cv-header') && !h.hasAttribute('data-split-from'));
+  const top = Math.min(...heads.map((h) => Number(h.tagName.slice(1))));
+  heads.forEach((h) => {
     const level = Number(h.tagName.slice(1));
     if (level > maxLevel) return;
     const page = h.closest('.pagedjs_page') as HTMLElement | null;
     const no = page ? (page.style.getPropertyValue('--orz-pageno').replace(/"/g, '') || page.getAttribute('data-page-number') || '') : '';
     const li = document.createElement('li');
-    li.className = `orz-toc-item orz-toc-l${level}`;
+    li.className = `orz-toc-item orz-toc-l${level} orz-toc-d${level - top + 1}`;
+    const entry = document.createElement('span');
+    entry.className = 'orz-toc-entry';
     const t = document.createElement('span');
     t.className = 'orz-toc-text';
-    t.textContent = h.textContent || '';
+    t.textContent = (h.textContent || '').trim();
+    const leader = document.createElement('span');
+    leader.className = 'orz-toc-leader';
+    leader.setAttribute('aria-hidden', 'true');
     const n = document.createElement('span');
     n.className = 'orz-toc-page';
     n.textContent = no;
-    li.append(t, n);
+    entry.append(t, leader, n);
+    li.append(entry);
     list.append(li);
   });
   if (list.childElementCount) nav.replaceChildren(list);
@@ -178,12 +219,13 @@ let current: Previewer | null = null;
 let queue: Promise<unknown> = Promise.resolve();
 let waiting = 0;
 
-async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOptions): Promise<PaginateResult> {
+/** One pagination, and what was still loading when it laid out (null: nothing). */
+async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOptions & { final?: boolean }): Promise<{ result: PaginateResult; late: Promise<unknown> | null }> {
   const t0 = performance.now();
   const empty: ColsStats = { fits: 0, split: 0, moved: 0, fallback: 0 };
   const noGrid: GridStats = { grid: 0, ruleAt: 0, snapped: 0, offGrid: 0 };
   const isCurrent = (): boolean => (o.isCurrent ? o.isCurrent() : true);
-  if (!isCurrent()) return { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices: {}, ms: 0 };
+  if (!isCurrent()) return { result: { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices: {}, ms: 0, provisional: false }, late: null };
 
   // 1. the content's stylesheet links
   ensureLinks(input.links);
@@ -207,17 +249,35 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
   out.setAttribute('aria-hidden', 'true');
   out.style.cssText = 'position:absolute;left:-99999px;top:0;';
   let previewer: Previewer | null = null;
+  let late: Promise<unknown> | null = null;
   try {
-    // 3. enhancement, images, stylesheets, fonts
+    // 3. enhancement, images, stylesheets, fonts — all started at once; the layout waits for them at most
+    //    FIRST_WAIT_MS (a final pass: LATE_WAIT_MS), then goes ahead with what has arrived and reports the rest
     const root = (stage.querySelector('.orz-doc') as HTMLElement | null) ?? stage;
+    const cap = o.final ? LATE_WAIT_MS : FIRST_WAIT_MS;
     // static (print): everything drawn, then each drawn chart / SMILES canvas an image (Paged.js re-parses the
     // HTML); the orz runtime installed too (copy-as-Markdown on the pages, step 6)
-    await within(enhanceDocument(root, { scheme: 'light', static: true, runtime: true, ...(NONCE ? { nonce: NONCE } : {}) }), 20_000).catch(() => undefined);
-    await within(Promise.all(Array.from(stage.querySelectorAll('img')).map((i) => i.decode().catch(() => undefined))), 6000);
-    await stylesheetsSettled(8000);
-    void stage.offsetHeight; // layout: the fonts the content uses start loading
-    if (document.fonts?.ready) await within(document.fonts.ready, 8000).catch(() => undefined);
-    if (!isCurrent()) return { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices, ms: performance.now() - t0 };
+    const enhanced = Promise.resolve().then(() => enhanceDocument(root, { scheme: 'light', static: true, runtime: true, ...(NONCE ? { nonce: NONCE } : {}) })).catch(() => undefined);
+    const decoded = Promise.all(Array.from(stage.querySelectorAll('img')).map((i) => i.decode().catch(() => undefined)));
+    const sheets = stylesheetsSettled(LATE_WAIT_MS);
+    const assets = Promise.all([enhanced, decoded, sheets]);
+    let ready = false;
+    const settled = (async () => {
+      await assets;
+      void stage.offsetHeight; // layout: the fonts the content uses start loading
+      if (document.fonts?.ready) await document.fonts.ready.catch(() => undefined);
+      ready = true;
+    })();
+    await within(settled, cap);
+    if (!ready) void stage.offsetHeight; // the fonts known so far start loading; the pages lay out with fallbacks
+    if (!isCurrent()) return { result: { cancelled: true, pages: 0, cols: empty, grid: noGrid, choices, ms: performance.now() - t0, provisional: false }, late: null };
+    // what is still on its way: the re-flow waits for it (the pages now in the page request the fonts)
+    late = ready || o.final ? null : within((async () => {
+      await assets;
+      await later(0);
+      void document.body.offsetHeight;
+      if (document.fonts?.ready) await document.fonts.ready.catch(() => undefined);
+    })(), LATE_WAIT_MS);
 
     // 4. Paged.js into the off-screen buffer
     document.body.appendChild(out);
@@ -229,7 +289,7 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     const gridStats = BaselineGridHandler.last ? { ...(BaselineGridHandler.last as BaselineGridHandler).stats, grid: Math.max(0, (BaselineGridHandler.last as BaselineGridHandler).stats.grid) } : noGrid;
     if (!isCurrent()) {
       previewer.polisher.destroy();
-      return { cancelled: true, pages: flow.total, cols, grid: gridStats, choices, ms: performance.now() - t0 };
+      return { result: { cancelled: true, pages: flow.total, cols, grid: gridStats, choices, ms: performance.now() - t0, provisional: false }, late: null };
     }
 
     // 5. swap, keeping the scroll position; the old pagination's styles go only now
@@ -248,7 +308,7 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     target.setAttribute('data-orz-copy', '');
     try { W.OrzMarkdownRuntime?.init?.(target); } catch { /* the runtime's own error */ }
     if (o.fit) fitTo(target);
-    return { cancelled: false, pages: flow.total, cols, grid: gridStats, choices, ms: performance.now() - t0 };
+    return { result: { cancelled: false, pages: flow.total, cols, grid: gridStats, choices, ms: performance.now() - t0, provisional: late !== null }, late };
   } finally {
     previewer?.polisher.destroy();
     stage.remove();
@@ -257,11 +317,52 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
   }
 }
 
-function paginate(input: PagedInput, target: HTMLElement, options: PaginateOptions = {}): Promise<PaginateResult> {
+/** The latest request per target: a re-flow runs only while no newer request was made for its target. */
+const latest = new WeakMap<HTMLElement, number>();
+let requests = 0;
+/** Re-flows announced but not yet done (idle() waits for them: Print prints the final layout). */
+const reflows = new Set<Promise<unknown>>();
+
+function enqueue<T>(job: () => Promise<T>): Promise<T> {
   waiting++;
-  const run = queue.then(() => paginateNow(input, target, options));
+  const run = queue.then(job);
   queue = run.catch(() => undefined).then(() => { waiting--; });
   return run;
+}
+
+/**
+ * Paginate `input` into `target` (one at a time, in order). The pages show as
+ * soon as they are laid out — after at most {@link FIRST_WAIT_MS} of waiting
+ * for fonts, stylesheets, libraries and images (R.6). When some had not
+ * arrived, the result is `provisional` and ONE re-flow follows once they
+ * settle (at most {@link LATE_WAIT_MS}): the same input laid out again, the
+ * scroll position kept, unless a newer request for the target came first;
+ * `options.onReflow` gets its result, and `idle()` waits for it.
+ */
+function paginate(input: PagedInput, target: HTMLElement, options: PaginateOptions = {}): Promise<PaginateResult> {
+  const mine = ++requests;
+  latest.set(target, mine);
+  const wanted = (): boolean => latest.get(target) === mine && (options.isCurrent ? options.isCurrent() : true);
+  return enqueue(() => paginateNow(input, target, options)).then(({ result, late }) => {
+    if (late && !result.cancelled) {
+      const reflow = late.then(() => (wanted() ? enqueue(() => paginateNow(input, target, { ...options, isCurrent: wanted, final: true })) : null))
+        .then((r) => { if (r && !r.result.cancelled) options.onReflow?.(r.result); })
+        .catch(() => undefined);
+      reflows.add(reflow);
+      void reflow.then(() => reflows.delete(reflow));
+    }
+    return result;
+  });
+}
+
+/** Resolves when no pagination runs or waits, and no announced re-flow is pending. */
+async function idle(): Promise<void> {
+  for (;;) {
+    const q = queue;
+    await q;
+    if (reflows.size > 0) { await Promise.all([...reflows]); continue; }
+    if (q === queue) return;
+  }
 }
 
 /** The payload of the editor's renderer (src/paged/input.ts `encodePreviewHtml`), decoded. */
@@ -329,7 +430,7 @@ if (!W.__orzPaged) {
     version: typeof __ORZ_PAGED_RUNTIME_VERSION__ === 'string' ? __ORZ_PAGED_RUNTIME_VERSION__ : '',
     paginate,
     applyPreview,
-    idle: () => queue.then(() => undefined),
+    idle,
   });
   W.__orzPaged = api;
   // the preview frame's page hook (FC-19 §8.4): the bridge acknowledges the render when it settles

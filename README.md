@@ -47,13 +47,16 @@ workflow; what paged adds is pages.
   footers and custom CSS stay in the header text.
 - **Versions (one source, several printouts).** A header's `dynamic_choices`
   (e.g. `answer-key: hide`) decides what the pages show; *Version* switches it
-  (an exam with or without its answers) — again a header edit.
+  (an exam with or without its answers) — again a header edit. Version is
+  offered also when versioned content arrives through an include
+  (`{{md part.md}}`).
 - **Page zoom.** *Page zoom* (Automatic, Fit width, 100 %, 125 %) scales the
   pages for reading. It is your preference, not the document's: kept in this
   browser for this document (by its `uid`), never saved into the file, and it
   never changes pagination (a text-size control would).
 - **Templates.** *New document from template…* lists the twelve templates and
-  saves a fresh file of the chosen one (its starter text, a new `uid`); the
+  saves a fresh file of the chosen one (its starter text, a new `uid`, named
+  `<template>.paged.html` in the save dialog); the
   current document is never replaced. A header's `template:` key sets layout
   defaults only.
 - **Edit.** The pencil (or Cmd/Ctrl+E) opens the editor: CodeMirror beside a
@@ -61,7 +64,11 @@ workflow; what paged adds is pages.
   the pages to its pane), the paged settings and
   *Version* in its bar, undo per document. **Done** goes back to the read view.
   The bar ends, quietly, with the orz seal (https://markdown.orz.how) and this
-  tool's GitHub link. Print from the read view, not the editor preview.
+  tool's GitHub link. Print from the read view, not the editor preview
+  (Cmd/Ctrl+P while editing leaves the editor and prints the pages of the
+  current text). On a long document the preview lays the pages out again only
+  after a pause in typing (about 1.5 s, longer for long documents): it may lag
+  behind the text, typing never waits for it.
 - **Save, New, Copy.** **Save** (Cmd/Ctrl+S) writes `assemble(text)` — never
   the laid-out pages — back to the file. A save never silently overwrites a
   file that changed on disk since the page opened it: it asks — *Replace it*
@@ -166,16 +173,16 @@ orz-paged templates
 
 | Command | What it does |
 |---|---|
-| `new` | writes a new text twin from a template's starter text: its header with `carrier: paged`, a fresh `uid`, the template's settings and the given `--title` / `--theme`, then its skeleton body (default template `note`). `--html` also assembles it; without a file name the text goes to stdout. A paged text twin's name ends in `.paged.md`. |
+| `new` | writes a new text twin from a template's starter text: its header with `carrier: paged`, a fresh `uid`, the template's settings and the given `--title` / `--theme`, then its skeleton body (default template `note`). `--title` also replaces the template's placeholder title where the starter repeats it (its title block or first heading, a running header such as report-page's `header_center`). With `--json`, `theme` is the header's (null when absent) and `themeEffective` the theme the pages use. `--html` also assembles it; without a file name the text goes to stdout. A paged text twin's name ends in `.paged.md`. |
 | `assemble` | writes `x.paged.html` (or the `-o` path; missing folders are created) from `x.paged.md` (exact text in, the same bytes every time). A plain Markdown text `x.md` assembles to `x.paged.html` too. Keeps the delivery and the includes the existing file holds (`--cdn` / `--inline` choose the delivery); `--resolve-includes` reads file includes from the text's folder. An include left unresolved shows an "Included file not available" note in the file and is reported once with why (a warning, and `unresolved` in `--json`); a recorded include whose file has changed since is a warning too (`stale` in `--json`). |
 | `extract` | writes the exact text twin of an assembled file (`x.paged.html` → `x.paged.md`) and reports its includes. Replaces an existing, different `x.paged.md` only when it is a known state (below). A 0.x file is refused with the advice to run `upgrade`; a cut-off file gives a warning. |
 | `upgrade` | turns a 0.x file (or a file of an older 1.x shell) into a file of this version, in place by default, and writes its text twin (`x.paged.md`) unless `--no-text`. Keeps the file's delivery unless `--cdn` / `--inline`. Repairs a damaged engine; refuses (unless `--force`) to downgrade a newer shell or to upgrade a file cut off inside its text. |
-| `inspect` | diagnoses a text or a file of any version: kind, text format, shell version and how it compares to this tool, delivery, uid, title, theme, template, the paged settings, header keys, lint, the file's structure (cut off? engine intact?), the SHA-256 of the text it holds, whether the sibling twin (`x.paged.md` ↔ `x.paged.html`) holds the same text (and that text's SHA-256) and which is newer, and advice in plain sentences naming the files. |
+| `inspect` | diagnoses a text or a file of any version: kind, text format, shell version and how it compares to this tool, delivery, uid, title, theme, template, the paged settings, header keys, lint (an unknown theme; a value an enumerated key such as `page_number_style` or `page_size` does not take: `invalid-value`), the file's structure (cut off? engine intact?), the SHA-256 of the text it holds, whether the sibling twin (`x.paged.md` ↔ `x.paged.html`) holds the same text (and that text's SHA-256) and which is newer, and advice in plain sentences naming the files. |
 | `themes` | lists the print theme ids a header may name (the default marked). |
 | `templates` | lists the templates by group (the default marked). |
 
 **Delivery.** Files are **inline** by default: the browser engine (with
-Paged.js and the print themes) is inside the file (about 2 MB), so it opens
+Paged.js and the print themes) is inside the file (about 1.7 MB), so it opens
 without fetching the engine. `--cdn` writes a small file that loads the engine
 from
 `https://cdn.jsdelivr.net/npm/orz-paged-browser@<version>/orz-paged.browser.js`
@@ -184,7 +191,10 @@ publish on the web. Either way the webfonts, KaTeX's and highlight.js's
 styles, the content libraries (Mermaid, SMILES, Chart.js) and the editor
 (CodeMirror) load from CDNs: laying out styled pages and editing need a
 network connection the first time. A slow or unreachable CDN never holds the
-page blank.
+page blank: the pages are laid out after at most 2 s of waiting for fonts,
+stylesheets and libraries — with fallback fonts and unenhanced content if
+they have not arrived — and laid out once more when they do (the scroll
+position kept; Print waits for that final layout).
 
 **0.x commands.** `orz-paged --template <t>`, `--new <t>` and
 `--list-templates` are refused with the 1.0 command that does the same

@@ -93,3 +93,44 @@ describe('newDocument', () => {
     }
   });
 });
+
+describe('newDocument --title', () => {
+  it('[N.6] the title also replaces the template\'s placeholder title where the skeleton repeats it: the first title element (or first `# ` heading) and the running header/footer keys that carry it; elsewhere nothing else changes', () => {
+    const T = 'Thermodynamics — Final';
+    const expected: Record<string, { body: RegExp | null; running?: Record<string, string> }> = {
+      'article-page': { body: /kind: article-title\ntitle: Thermodynamics — Final\n/ },
+      'article-section': { body: /kind: article-title\ntitle: Thermodynamics — Final\n/ },
+      'report-page': { body: /kind: report-title\ntitle: Thermodynamics — Final\n/, running: { header_center: T } },
+      'report-section': { body: /kind: report-title\ntitle: Thermodynamics — Final\n/, running: { header_center: T } },
+      'exam-page': { body: /kind: exam-title\ntitle: Thermodynamics — Final\n/ },
+      'exam-section': { body: /kind: exam-title\ntitle: Thermodynamics — Final\n/ },
+      note: { body: /\n# Thermodynamics — Final\n/ },
+      letter: { body: null },
+      'cover-letter': { body: null },
+      cv: { body: null },
+      'cv-modern': { body: null },
+      'cv-elegant': { body: null },
+    };
+    for (const id of TEMPLATE_IDS) {
+      const skeleton = STARTERS[TEMPLATES[id].skeleton]!;
+      const placeholder = readHeader(skeleton)!.fields['title']!;
+      const text = newDocument({ template: id, title: T, uid: UID });
+      const h = readHeader(text)!;
+      expect(h.fields['title'], id).toBe(T);
+      const e = expected[id]!;
+      if (e.body) expect(text, id).toMatch(e.body);
+      for (const [k, v] of Object.entries(e.running ?? {})) expect(h.fields[k], `${id} ${k}`).toBe(v);
+      // the placeholder is gone from the header and the first title; the rest of the body is the skeleton's
+      if (e.body) {
+        const body = (s: string) => s.slice(s.indexOf('\n}}\n') + 4);
+        const want = body(skeleton).replace(new RegExp(`(kind: (?:article|report|exam)-title\\ntitle: |\\n# )${placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n`), `$1${T}\n`);
+        expect(body(text), id).toBe(want);
+        expect(Object.values(h.fields).some((v) => v.includes(placeholder)), id).toBe(false);
+      }
+      expect(lintHeader(text, 'paged'), id).toEqual([]);
+      if (e.body) expect(renderDocument(text).bodyHtml, id).toContain('Thermodynamics — Final');
+    }
+    // a blank title changes nothing; the skeleton is used as is
+    expect(newDocument({ template: 'note', title: '  ', uid: UID })).toBe(newDocument({ template: 'note', uid: UID }));
+  });
+});

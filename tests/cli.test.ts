@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { lintHeader, readHeader, UID_PATTERN } from 'orz-markdown/carrier';
 import { assemble, extract, inspect, readDocument, readLegacy, upgrade, DEFAULT_TEMPLATE, DEFAULT_THEME, ORZ_MARKDOWN_VERSION, TEMPLATES, THEME_INFO, VERSION } from '../src/lib.js';
 import { storedText } from '../src/assemble.js';
+import { presentationOf } from '../src/presentation.js';
 import { sha256 } from 'orz-markdown/carrier';
 import { createHash } from 'node:crypto';
 import { corpus, HAZARDS, LEGACY_FILES, read, withLegacySource } from './helpers.js';
@@ -84,7 +85,7 @@ describe.concurrent('the CLI', () => {
       expect(bytes(out).equals(Buffer.from(assemble(t), 'utf8')), name).toBe(true);
       expect(extract(text(out))!.text === t, name).toBe(true);
       const info = readDocument(t, { kind: 'paged' });
-      expect(json(r)).toEqual({ ok: true, command: 'assemble', input: join(d, `${name}.paged.md`), output: out, kind: 'paged', format: 1, shell: VERSION, delivery: 'inline', uid: info.meta.uid ?? null, title: info.title, theme: info.theme ?? null, template: info.header?.fields['template'] ?? null, includes: 0, resolved: 0, unresolved: [], stale: [], backup: null, replaced: null, sha256: sha256(storedText(t)), bytes: Buffer.byteLength(assemble(t), 'utf8'), warnings: json(r).warnings });
+      expect(json(r)).toEqual({ ok: true, command: 'assemble', input: join(d, `${name}.paged.md`), output: out, kind: 'paged', format: 1, shell: VERSION, delivery: 'inline', uid: info.meta.uid ?? null, title: info.title, theme: info.theme ?? null, themeEffective: presentationOf(t).theme, template: info.header?.fields['template'] ?? null, includes: 0, resolved: 0, unresolved: [], stale: [], backup: null, replaced: null, sha256: sha256(storedText(t)), bytes: Buffer.byteLength(assemble(t), 'utf8'), warnings: json(r).warnings });
       // the shorthand is the same command
       rmSync(out);
       expect((await cli([`${name}.paged.md`], d)).code).toBe(0);
@@ -113,7 +114,7 @@ describe.concurrent('the CLI', () => {
     expect(UID_PATTERN.test(h.fields['uid']!)).toBe(true);
     expect(lintHeader(t, 'paged')).toEqual([]);
     expect(text(join(d, 'exam.paged.html')) === assemble(t)).toBe(true);
-    expect(json(r)).toEqual({ ok: true, command: 'new', file: join(d, 'exam.paged.md'), html: join(d, 'exam.paged.html'), kind: 'paged', format: 1, uid: h.fields['uid'], title: 'Midterm', theme: 'light-playful-1', template: 'exam-page', sha256: sha256(t), delivery: 'inline', shell: VERSION, backups: [], warnings: [] });
+    expect(json(r)).toEqual({ ok: true, command: 'new', file: join(d, 'exam.paged.md'), html: join(d, 'exam.paged.html'), kind: 'paged', format: 1, uid: h.fields['uid'], title: 'Midterm', theme: 'light-playful-1', themeEffective: 'light-playful-1', template: 'exam-page', sha256: sha256(t), delivery: 'inline', shell: VERSION, backups: [], warnings: [] });
     // every template; the default one; a second one has another uid; --cdn for its file
     for (const tpl of TEMPLATES) {
       const n = await cli(['new', `${tpl.id}.paged.md`, '--template', tpl.id, '--json'], d);
@@ -134,6 +135,13 @@ describe.concurrent('the CLI', () => {
     expect(lintHeader(s.stdout, 'paged')).toEqual([]);
     const sj = json(await cli(['new', '--json'], d));
     expect(sj.file).toBeNull();
+    // `theme` as written (none), `themeEffective` the theme the pages use (the default)
+    expect([sj.theme, sj.themeEffective]).toEqual([null, DEFAULT_THEME]);
+    expect(DEFAULT_THEME).toBe('light-academic-1');
+    // --title also replaces the template's placeholder title in its title element and running header (N.6)
+    const rt = json(await cli(['new', '--template', 'report-page', '--title', 'Q4 Review', '--json'], d));
+    expect(readHeader(rt.text as string)!.fields['header_center']).toBe('Q4 Review');
+    expect(rt.text as string).toMatch(/kind: report-title\ntitle: Q4 Review\n/);
     expect(readHeader(sj.text as string)!.fields['carrier']).toBe('paged');
     // refusals: an existing file (untouched), a bad theme or template, another kind's name, a name that is not a paged twin, --html without a file
     const before = bytes(join(d, 'exam.paged.md'));

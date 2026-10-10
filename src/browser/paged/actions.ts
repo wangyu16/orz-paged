@@ -10,7 +10,7 @@
  *   action `items`, grouped by separators); choosing one saves a fresh file
  *   of the template's text through the kit's New document
  *   (`app.newDocument({ text })`: a new file of its own, the current text is
- *   never replaced).
+ *   never replaced; the suggested name is `<template>.paged.html`).
  *
  * The Version picker is a header setting (./settings.ts, `VERSION_SETTING`)
  * and the page zoom a reader control (./kind.ts, `readerControls.choices`).
@@ -43,7 +43,7 @@ export const NEW_FROM_TEMPLATE_ACTION: CarrierAction = {
     return templateList().map((t): CarrierActionItem => {
       const separator = group !== '' && t.group !== group;
       group = t.group;
-      return { id: t.id, label: t.label, ...(separator ? { separator: true } : {}), run: (app) => app.newDocument({ text: newDocument({ template: t.id }) }).then(() => undefined) };
+      return { id: t.id, label: t.label, ...(separator ? { separator: true } : {}), run: (app) => app.newDocument({ text: newDocument({ template: t.id }), name: `${t.id}.paged.html` }).then(() => undefined) };
     });
   },
 };

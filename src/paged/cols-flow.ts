@@ -137,6 +137,14 @@ function splitText(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement |
   type Hit = { node: Node; offset: number | null };
   let hit: Hit | null = null;
   let firstAtom = true;
+  let crossed = false;
+  // the first atom of the last line seen (a glyph box can end above the limit while its line box does not)
+  let lineTop = -Infinity;
+  let lastLine: Hit | null = null;
+  let lines = 0;
+  const seen = (h: Hit, r: DOMRect): void => {
+    if (r.top > lineTop + 1) { lineTop = r.top; lastLine = h; lines++; }
+  };
   const visit = (n: Node): boolean => {
     if (isText(n)) {
       const re = /\S+/g;
@@ -148,9 +156,11 @@ function splitText(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement |
         const rs = rg.getClientRects();
         const r = rs[0] || rg.getBoundingClientRect();
         if (r.bottom > limit) {
+          crossed = true;
           hit = firstAtom ? null : { node: n, offset: mt.index };
           return true;
         }
+        seen({ node: n, offset: mt.index }, r);
         firstAtom = false;
       }
       return false;
@@ -160,9 +170,11 @@ function splitText(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement |
       if (atomic) {
         const r = n.getBoundingClientRect();
         if (r.bottom > limit) {
+          crossed = true;
           hit = firstAtom ? null : { node: n, offset: null };
           return true;
         }
+        seen({ node: n, offset: null }, r);
         firstAtom = false;
         return false;
       }
@@ -171,6 +183,9 @@ function splitText(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement |
     return false;
   };
   for (const c of Array.from(m.childNodes)) if (visit(c)) break;
+  // every glyph is above the limit but the block (its last line box, its padding) is not: the last line goes on
+  // (C.3: the whole item moved instead, leaving a third of the column empty)
+  if (!crossed && lines > 1) hit = lastLine;
   if (!hit) return null;
   const h = hit as Hit;
   const sNode = atPath(s, pathOf(h.node, m));
@@ -207,7 +222,12 @@ function splitBlock(m: HTMLElement, s: HTMLElement, limit: number): HTMLElement 
   let rest: HTMLElement | null;
   if (hasBlockChild(m)) {
     const r = splitChildren(m, s, limit);
-    rest = !r.rest || r.nothingFit ? null : r.rest;
+    if (r.rest && r.nothingFit) {
+      // nothing of it fits: it moves whole — its children, moved into the continuation, go back first (C.3:
+      // a nested list item's sub-list was lost here)
+      while (r.rest.firstChild) s.appendChild(r.rest.firstChild);
+      rest = null;
+    } else rest = r.rest;
   } else rest = splitText(m, s, limit);
   // a continued list item does not repeat its bullet or number
   if (rest && m.tagName === 'LI') rest.style.listStyleType = 'none';
@@ -333,6 +353,8 @@ function plan(clone: HTMLElement, trial: HTMLElement, limit: number, atTop: bool
         const ph = sCells[i].cloneNode(false) as HTMLElement;
         reRefSelf(ph);
         ph.setAttribute('data-cols-placeholder', '');
+        // it keeps the column's track only: a theme's frame or background of the column is not drawn empty
+        ph.style.visibility = 'hidden';
         restCells.push(ph);
       } else restCells.push(r.rest);
     }

@@ -152,7 +152,13 @@ it to the frame; the frame's `window.__orzPreviewApply` lays it out as pages
 buffer, then swapped in keeping the scroll position) and the frame
 acknowledges the render only when the pages are laid out, so a long document
 is never re-laid-out while the last layout runs (`diff: false`: every render
-replaces the pages whole). The pages are scaled to the pane's width; blocks
+replaces the pages whole). A layout reflows every page in the frame, which
+shares your page's process: it runs only after a real pause in typing
+(`debounceMs` 1.5 s, which the editor grows to twice the last layout's time)
+and is never forced while keys keep arriving (`maxWaitMs: Infinity`) — the
+preview lags behind the text, typing never waits for it. Fonts, stylesheets
+and libraries are awaited at most 2 s; the pages then show with what has
+arrived and are laid out once more when the rest settles. The pages are scaled to the pane's width; blocks
 keep their source lines (`data-src-line`), so scroll sync maps a line to its
 page. The preview does not print (an assembled file prints from its read
 view) and does not follow a reader's page zoom.
@@ -178,6 +184,7 @@ style-src-attr 'unsafe-inline';          (Paged.js, KaTeX and the diagram librar
 font-src https://cdn.jsdelivr.net https://fonts.gstatic.com data:;   (the print themes' webfonts: Google Fonts; KaTeX's)
 img-src 'self' data: blob: https:;       (wherever resolveAsset points)
 connect-src 'self' https://cdn.jsdelivr.net;
+frame-src https://www.youtube.com;      (only if your documents embed YouTube videos, `{{youtube …}}`: the player is a youtube.com/embed frame; on paper it prints as the video's address)
 ```
 
 What loads from where: CodeMirror 6 from

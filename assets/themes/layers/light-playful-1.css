@@ -22,20 +22,23 @@
   --rule: var(--orz-grid);
 }
 
-/* the ruling: the content box of each page, out to the paper edges */
-.pagedjs_area {
-  position: relative;
+/* the ruling: the content box of each page (vertically), out to the paper edges.
+   Drawn by the page box (Paged.js positions it already), never by
+   .pagedjs_area: a positioned page area changes how Paged.js measures the
+   content's overflow, and a paragraph after a quote lost its last lines at
+   the page bottom (closed loop round 1). */
+.pagedjs_pagebox {
   isolation: isolate;
 }
 
-.pagedjs_area::before {
+.pagedjs_pagebox::before {
   content: '';
   position: absolute;
   z-index: -1;
-  top: 0;
-  bottom: 0;
-  left: calc(-1 * var(--margin-l, 20mm));
-  right: calc(-1 * var(--margin-r, 20mm));
+  top: var(--pagedjs-margin-top, 20mm);
+  bottom: var(--pagedjs-margin-bottom, 20mm);
+  left: 0;
+  right: 0;
   background: repeating-linear-gradient(to bottom,
     transparent 0,
     transparent calc(var(--orz-rule-at, calc(var(--orz-grid) * 0.72)) - 1px),

@@ -100,7 +100,6 @@
 .markdown-body .tabs-bar {
   display: flex;
   overflow-x: auto;
-  scrollbar-width: none;
 }
 
 .markdown-body .tabs-bar-btn {
@@ -372,8 +371,44 @@
   display: none !important;
 }
 
+.markdown-body .tabs {
+  counter-reset: orz-tab;
+}
+
 .markdown-body .tab {
   display: block !important;
+  counter-increment: orz-tab;
+}
+
+.markdown-body .tab::before {
+  content: attr(data-label);
+  display: block;
+  margin: 0.6em 0 0.3em;
+  font-size: 0.85em;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.markdown-body .tab:is([data-label=""])::before,
+.markdown-body .tab:is(:not([data-label]))::before {
+  content: "Tab " counter(orz-tab);
+}
+
+.markdown-body .youtube-embed[data-url] {
+  aspect-ratio: auto;
+  overflow: visible;
+  break-inside: avoid;
+}
+
+.markdown-body .youtube-embed[data-url] iframe {
+  display: none !important;
+}
+
+.markdown-body .youtube-embed[data-url]::before {
+  content: "YouTube video: " attr(data-url);
+  display: block;
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
 }
 
 .markdown-body :is(tr),
@@ -392,7 +427,7 @@
   page-break-inside: avoid;
 }
 
-.markdown-body .youtube-embed,
+.markdown-body .youtube-embed:not([data-url]),
 .markdown-body .orz-include-missing,
 .markdown-body .qrcode__icon {
   display: none !important;
@@ -416,6 +451,10 @@
   background: transparent;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
+}
+
+.orz-doc.markdown-body {
+  --orz-col-min: 9rem;
 }
 
 .orz-doc.markdown-body::before,
@@ -554,4 +593,29 @@
 
 .markdown-body .orz-toc [data-page]::after {
   content: attr(data-page);
+}
+
+.markdown-body .orz-toc .orz-toc-text {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.markdown-body .orz-toc .orz-toc-d2 {
+  padding-left: 1.4em;
+}
+
+.markdown-body .orz-toc .orz-toc-d3 {
+  padding-left: 2.8em;
+}
+
+.markdown-body .orz-toc .orz-toc-d4 {
+  padding-left: 4.2em;
+}
+
+.markdown-body .orz-toc .orz-toc-d5 {
+  padding-left: 5.6em;
+}
+
+.markdown-body .orz-toc .orz-toc-d6 {
+  padding-left: 7em;
 }

@@ -96,3 +96,20 @@ describe('the Node library', () => {
     for (const f of ['src/lib.ts', 'src/cli.ts', 'src/engine.ts', 'build/bundle.ts', 'tests/global-setup.ts']) expect(readFileSync(f, 'utf8'), f).not.toMatch(/template\.js|assets\/app|__ORZ_PAGED__ =|orzpaged\b|browser-entry/);
   });
 });
+
+describe('the package contents', () => {
+  it('[L.3] the build starts from an empty dist/ (`rm -rf dist`, as the test setup does) and `npm pack` ships only what src/ compiles to: every dist/*.js has its src/*.ts, no stale module (closed loop round 1: dist/includes.js, known-states.js, sha256.js of the copied CLI core lingered)', async () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> };
+    expect(pkg.scripts['build']).toMatch(/^rm -rf dist && tsc -p tsconfig\.build\.json/);
+    expect(readFileSync('tests/global-setup.ts', 'utf8')).toMatch(/rmSync\('dist', \{ recursive: true, force: true \}\)/);
+    const { execFileSync } = await import('node:child_process');
+    const out = execFileSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], { encoding: 'utf8', env: { ...process.env, NODE_OPTIONS: '' } });
+    const files = (JSON.parse(out) as Array<{ files: Array<{ path: string }> }>)[0]!.files.map((f) => f.path);
+    const js = files.filter((f) => /^dist\/.*\.js$/.test(f) && f !== 'dist/orz-paged.browser.js');
+    expect(js.length).toBeGreaterThan(10);
+    const stale = js.filter((f) => !existsSync(f.replace(/^dist\//, 'src/').replace(/\.js$/, '.ts')));
+    expect(stale).toEqual([]);
+    expect(files).toContain('dist/orz-paged.browser.js');
+    expect(files).toContain('dist/release.json');
+  }, 60_000);
+});

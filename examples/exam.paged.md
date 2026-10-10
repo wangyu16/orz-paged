@@ -11,8 +11,9 @@ dynamic_choices: |
 }}
 
 <!-- One source, two printouts: this is the student copy (answer-key: hide).
-     Switch to `answer-key: show` here — or use the editor's answer-key toggle —
-     to reveal the ✓ marks and model answers for the instructor key. -->
+     Switch to `answer-key: show` here — or choose Version → "answer key: show"
+     (the pencil's list, or the editor's toolbar) — to reveal the ✓ marks and
+     model answers for the instructor key. -->
 
 
 {{nyml

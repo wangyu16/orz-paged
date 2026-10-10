@@ -103,3 +103,27 @@ describe('the header is the settings source', () => {
     expect(el.css).toContain('size: Letter');
   });
 });
+
+describe('enumerated values', () => {
+  it('[S.6] readDocument (Node and the browser engine\'s, one function) warns `invalid-value` on a value an enumerated paged key does not take — page_size, page_number_position, page_number_style, template, the font presets, front_matter — naming the key and its line; valid values, aliases, custom CSS sizes and every template and corpus header are clean', async () => {
+    const { readDocument } = await import('../src/assemble.js');
+    const { PAGE_NUMBER_POSITIONS, PAGE_NUMBER_STYLES, PAGE_SIZES } = await import('../src/browser/paged/settings.js');
+    const { PAGE_NUMBER_POSITION_VALUES, PAGE_NUMBER_STYLE_VALUES, PAGE_SIZE_NAMES } = await import('../src/doc/lint.js');
+    // the lint's lists are the pickers' lists
+    expect([...PAGE_NUMBER_POSITION_VALUES]).toEqual(PAGE_NUMBER_POSITIONS.map((p) => p.value));
+    expect([...PAGE_NUMBER_STYLE_VALUES]).toEqual(PAGE_NUMBER_STYLES.map((p) => p.value));
+    expect([...PAGE_SIZE_NAMES]).toEqual(PAGE_SIZES.map((p) => p.value));
+    const bad = '{{nyml\nkind: document\ntemplate: brochure\npage_size: B9\npage_number_style: roman\npage_number_position: middle\nfont_preset: comic\nfont_heading_preset: x\nfont_margin_box_preset: y\nfront_matter: maybe\n}}\n\nx';
+    const lint = readDocument(bad).lint.filter((l) => l.code === 'invalid-value');
+    expect(lint.map((l) => [l.key, l.line, l.level])).toEqual([
+      ['template', 3, 'warning'], ['page_size', 4, 'warning'], ['page_number_style', 5, 'warning'], ['page_number_position', 6, 'warning'],
+      ['font_preset', 7, 'warning'], ['font_heading_preset', 8, 'warning'], ['font_margin_box_preset', 9, 'warning'], ['front_matter', 10, 'warning'],
+    ]);
+    expect(lint[2]!.message).toMatch(/page_number_style: "roman" .*simple, page-n/);
+    for (const ok of ['page_size: letter', 'page_size: A4 landscape', 'page_size: 6in 9in', 'page_size: 210mm 297mm', 'template: exam', 'page_number_style: page-n-of-N', 'front_matter: clean', 'front_matter: true', 'font_preset: lora']) {
+      expect(readDocument(`{{nyml\nkind: document\n${ok}\n}}\n\nx`).lint, ok).toEqual([]);
+    }
+    for (const t of Object.values((await import('./helpers.js')).TEMPLATE_TEXTS)) expect(readDocument(t).lint.filter((l) => l.code === 'invalid-value')).toEqual([]);
+    for (const c of corpus('paged')) expect(readDocument(c.text).lint.filter((l) => l.code === 'invalid-value'), c.path).toEqual([]);
+  });
+});

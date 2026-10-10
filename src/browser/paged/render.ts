@@ -12,6 +12,7 @@ import { renderDocumentAsync, type RenderDocumentOptions } from '../../render-pa
 import { presentationOfSettings } from '../../presentation.js';
 import { encodePreviewHtml, type PagedInput, type PagedSheet } from '../../paged/input.js';
 import type { PagedAssembly } from '../../types.js';
+import { rememberRendered } from './versions.js';
 
 export type PagedRenderContext = RenderDocumentOptions;
 
@@ -37,7 +38,10 @@ export function inputOf(a: PagedAssembly): PagedInput {
 
 /** Render a paged text into the runtime's input. */
 export async function renderPaged(text: string, ctx: PagedRenderContext = {}): Promise<PagedInput> {
-  return inputOf(await renderDocumentAsync(text, ctx));
+  const input = inputOf(await renderDocumentAsync(text, ctx));
+  // the Version setting reads what this render found (includes resolved) instead of rendering again
+  rememberRendered(text, input.bodyHtml);
+  return input;
 }
 
 /** The editor preview's renderer (FC-19 §8.4): the input as the frame's payload (body HTML + JSON). */

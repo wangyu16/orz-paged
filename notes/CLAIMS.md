@@ -30,7 +30,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | B.2 | There is one paged theme list (`src/themes.ts`): the stylesheets in `assets/themes` plus `none`, the same ids as the theme fonts, and the default theme is one of them. | conformance |
 | B.3 | `VERSION` (src/version.ts, the shell version every file records) equals the package version. | conformance |
 | B.4 | No escape helper is copied into the TypeScript sources: they use the kit's `escapeHtml` / `escapeAttr` (`orz-markdown/carrier/read`). | conformance |
-| B.5 | The test setup is orz-mdhtml's: vitest projects `main` and `conformance`, playwright-core real-Chrome tests that skip without Chrome, and this live claims registry. | conformance |
+| B.5 | The test setup is orz-mdhtml's: vitest projects `main`, `chrome` (every file that launches Chrome, one file at a time) and `conformance`, playwright-core real-Chrome tests that skip without Chrome, and this live claims registry. | conformance |
 
 ## S — the header is the settings source (FC-18 §5, §5.1, §7.3)
 
@@ -41,6 +41,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | S.3 | Every paged key of the kit registry (`KIND_HEADER_KEYS.paged`) and `theme` is read from the header with its 0.x meaning (types, aliases, `front_matter` / `front_matter_clean`, the `dynamic_choices` map), and the normalizer knows no key outside the registry; the private 0.x parser is gone. | unit |
 | S.4 | The renderer reads the header: every paged corpus document renders with its header's resolved settings and without the header text. | corpus |
 | S.5 | Defaults, coercions (numbers, booleans, page-size aliases, custom sizes) and layer merging are unchanged from 0.x. | unit |
+| S.6 | A header value an enumerated paged key does not take — `page_size` (a named size, any case, optionally `landscape`/`portrait`, or a CSS size of one or two lengths), `page_number_position`, `page_number_style`, `template`, the three font presets, `front_matter` — is a lint warning `invalid-value` naming the key, its line and the values it takes, from this carrier's `readDocument` (Node and the browser engine alike, so `inspect`, `assemble` and the editor report it); the lists are the pickers' lists; valid values, the templates and the corpus are clean (closed loop round 1). | unit |
 
 ## T — today's transforms (kept from 0.x)
 
@@ -59,6 +60,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 |---|---|---|
 | L.1 | The library's inline assembly carries this release's browser bundle: `dist/orz-paged.browser.js` is the build's IIFE (= `orz-paged-browser`'s file), checked against its `release.json` (kind, version, path, SHA-384, script-safe) before use and refused — never inlined — when missing, stale, altered or unsafe; `assemble`, `upgrade` and `inspect` need no engine from the caller and equal the isomorphic functions with that engine. | scenario |
 | L.2 | The package is the 1.0 surface: the library exports the format-1 API only (`assemble`, `extract`, `readDocument`, `newDocument`, `upgrade`, `inspect`, `readLegacy`, the templates, themes, settings and versions); the 0.x API (`buildPagedHtml`, `composeInlineHtml`, …) and the 0.x runtime (`assets/app.js`, `src/template.ts`, `src/browser-entry.ts`, `src/paged.ts`, the legacy bundle) are gone; bin `orz-paged`, exports and files as published. | conformance |
+| L.3 | The build starts from an empty `dist/` (`rm -rf dist`, as the test setup does) and `npm pack` ships only what `src/` compiles to (no stale module of an earlier layout), the engine and its `release.json`. | conformance |
 
 ## A — the isomorphic assembler (FC-18 §2, §8)
 
@@ -85,6 +87,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | N.3 | `newDocument` refuses an unknown template or theme, a malformed uid and a value the header cannot hold (line break, `}}`). | scenario |
 | N.4 | A new document of every template assembles and extracts back exactly, and its file's `<title>` and `#orz-meta` come from its header. | scenario |
 | N.5 | The 12 templates are text skeletons in `assets/templates`, each with a format-1 header (`kind: document`, a `title`, its `template`), lint-clean; `src/starters.ts` (generated) holds them byte for byte. | conformance |
+| N.6 | `newDocument({ title })` (and `orz-paged new --title`) also replaces the template's placeholder title where the skeleton repeats it: the first title element's `title:` (`article-title`, `report-title`, `exam-title`) or the first `# ` heading when it reads the placeholder, and the running header/footer keys that carry it (report-page's `header_center`); nothing else changes; a blank title changes nothing. | unit |
 
 ## I — inspect (agent readiness, REBUILD §3b)
 
@@ -106,20 +109,22 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | U.4 | The upgrade's file is the text's assembly and extracts back exactly; a format-1 file is re-assembled with its text and includes unchanged; upgrading twice changes nothing more. | scenario |
 | U.5 | A `}}` inside a settings value (which ended the block early, in 0.x too) is written `} }` — the same CSS in `custom_css` — when the block evidently goes on to a lone `}}` line, and reported; a `}}` that really ends the block is left alone. | scenario |
 | U.6 | Nothing unrecognised is dropped silently: an island without the 0.x wrapper, restored `<\/script` escapes, a meta value the header cannot hold, an invalid uid, a block that cannot move exactly (it stays), a second settings block (it stays), an unreadable config are kept or noted; inline 0.x files read like CDN ones; non-orz input and other carriers' files are refused. | scenario |
+| U.7 | The upgrade's guards (closed loop round 1): the `}}` repair runs only when the lines up to the lone `}}` are indented or blank — with a bare `key:` line between (F7) nothing is repaired and a note says so; a `{{nyml kind: document}}` block inside a code block or an HTML comment that 0.x applied (it read the raw text) is noted (F6); the "never lose text" net throws when the body is not the arranged source exactly or a character is missing, each dropped character counted once (mutants P02, P03). | unit |
 
 ## P — the print themes (REBUILD §3b guide 3, D-42)
 
 | ID | Claim | Oracle |
 |---|---|---|
 | P.1 | There is one print theme per light orz-markdown theme, with the same id and in orz-markdown's picker order, plus `none`; each is generated by `scripts/build-themes.ts` from the installed orz-markdown's theme file (base.css from its `common.css`), and the committed files are what the script writes now; the 0.x ids stay valid and the default theme is one of them. | conformance |
-| P.2 | No print theme (nor base.css) carries a screen-only construct: no `@media` or `@import`, no hover/focus/active/visited states, selection or scrollbar styling, no transition, animation, cursor, scroll or user-select property, no fixed or sticky position, no viewport unit, no blurred shadow, no `html`/`body` rule, no QR overlay. | conformance |
+| P.2 | No print theme (nor base.css) carries a screen-only construct: no `@media` or `@import`, no hover/focus/active/visited states, selection or scrollbar styling (`::-webkit-scrollbar`, `scrollbar-*` properties), no transition, animation, cursor, scroll or user-select property, no fixed or sticky position, no viewport unit, no blurred shadow, no `html`/`body` rule, no QR overlay. | conformance |
 | P.3 | Every print theme is safe for paged.js and the browser: no comma inside `:is()`/`:where()`/`:has()`/`:not()` (paged.js splits selectors on commas), and Chrome parses every rule the build wrote. | real |
 | P.4 | Each print theme sets the paged tokens from its source (`--page-bg`, `--accent`, `--font-body`, `--font-heading`, `--font-code`, `--text-main`, `--heading-color`) and re-points the source's own variables at them, so the header's `page_background`, `decoration_color` and font settings restyle it. | real |
 | P.5 | Each theme paginates a rich sample (headings, lists, table, code, quote, callouts, math, two columns, badges, footnote) in real Chrome through paged.js without an error, with its webfonts loaded; the first page is written to `/tmp/paged-themes/<id>.png`. | real |
 | P.6 | Body text and headings on the first page reach 4.5:1 against what they are printed on, in colour and in greyscale. | real |
 | P.7 | Each theme's webfonts (`src/doc/theme-fonts.ts`) are exactly the stylesheets its source theme imports, and its families are the source's. | unit |
-| P.9 | light-playful-1's ruled paper follows the text (owner decision 2026-10-09): the ruling covers each page's content box from its top at the body leading (`--orz-grid` = `font_size` × `line_height`, absolute) and at the body font's measured baseline (`--orz-rule-at`, the paged runtime's baseline-grid handler); every top-level block starts on the grid; on every page of a rich three-page document laid out by the real runtime, each sampled line of running text sits on a rule (the rule 0–3 px under its baseline), no running text leaves the grid, and every other block hides the ruling behind an opaque background. | real |
+| P.9 | light-playful-1's ruled paper follows the text (owner decision 2026-10-09): the ruling covers each page's content box from its top at the body leading (`--orz-grid` = `font_size` × `line_height`, absolute) and at the body font's measured baseline (`--orz-rule-at`, the paged runtime's baseline-grid handler); every top-level block starts on the grid; on every page of a rich three-page document laid out by the real runtime, each sampled line of running text sits on a rule (the rule 0–3 px under its baseline), no running text leaves the grid, and every other block hides the ruling behind an opaque background. The ruling is drawn by the page box (`.pagedjs_pagebox::before`), never by a positioned `.pagedjs_area` — which made Paged.js lose the last lines of a paragraph after a quote (round 1): a quote, then a paragraph running over the page bottom keeps every line inside its page and continues on the next (Letter 11/1.5, A5 12/1.5, Letter 9/2); after blocks that leave the grid the text is back on the rules, also a paragraph that runs over the page bottom (its first fragment places it; F3). | real |
 | P.8 | The derivation's transforms keep what prints and drop what does not: blurred shadow layers go and hard ones stay; viewport clamps take their upper bound; px/rem font sizes become em of the theme's body size; comma lists in functional pseudo-classes expand without changing meaning. | unit |
+| P.10 | The table of contents the runtime fills (after pagination) is the structure the print layer styles: per heading up to the TOC's `max_level` (levels beyond it are not listed), `span.orz-toc-entry` > text, a dotted leader, the page number right-aligned on the same line — in all 10 themes the number never runs into the entry (closed loop round 1; mutant P27). | real |
 
 ## W — the browser engine and its package (rebuild step 3)
 
@@ -140,6 +145,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 |---|---|---|
 | C.1 | Over the prototype's 8 documents, laid out by the real engine in real Chrome: every column's text is on the pages in order (continuations included), every option grid whole, the columns side by side, no blank page, nothing below a page bottom except an over-tall image forced onto its page (the documented limit), long blocks split column by column and a short block near a page bottom moved whole; no page errors. | real |
 | C.2 | The handler is the prototype's hybrid, ported: registered by the paged runtime, no mode switch, the page area's `column-width` set to `auto` while measuring, a runaway guard (2000 cuts), an over-tall first block forced; a cut is planned on a copy of the source and the kept head checked against the page bottom before it is applied (a theme's frame and trailing space accounted for). | conformance |
+| C.3 | Lists in columns (closed loop round 1): a list item that cannot keep anything on the page moves whole WITH its nested lists (they were lost); a continued ordered list keeps its numbers, a continued item repeats no marker, an ended column's placeholder draws nothing (it keeps the track only), a text block whose glyphs fit but whose last line box does not is cut before that line (not moved whole) — over tight and loose nested lists and a numbered list, on A4 and A5 (where two columns now stay two: `--orz-col-min: 9rem` on the page). | real |
 
 ## R — the read view: Paged.js pages in the page (rebuild step 4)
 
@@ -150,6 +156,8 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | R.3 | Print (the handle's item right after Edit) prints the read view after its layout settles; in print the chrome, the desk, the shadows and the reader's zoom are gone and the pages print as laid out. | real |
 | R.4 | A re-render is double-buffered: the old pages stay until the new ones are laid out (never an empty view), the scroll position is kept, the measuring stage goes, and only the latest pagination's styles remain. | real |
 | R.5 | The header's `dynamic_choices` decide what the pages show (content for another version is removed before the layout). | real |
+| R.6 | A CDN that never answers (Google Fonts, cdnjs, jsDelivr, unpkg held open) does not keep the page blank: the runtime waits at most `FIRST_WAIT_MS` (2 s) for fonts, stylesheets, libraries and images, lays the pages out with what has arrived (`provisional`), and lays them out ONCE more when the rest settles (at most `LATE_WAIT_MS`, 20 s), keeping the scroll position; `view.idle()` (Print) waits for that final layout. | real |
+| R.7 | Cmd/Ctrl+P in edit mode (where the page shows the editor, which does not print) leaves the editor, waits for the read view's layout of the current text (unsaved edits kept) and prints the pages; in the read view the browser's own print runs. | real |
 
 ## K — the paged items of the handle (spec/carrier-app.md §3.4, REBUILD §3b decisions 2, 3, 6)
 
@@ -157,9 +165,11 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 |---|---|---|
 | K.1 | At rest the page shows one control (the pencil); its list: Edit, Print, Save, Download a copy, New document, Save as new copy, Theme, Page size, Template, Page numbers, Number style, Version (only while the document offers versions, following its text), New document from template…, Page zoom. | real |
 | K.2 | A setting writes the header (one undoable edit per choice, the document unsaved) and the pages follow (a page size change re-paginates); the saved file is the text's assembly. | real |
-| K.3 | New document from template… is a submenu of the 12 templates (the kit's action `items`) and saves a fresh file of the chosen one through the kit's New document (`app.newDocument({ text })`; its skeleton via `newDocument`, `carrier: paged`, a new uid, lint clean, the opened file's delivery); the current text is never replaced. | real |
+| K.3 | New document from template… is a submenu of the 12 templates (the kit's action `items`) and saves a fresh file of the chosen one through the kit's New document (`app.newDocument({ text, name: '<template>.paged.html' })`; its skeleton via `newDocument`, `carrier: paged`, a new uid, lint clean, the opened file's delivery); the current text is never replaced. | real |
 | K.4 | Version (a kit setting: `choicesFor`, `apply` writing the block value, `hidden` while the document defines no choices) offers each choice key's values and "(not set)"; choosing writes the header's `dynamic_choices` (one undoable edit) and the pages follow. | real |
 | K.5 | Page zoom (Automatic, Fit width, 100 %, 125 %; the kit's `readerControls.choices`, key `pageZoom`) is a reader preference by uid (`reader.pageZoom`): the pages scale, the document stays saved and untouched, the choice persists across a reload, Automatic shrinks a page to a narrow window; a save writes the text's assembly only. | real |
+| K.6 | The Version setting's `hidden(text)` — run by the kit after each pause in typing — is a cheap text test that never renders (`dynamic_choices`, `data-show-when`/`data-hide-when`, an exam question, an include directive); the full render belongs to `choicesFor` (each opening), and a render the read view or the editor already made of the same text is read instead. | unit |
+| K.7 | Versioned content that arrives only through an include (no `dynamic_choices` in the header) offers Version: the read view's and the editor's render (includes resolved) supply its choices; once such a render found none and the header sets none, Version hides. | unit |
 
 ## E — the editor with a Paged.js preview (FC-19 §8.4)
 
@@ -168,6 +178,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | E.1 | Edit mounts the kit's editor whose sandboxed preview frame runs the paged runtime (`__orzPreviewApply`: pages in `#orz-doc`, scaled to the pane, renders acknowledged when laid out); its toolbar has the paged settings and Version; edit mode links the repository; typing re-paginates, a block keeps its source line inside its page (line → page), a theme change rebuilds the frame. | real |
 | E.2 | Edit → type → Save writes exactly `assemble(text)` with the file's delivery and includes — never the live DOM, never a laid-out page — and the file reopens with the text. | real |
 | E.3 | Done leaves edit mode and the read view lays out the edited text. | real |
+| E.4 | Typing stays fast on a long document: on a 24-page exam the editor's per-key latency is p90 ≤ 100 ms (max ≤ 250 ms) with no long task over 200 ms while typing in bursts with pauses under a second — the preview paginates only after a real pause (`debounceMs` 1.5 s, the kit's `maxWaitMs: Infinity`, frame-acknowledged) and may lag; it catches up after. | real |
 
 ## X — web apps (FD-06)
 
@@ -175,7 +186,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 |---|---|---|
 | X.1 | The example app (`examples/webapp/index.html`) mounts two paged editors with every FC-19 hook under a nonce CSP: Paged.js pages in the preview frame (the runtime's and Paged.js' styles nonce-stamped), save, undo per instance, resolveAsset, fetchInclude, resolveLink, uploadAsset, ai, mintUid, chrome none driven by the app; no CSP violation, no page error, no update check. | real |
 | X.2 | The ES module build mounts the same editor with its Paged.js preview, sets no global, and assembles the Node bytes (inline by default, the engine fetched from jsDelivr). | real |
-| X.3 | `docs/embedding.md` covers install and import (ESM and IIFE), every export (with `newDocument`), every hook, the Paged.js preview frame, the CSP recipe (fonts and style attributes included), `renderPreview` not paginated, and versions. | conformance |
+| X.3 | `docs/embedding.md` covers install and import (ESM and IIFE), every export (with `newDocument`), every hook, the Paged.js preview frame, the CSP recipe (fonts, style attributes and `frame-src` for YouTube included), `renderPreview` not paginated, and versions. | conformance |
 
 ## T — the CLI (FC-10, REBUILD §3b)
 
@@ -187,7 +198,7 @@ these claims hold for the paged CLI end to end.
 | ID | Claim | Oracle |
 |---|---|---|
 | T.1 | `orz-paged assemble x.paged.md` and `orz-paged x.paged.md` write `x.paged.html` (FC-18 §3 twin name) = the library's `assemble` of the file's exact text — inline by default, `--cdn` for jsDelivr, `-o path`, `-o -` to stdout; the cdn output of the golden text equals the checked-in golden file. | scenario |
-| T.2 | `orz-paged new [x.paged.md] [--template id]` writes a lint-clean text twin from the template's starter text (header `kind: document`, `carrier: paged`, a fresh uid, the template's title, `template` and settings, then the given `--title`/`--theme`; default template `note`, legacy names resolve) and with `--html` its assembled file; every template works; without a file it prints the text; it refuses an existing file (`exists`) unless `--force`, which keeps every replaced file — the text twin and the `.paged.html` — as `<file>~`; an unknown theme or template (exit 2, the valid ids named), a name that is not a paged text twin (`x.md`: the message names `x.paged.md`) and another kind's file name are refused. | scenario |
+| T.2 | `orz-paged new [x.paged.md] [--template id]` writes a lint-clean text twin from the template's starter text (header `kind: document`, `carrier: paged`, a fresh uid, the template's title, `template` and settings, then the given `--title`/`--theme`; default template `note`, legacy names resolve) and with `--html` its assembled file; `--json` reports `theme` as written (null when absent) and `themeEffective`, the theme the pages use (`light-academic-1` by default; also from `assemble --json`); every template works; without a file it prints the text; it refuses an existing file (`exists`) unless `--force`, which keeps every replaced file — the text twin and the `.paged.html` — as `<file>~`; an unknown theme or template (exit 2, the valid ids named), a name that is not a paged text twin (`x.md`: the message names `x.paged.md`) and another kind's file name are refused. | scenario |
 | T.3 | `orz-paged extract x.paged.html` writes the exact text twin: a text made by `new`, saved with CR LF and a BOM, assembled (inline and cdn) and extracted is byte-identical; includes are reported; an island without `#orz-shell` (an unknown writer) and a file cut off inside its island are extracted with a warning (exit 0; `warnings` in `--json`); a 0.x file is refused (exit 1) with the advice to run `upgrade`, and nothing is written. | scenario |
 | T.4 | `orz-paged upgrade old.paged.html` writes, in place (or `-o`), the library's `upgrade` of a 0.x file and its text twin (`x.paged.md`, `--text`, `--no-text`), keeping the file's delivery unless `--cdn`/`--inline`; a format-1 file of an older shell is re-assembled with its text and includes; an existing, different text twin is refused before anything is written. | scenario |
 | T.5 | `orz-paged inspect <file>` prints a human-readable report (golden) and with `--json` exactly the library's `inspect` report, for 0.x files, assembled files, texts, another kind's text and plain HTML. | scenario |

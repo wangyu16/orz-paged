@@ -99,6 +99,56 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
   warning `unknown-theme`), the kit's `sha256`, `readLegacyIsland`, the
   `inspect` core and the CLI core.
 
+#### Closed loop, round 1 (fixes before the release)
+
+- **Typing on a long document no longer freezes.** The Version setting's
+  `hidden` was a full render after every pause in typing; it is now a cheap
+  text test (the render belongs to the picker's opening, and reads what the
+  read view or the editor already rendered). The editor preview lays the
+  pages out only after a real pause (1.5 s, grown to twice the last layout)
+  and never forces a layout while keys arrive (the kit's
+  `preview.maxWaitMs: Infinity`). On a 26-page exam: per key median 13 ms,
+  p90 38 ms, no long task while typing.
+- **A slow or hanging CDN no longer keeps the page blank.** Fonts,
+  stylesheets, libraries and images are awaited at most 2 s (was up to
+  20 s + 6 s + 8 s + 8 s); the pages show with what has arrived and are laid
+  out once more when the rest settles, keeping the scroll position; Print
+  waits for that final layout.
+- **Table of contents:** the runtime fills the structure the print layer
+  styles (text, dotted leader, right-aligned number) — the numbers no longer
+  run into the entries, in every theme; `max_level` up to 6 honoured; nested
+  levels indented.
+- **Columns:** a list item that cannot keep anything on a page no longer
+  loses its nested lists; a text block whose glyphs fit but whose last line
+  box does not is cut before that line (it moved whole, leaving the column
+  part-empty); an ended column's placeholder draws nothing; two columns stay
+  two on A5 (`--orz-col-min: 9rem` on the page).
+- **light-playful-1:** the ruling is drawn by the page box, not a positioned
+  page area — a paragraph after a quote lost its last lines at the page
+  bottom; a paragraph that runs over the page bottom is placed on the grid by
+  its first fragment.
+- **Cmd/Ctrl+P in edit mode** leaves the editor and prints the pages (it
+  printed a blank page).
+- **Version** is offered when versioned content arrives through an include.
+- `new --title` also replaces the template's placeholder title in its title
+  block or first heading and in a running header that repeats it; *New
+  document from template…* suggests `<template>.paged.html`.
+- `new`/`assemble --json` report `themeEffective` (the theme the pages use)
+  next to `theme` (as written).
+- Lint warns `invalid-value` on a value an enumerated paged key does not take
+  (`page_size`, `page_number_position`, `page_number_style`, `template`, the
+  font presets, `front_matter`).
+- `upgrade`: the `}}` repair runs only when the lines up to the lone `}}` are
+  indented or blank (else a note); a 0.x settings block inside a code block
+  or an HTML comment is noted.
+- Print themes drop `scrollbar-*` properties; the exam template's comment
+  names *Version*.
+- Size and boot: the paged runtime no longer bundles css-tree's validation
+  data (mdn-data): 594 → 339 KiB; the engine 1948 → 1700 KiB.
+- Packaging: `npm run build` starts from an empty `dist/` (stale modules no
+  longer ship); the real-Chrome test files run one at a time (vitest project
+  `chrome`).
+
 ## [0.7.3] — 2026-07-17
 
 ### Changed

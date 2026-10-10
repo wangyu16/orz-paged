@@ -38,6 +38,7 @@ import {
 } from 'orz-markdown/carrier/node';
 import { compareSemver } from 'orz-markdown/carrier/shell';
 import { storedText } from './assemble.js';
+import { presentationOf } from './presentation.js';
 import { assemble, extract, inspect, newDocument, readDocument, readLegacy, upgrade, DEFAULT_TEMPLATE, DEFAULT_THEME, ORZ_MARKDOWN_VERSION, TEMPLATES, THEME_INFO, VERSION, type InspectReport } from './lib.js';
 
 export type { Reason } from 'orz-markdown/carrier/node';
@@ -374,7 +375,7 @@ function cmdNew(p: Parsed, o: Io): void {
     throw new CliError(`${m.replace(/^orz-paged: /, '').replace(/ \([^)]*\)$/, /unknown template/.test(m) ? '' : '$&')}${/unknown theme/.test(m) ? ` (themes: ${THEME_INFO.map((t) => t.id).join(', ')})` : /unknown template/.test(m) ? ` (templates: ${TEMPLATES.map((t) => t.id).join(', ')}; \`orz-paged templates\` describes them)` : ''}`, EXIT_USAGE);
   }
   const info = readDocument(text, { kind: 'paged' });
-  const facts = { kind: 'paged', format: info.format, uid: info.meta.uid ?? null, title: info.title, theme: info.theme ?? null, template: info.header?.fields['template'] ?? null, sha256: sha256(text) };
+  const facts = { kind: 'paged', format: info.format, uid: info.meta.uid ?? null, title: info.title, theme: info.theme ?? null, themeEffective: presentationOf(text).theme, template: info.header?.fields['template'] ?? null, sha256: sha256(text) };
   if (!file) {
     if (p.flags.has('--html')) throw new CliError('--html needs a file name (orz-paged new notes.paged.md --html)', EXIT_USAGE);
     if (o.json) emit(o, { command: 'new', file: null, html: null, ...facts, text });
@@ -474,7 +475,7 @@ function cmdAssemble(p: Parsed, o: Io): void {
   o.say(`Wrote ${out} (${d}${!p.flags.has('--cdn') && !p.flags.has('--inline') && prior !== null ? ' as before' : ''}, orz-paged ${VERSION}${n ? `, ${n} include${n === 1 ? '' : 's'}` : ''})`);
   if (check.earlier !== null) o.say(`  (it held ${check.earlier === 'token' ? 'the text whose SHA-256 --replaces gave' : `an earlier text of ${basename(input)}: ${NODE.earlierSource[check.earlier]}`})`);
   o.say(`  sha256 ${hash} (the text it holds; --replaces takes it)`);
-  emit(o, { command: 'assemble', input, output: out, kind: 'paged', format: info.format, shell: VERSION, delivery: d, uid: info.meta.uid ?? null, title: info.title, theme: info.theme ?? null, template: info.header?.fields['template'] ?? null, includes: n, resolved, unresolved, stale, backup: backedUp, replaced: check.earlier, sha256: hash, bytes: Buffer.byteLength(html, 'utf8') });
+  emit(o, { command: 'assemble', input, output: out, kind: 'paged', format: info.format, shell: VERSION, delivery: d, uid: info.meta.uid ?? null, title: info.title, theme: info.theme ?? null, themeEffective: presentationOf(text).theme, template: info.header?.fields['template'] ?? null, includes: n, resolved, unresolved, stale, backup: backedUp, replaced: check.earlier, sha256: hash, bytes: Buffer.byteLength(html, 'utf8') });
 }
 
 function cmdExtract(p: Parsed, o: Io): void {

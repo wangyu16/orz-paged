@@ -158,7 +158,7 @@ describe('the app author\'s guide', () => {
     const doc = readFileSync('docs/embedding.md', 'utf8');
     for (const term of ['npm install orz-paged-browser', 'globalThis.OrzCarrier', 'esm/orz-paged.browser.mjs', 'mountEditor', 'assemble', 'extract', 'readDocument', 'renderPreview', 'newDocument',
       'save(text)', 'ai.request', 'fetchInclude', 'resolveAsset', 'uploadAsset', 'resolveLink', 'mintUid', 'nonce', 'Content-Security-Policy', "'strict-dynamic'", 'pins the component version', 'files carry their own shells',
-      'Paged.js', 'preview frame', 'style-src-attr', 'fonts.gstatic.com', 'not paginated', '__orzPreviewApply']) {
+      'Paged.js', 'preview frame', 'style-src-attr', 'fonts.gstatic.com', 'not paginated', '__orzPreviewApply', 'frame-src https://www.youtube.com']) {
       expect(doc, term).toContain(term);
     }
     expect(readFileSync('examples/webapp/index.html', 'utf8')).toMatch(/http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-/);

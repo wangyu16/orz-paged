@@ -284,9 +284,9 @@ chrome('the handle and its paged items (real Chrome)', () => {
       expect(items).toEqual(['Article — title page', 'Article — title section', 'Report — title page', 'Report — title section', 'Exam — cover page', 'Exam — title section', 'Letter', 'Cover letter', 'CV — classic', 'CV — modern', 'CV — elegant', 'Note']);
       await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-handle__sub .orz-handle__item')).find((b) => (b.querySelector('.orz-handle__label') || b).textContent === 'Exam — title section').click()`);
       await page.waitForFunction(() => (window as unknown as { __orzPicks: unknown[] }).__orzPicks.length === 1);
-      expect((await picks(page))[0]!.suggestedName).toBe('Untitled.paged.html');
+      expect((await picks(page))[0]!.suggestedName).toBe('exam-section.paged.html');
       let made: string | null = null;
-      for (let i = 0; i < 50 && !made; i++) { made = await readOpfs(page, 'Untitled.paged.html'); if (!made) await page.waitForTimeout(100); }
+      for (let i = 0; i < 50 && !made; i++) { made = await readOpfs(page, 'exam-section.paged.html'); if (!made) await page.waitForTimeout(100); }
       const ex = extract(made!)!;
       expect(ex.delivery).toBe(delivery);
       expect(ex.shell).toBe(VERSION);

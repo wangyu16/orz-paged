@@ -163,7 +163,10 @@ export class BaselineGridHandler extends Handler {
   private place(el: HTMLElement, prev: HTMLElement | null, area: HTMLElement): void {
     const grid = this.stats.grid;
     const a = area.getBoundingClientRect();
-    const r = layoutRect(el);
+    // a block that already runs over the page bottom is fragmented into Paged.js' off-page column: its bounding box
+    // spans both columns (its top is the next column's top), so its place is its FIRST fragment's (closed loop round 1, F3)
+    const frags = el.getClientRects();
+    const r = frags.length > 1 ? frags[0] : layoutRect(el);
     if (r.left >= a.right - 1) return; // overflowed into Paged.js' off-page column: it goes to the next page
     const top = r.top - a.top;
     const rem = ((top % grid) + grid) % grid;

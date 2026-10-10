@@ -65,7 +65,7 @@ describe('print themes as files', () => {
     ['transition', /(^|[;{\s])(-webkit-)?transition(-[\w-]+)?\s*:/m],
     ['animation', /(^|[;{\s])(-webkit-)?animation(-[\w-]+)?\s*:/m],
     ['cursor', /(^|[;{\s])cursor\s*:/m],
-    ['scroll', /(^|[;{\s])scroll-(behavior|margin|padding)[\w-]*\s*:/m],
+    ['scroll', /(^|[;{\s])scroll(bar)?-[\w-]+\s*:/m],
     ['user-select', /(^|[;{\s])(-webkit-)?user-select\s*:/m],
     ['backdrop-filter', /backdrop-filter/],
     ['fixed/sticky', /position\s*:\s*(fixed|sticky)/],
@@ -282,4 +282,47 @@ chrome('print themes in real Chrome (paged.js)', () => {
       await r.page.close();
     }
   }, 90_000);
+});
+
+chrome('the table of contents in every theme (real Chrome)', () => {
+  it('[P.10] the TOC the runtime fills is the structure the print layer styles — per heading up to max_level: text, dotted leader, page number right-aligned — so in every theme the number never runs into the entry; headings below max_level are not listed', async () => {
+    const heads = Array.from({ length: 6 }, (_, i) => `## Section number ${i + 1} with a long enough title\n\nText of section ${i + 1}.\n\n### Subsection ${i + 1}.1\n\nMore text.\n`).join('\n');
+    const report: string[] = [];
+    for (const theme of THEMES) {
+      for (const maxLevel of [2, 3]) {
+        const text = `{{nyml\nkind: document\ntitle: Contents test\ntheme: ${theme}\n}}\n\n{{nyml\nkind: toc\ntitle: Contents\nmax_level: ${maxLevel}\n}}\n\n${heads}`;
+        const r = await renderPaged(browser!, text, { scale: 1 });
+        try {
+          expect(r.errors, theme).toEqual([]);
+          const items = await r.page.evaluate(() => Array.from(document.querySelectorAll('.orz-toc .orz-toc-item')).map((li) => {
+            const q = (s: string) => li.querySelector(s) as HTMLElement | null;
+            const t = q('.orz-toc-entry > .orz-toc-text')!.getBoundingClientRect();
+            const leader = q('.orz-toc-entry > .orz-toc-leader')!;
+            const l = leader.getBoundingClientRect();
+            const n = q('.orz-toc-entry > .orz-toc-page')!;
+            const nr = n.getBoundingClientRect();
+            const entry = q('.orz-toc-entry')!.getBoundingClientRect();
+            return { cls: li.className, text: q('.orz-toc-text')!.textContent, page: n.textContent, gap: nr.left - t.right, leader: l.width, dotted: getComputedStyle(leader).borderBottomStyle, flush: Math.abs(entry.right - nr.right), sameLine: Math.abs(nr.bottom - t.bottom) < t.height };
+          }));
+          const want = maxLevel === 2 ? 6 : 12;
+          expect(items.length, `${theme} max_level ${maxLevel}`).toBe(want);
+          expect(items.filter((i) => /orz-toc-l3/.test(i.cls)).length, `${theme} max_level ${maxLevel}: level-3 entries`).toBe(maxLevel === 2 ? 0 : 6);
+          for (const i of items) {
+            const id = `${theme} "${i.text}"`;
+            expect(i.page, id).toMatch(/^\d+$/);
+            expect(i.gap, `${id}: number ${i.gap.toFixed(1)} px after the text`).toBeGreaterThan(8);
+            expect(i.leader, `${id}: the leader`).toBeGreaterThan(4);
+            expect(i.dotted, id).toBe('dotted');
+            expect(i.flush, `${id}: the number at the right edge`).toBeLessThan(1);
+            expect(i.sameLine, id).toBe(true);
+          }
+          if (maxLevel === 2) report.push(`${theme}: min gap ${Math.min(...items.map((i) => i.gap)).toFixed(0)} px`);
+        } finally {
+          await r.page.close();
+        }
+      }
+    }
+    // eslint-disable-next-line no-console
+    console.log('[P.10]', report.join('; '));
+  }, 300_000);
 });

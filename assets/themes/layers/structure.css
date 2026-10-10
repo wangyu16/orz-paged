@@ -30,6 +30,9 @@
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
+/* a page's text block is narrow (A5: about 108 mm): two columns stay two
+   (the screen minimum, 12rem, stacked them there at the default margins) */
+.orz-doc.markdown-body { --orz-col-min: 9rem; }
 .orz-doc.markdown-body::before,
 .orz-doc.markdown-body::after { content: none; }
 .orz-doc.markdown-body > :first-child { margin-top: 0; }
@@ -125,3 +128,10 @@
   color: var(--text-muted, #555);
 }
 .markdown-body .orz-toc [data-page]::after { content: attr(data-page); }
+.markdown-body .orz-toc .orz-toc-text { flex: 0 1 auto; min-width: 0; }
+/* the engine's flat list (runtime fillToc): one item per heading, indented by its depth below the top level listed */
+.markdown-body .orz-toc .orz-toc-d2 { padding-left: 1.4em; }
+.markdown-body .orz-toc .orz-toc-d3 { padding-left: 2.8em; }
+.markdown-body .orz-toc .orz-toc-d4 { padding-left: 4.2em; }
+.markdown-body .orz-toc .orz-toc-d5 { padding-left: 5.6em; }
+.markdown-body .orz-toc .orz-toc-d6 { padding-left: 7em; }
