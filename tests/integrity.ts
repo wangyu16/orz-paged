@@ -11,12 +11,17 @@
  * - **tags**: the multiset of `[Tag]` markers (fixtures tag every paragraph):
  *   nothing lost, nothing repeated;
  * - **clipping**: no text block ends below its page's area (`CLIP`), none sits
- *   in Paged.js' hidden off-page column (`HIDDENCOL`);
+ *   in Paged.js' hidden off-page column (`HIDDENCOL`), and no line of text
+ *   does (`HIDDENTEXT`, round 5: a block that starts in the area and runs on
+ *   past it — a table row taller than the page — in the off-page column);
  * - **blank pages** (`BLANK`): a page with no text and no image;
  * - **stranded headers** (`HEADONLY`): a table fragment holding its header
- *   row and no body row; **repeated headers** (`REPEAT`): a table's
- *   continuation repeats its header exactly when the page CSS asks
- *   (`--orz-repeat-thead: 1`, `repeat_table_header`);
+ *   row and no body row (of a table that has body rows); **repeated headers**
+ *   (`REPEAT`): a table's continuation repeats its header exactly when the
+ *   page CSS asks (`--orz-repeat-thead: 1`, `repeat_table_header`) and the
+ *   table has a header — a fragment holding only part of a row taller than
+ *   the page may go without it, as may a continuation that starts inside such
+ *   a row (`data-orz-head-dropped`, round 5);
  * - **grid breaks** (`PJSBREAK`): a top-level `.cols` Paged.js split itself
  *   (the column handler did not: column 2 flows under column 1) — unless the
  *   handler laid it out as plain flow (`data-cols-linear`, its fallback);
@@ -36,7 +41,7 @@
  *   `pre` fragment's box inside the page area (`PREBOX`: its last line's
  *   half-leading, a blank last line, its border — closed loop round 4).
  *
- * Caveat (closed loop rounds 3–4). Paged.js 0.4.3 finds where a page's
+ * Caveat (closed loop rounds 3–5). Paged.js 0.4.3 finds where a page's
  * last text node continues BY CONTENT (`createBreakToken`:
  * `indexOfTextNode` takes the first sibling text node that includes the
  * rendered one, then `indexOf` of the rendered rest inside it). Round 3
@@ -45,10 +50,13 @@
  * real highlight.js: lines repeated or skipped, "Layout repeated", the rest
  * of the document lost), and so does prose with a phrase repeated between
  * inline elements. The runtime now gives such text nodes their own element
- * (src/paged/code-break.ts) — what remains is periodic text INSIDE one text
- * node (one sentence repeated, no inline element between): an UPSTREAM limit
- * no real document is expected to meet. Fixtures therefore use
- * non-periodic text ({@link prose}); periodic text would also let a lost
+ * (src/paged/code-break.ts), and round 5 showed periodic text INSIDE one
+ * text node is real in code (a matrix of `0 0 0` rows, an ASCII grid, a run
+ * of `}` lines in a plain fence): a `pre`'s text is split into one span per
+ * line, so a code break falls at an element (R.12 tests such fences). What
+ * remains is periodic PROSE inside one text node (one sentence repeated, no
+ * inline element between): an UPSTREAM limit no real document is expected to
+ * meet. Prose fixtures therefore use non-periodic text ({@link prose}); periodic text would also let a lost
  * passage and a repeated one cancel out in the text check. The tags (`[T1]`:
  * every paragraph or row tagged) catch a lost block.
  *
@@ -152,6 +160,26 @@ export async function integrity(page: Page, text: string, at: { frame?: Frame; r
         if (r.left >= ar.right - 1 && r.width > 0) problems.push(`HIDDENCOL ${what}`);
         else if (lb > ar.bottom + 1.5) problems.push(`CLIP ${what} +${(lb - ar.bottom).toFixed(1)}`);
       });
+      // text in Paged.js' hidden off-page column: a line of a block that starts on the page but runs on past it (a
+      // table row taller than the page kept whole: its later lines in the hidden column — round 5; the block checks
+      // above see only the block's own box, which starts in the area)
+      // (not in a zoomed view — page zoom, the preview's fit: Chrome gives a range's rects in a CSS-zoomed subtree
+      // unscaled; R.16 checks those views' pages against a 100 % view, where this runs)
+      const zoomed = Math.abs(p.getBoundingClientRect().width / ((p as HTMLElement).offsetWidth || 1) - 1) > 0.01;
+      if (!zoomed) {
+        // the off-page column starts a column gap right of the area (Paged.js' page content is a multicol box)
+        const col = (ar.right - ar.left) + (parseFloat(getComputedStyle(content).columnGap) || 0);
+        const tw = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+        for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+          const el = n.parentElement;
+          if (!el || !/[^\s]/.test((n as Text).data) || el.closest('.orz-toc, script, style, .katex-mathml, math, [data-cols-placeholder]')) continue;
+          const rg = document.createRange();
+          rg.selectNodeContents(n);
+          // (in that column: text a little past the area's right edge — a wide formula in a narrow column — is not lost)
+          const off = Array.from(rg.getClientRects()).find((x) => x.width > 0 && x.height > 0 && (x.left >= ar.left + col - 1 || x.top >= ar.bottom + 1.5));
+          if (off) { problems.push(`HIDDENTEXT p${pi + 1} "${(n as Text).data.trim().slice(0, 25)}" at ${Math.round(off.left - ar.left)},${Math.round(off.top - ar.top)}`); break; }
+        }
+      }
       // a code fragment's box (its lines' half-leading, a blank line, its border, where it ends its padding) ends inside
       // the area: Paged.js measured glyphs only (PREBOX; closed loop round 4)
       content.querySelectorAll('pre').forEach((pre) => {
@@ -162,16 +190,28 @@ export async function integrity(page: Page, text: string, at: { frame?: Frame; r
       if (!(content.textContent || '').trim() && !content.querySelector('img, svg')) problems.push(`BLANK p${pi + 1}`);
       // a table's continuation repeats its header exactly when the page CSS asks for it (`--orz-repeat-thead: 1`,
       // `repeat_table_header`; REPEAT — Paged.js' continuations and the column handler's)
+      // — a table with no header in the source has none to repeat (round 5), and a fragment that holds only part of a
+      // row taller than the page may go without it (the handler took it out: it would have held no body row)
       content.querySelectorAll('table[data-split-from], table[data-cols-split-from]').forEach((tb) => {
-        const want = getComputedStyle(tb).getPropertyValue('--orz-repeat-thead').trim() === '1';
+        const ref = tb.getAttribute('data-ref');
+        // (the table's first fragment by `data-ref`; the column handler's continuations carry fresh refs — unknown: as
+        // the page CSS asks)
+        const first = ref ? Array.from(area.querySelectorAll(`table[data-ref="${ref}"]`)).find((f) => !f.hasAttribute('data-split-from') && !f.hasAttribute('data-cols-split-from')) : undefined;
+        const srcHead = !first || Array.from(first.children).some((c) => c.tagName === 'THEAD' && (c.textContent || '').trim());
+        const want = srcHead && getComputedStyle(tb).getPropertyValue('--orz-repeat-thead').trim() === '1';
         const has = Array.from(tb.children).some((c) => c.tagName === 'THEAD' && c.hasAttribute('data-orz-repeated-head'));
-        if (want !== has) problems.push(`REPEAT p${pi + 1} header ${has ? 'repeated against' : 'not repeated as'} the page CSS asks`);
+        const rows = Array.from(tb.querySelectorAll(':scope > tbody > tr'));
+        const partRow = tb.hasAttribute('data-orz-head-dropped') && !!rows[0] && Array.from(area.querySelectorAll(`tr[data-ref="${rows[0]!.getAttribute('data-ref')}"]`)).length > 1;
+        if (want !== has && !(want && partRow)) problems.push(`REPEAT p${pi + 1} header ${has ? 'repeated against' : 'not repeated as'} the page CSS asks`);
       });
-      // a table fragment with its header and no body row (a header stranded at a page bottom, F5)
+      // a table fragment with its header and no body row (a header stranded at a page bottom, F5) — of a table that has
+      // body rows (a table of a header only is whole as it is)
       content.querySelectorAll('table').forEach((tb) => {
         const head = Array.from(tb.children).some((c) => c.tagName === 'THEAD' && (c.textContent || '').trim());
         const rows = Array.from(tb.querySelectorAll(':scope > tbody > tr')).some((r) => (r.textContent || '').trim());
-        if (head && !rows) problems.push(`HEADONLY p${pi + 1}`);
+        const ref = tb.getAttribute('data-ref');
+        const anyRows = !ref || Array.from(area.querySelectorAll(`table[data-ref="${ref}"] > tbody > tr`)).some((r) => (r.textContent || '').trim());
+        if (head && !rows && anyRows) problems.push(`HEADONLY p${pi + 1}`);
       });
       // the hybrid's threshold (owner decision, round 3): a short block moved whole leaves less than a third of its
       // page empty (MOVEGAP: the space below the page's last drawn content, as a share of the page area)

@@ -165,6 +165,21 @@ chrome('the preview\'s incremental re-layout equals a whole layout (real Chrome)
     }
   }, 400_000);
 
+  it('[E.7] an edit inside a long fence (a line inserted in 150 lines of argparse, highlighted, over several pages) lays the preview out whole (no incremental re-layout: restarted before the fence, a later page broke it a line away from a fresh layout — closed loop round 5) and equals a fresh layout; an edit before the fence stays incremental and equal', async () => {
+    const code = `\`\`\`python\n${readFileSync('tests/fixtures/code/argparse-3.12-1200-1500.py', 'utf8').split('\n').slice(0, 150).join('\n')}\n\`\`\``;
+    const t0 = hdr() + `${sections(2, 2)}\n\n${code}\n\n${sections(2, 2)}`;
+    const inside = t0.replace(/(\n {8}self\._)/, '\n        # an inserted comment line$1');
+    expect(inside).not.toBe(t0);
+    const r = await compare(t0, [inside]);
+    expect(r.diff).toBe('same');
+    expect(r.incremental).toBe(0);
+    expect(r.problems).toEqual([]);
+    const before = await compare(t0, [t0.replace('**[P10]** ', `**[P10]** ${prose(77, 40)} `)]);
+    expect(before.diff).toBe('same');
+    expect(before.incremental).toBe(1);
+    expect(before.problems).toEqual([]);
+  }, 400_000);
+
   it('[E.7] a ruled page (light-playful-1\'s baseline grid) is laid out whole after an edit (no incremental re-layout) and equals a fresh layout', async () => {
     const t0 = hdr('theme: light-playful-1\n') + sections(6, 2);
     const t1 = hdr('theme: light-playful-1\n') + sections(6, 2, { 3: `> **[QUOTE]** ${prose(555, 30)}\n\n${para(556)}` });

@@ -27,6 +27,20 @@
  * (round 4: the first row's `break-before: avoid` alone left a header at a
  * page bottom).
  *
+ * A row taller than the page area (closed loop round 5: a "Question / Answer
+ * / Pts" table whose answer ran to 360 words): rows are `break-inside:
+ * avoid` (the theme), so the browser's page columns push such a row whole
+ * past the page — under a header, Paged.js then broke before the body and
+ * left a fragment of the header alone; its continuation repeated the header,
+ * broke the same way, and Paged.js gave up ("Layout repeated"): the row, the
+ * later rows and everything after the table were lost. A fragment at the top
+ * of its page (it can go nowhere better) that would keep no body row lets its
+ * first body row break inside (`break-inside: auto`, on that fragment's row
+ * only) and the overflow is found again: the row is split under the header
+ * like any long block. Should a fragment still keep no body row, its repeated
+ * header is taken out (a header never repeats on a page that holds none of
+ * the table's rows) — the oracle's `HEADONLY` and `REPEAT` hold either way.
+ *
  * The page CSS opts in with `--orz-repeat-thead: 1` on tables (set by
  * src/doc/page-css.ts when `repeat_table_header` is true; a table can opt out
  * with `--orz-repeat-thead: 0`). Browser only (DOM), registered by the paged
@@ -103,6 +117,26 @@ function overflowTable(overflow: Range, rendered: Element): HTMLTableElement | n
   return t && rendered.contains(t) ? (t as HTMLTableElement) : null;
 }
 
+/** The part of Paged.js' Layout the handler calls (it is the hooks' fourth argument). */
+interface OverflowFinder { findOverflow(rendered: Element, bounds: DOMRect): Range | undefined }
+
+/** The attribute of a row the handler let break inside (it was taller than the page area under its header). */
+export const ROW_SPLIT_ATTRIBUTE = 'data-orz-row-split';
+
+/** The fragment's first body row, or null. */
+const firstBodyRow = (t: HTMLTableElement): HTMLTableRowElement | null => t.tBodies[0]?.rows[0] ?? null;
+
+/**
+ * True when the table fragment starts at the top of the page area (it cannot move to a better place). A box the
+ * browser pushed past the page (into Paged.js' off-page column) also measures at the area's top — but to its right
+ * (closed loop round 5: a caption kept alone on a page, its header and rows pushed on): that is not the top.
+ */
+const atTop = (t: HTMLTableElement, bounds: DOMRect): boolean => {
+  if (t.hasAttribute('data-split-from')) return true;
+  const r = (t.rows[0] ?? t).getBoundingClientRect();
+  return r.top <= bounds.top + 2 && r.left < bounds.right - 1;
+};
+
 export class TableHeadHandler extends Handler {
   readonly stats: TableHeadStats = { repeated: 0 };
   /** The handler of the latest previewer. */
@@ -119,14 +153,25 @@ export class TableHeadHandler extends Handler {
   /** Tables moved whole to the next page because their fragment would have held only the header (tests read it). */
   static movedWhole = 0;
 
-  onOverflow(overflow: Range | undefined, rendered: Element, bounds: DOMRect): Range | undefined {
+  /** The source rows by `data-ref` (recorded as Paged.js renders them). */
+  private readonly sourceRows = new Map<string, HTMLTableRowElement>();
+
+  /** Rows taller than the page area let break inside (tests read it). */
+  static rowsSplit = 0;
+
+  /** Repeated headers taken out of a fragment that would hold no body row (tests read it). */
+  static headsDropped = 0;
+
+  onOverflow(overflow: Range | undefined, rendered: Element, bounds: DOMRect, layout?: OverflowFinder): Range | undefined {
     if (!overflow) return undefined;
+    const tall = this.tallRow(overflow, rendered, bounds, layout);
+    if (tall) return tall;
     // a fragment that would keep the table's header and no body row (a header stranded at the page bottom — the
     // first row's `break-before: avoid` did not hold it, report-35 p19; closed loop round 4): the whole table goes on
     // to the next page, unless it already starts at the top of this one (it can go nowhere better)
     const whole = overflowTable(overflow, rendered);
     if (whole && !whole.hasAttribute('data-split-from') && Array.from(whole.children).some((c) => c.tagName === 'THEAD' && (c.textContent || '').trim())
-      && keptBodyRows(whole, overflow) === 0 && (whole.rows[0]?.getBoundingClientRect().top ?? bounds.top) > bounds.top + 2 && overflow.comparePoint(whole, 0) < 0) {
+      && keptBodyRows(whole, overflow) === 0 && !atTop(whole, bounds) && overflow.comparePoint(whole, 0) < 0) {
       const r = document.createRange();
       r.setStartBefore(whole);
       r.setEnd(overflow.endContainer, overflow.endOffset);
@@ -146,7 +191,7 @@ export class TableHeadHandler extends Handler {
       // kept it ran into the hidden column (round 4, a 1 px sweep) — the whole table goes on to the next page instead,
       // unless it starts at the top of this one
       const t = table as HTMLTableElement;
-      if (t.hasAttribute('data-split-from') || (t.rows[0]?.getBoundingClientRect().top ?? bounds.top) <= bounds.top + 2) return undefined;
+      if (atTop(t, bounds)) return undefined;
       const whole = document.createRange();
       whole.setStartBefore(t);
       whole.setEnd(overflow.endContainer, overflow.endOffset);
@@ -160,15 +205,94 @@ export class TableHeadHandler extends Handler {
     return r;
   }
 
+  /**
+   * A fragment at the top of its page that would keep no body row, or whose first body row runs on past the page
+   * (into the off-page column): that row is taller than what the page leaves under the header — it is let break
+   * inside, and the overflow found again (see the module comment). Null when that is not the case.
+   */
+  private tallRow(overflow: Range, rendered: Element, bounds: DOMRect, layout?: OverflowFinder): Range | null {
+    if (!layout || typeof layout.findOverflow !== 'function') return null;
+    const at = overflowTable(overflow, rendered);
+    const tables = [...(at ? [at] : []), ...Array.from(rendered.querySelectorAll('table')).filter((x) => x !== at)] as HTMLTableElement[];
+    for (const t of tables) {
+      if (!atTop(t, bounds)) continue;
+      // a table in a column of the column handler is that handler's (a row taller than a column page: plain flow, C.6)
+      if (t.closest('.cols:not([data-cols-linear])')) continue;
+      const row = firstBodyRow(t);
+      if (!row || !(row.textContent || '').trim()) continue;
+      // the fragment keeps no body row (Paged.js broke before it), or its first row runs on past the page — kept
+      // whole, its later lines in Paged.js' off-page column (the browser fragments a row it cannot move)
+      const rr = row.getBoundingClientRect();
+      const none = t === at && keptBodyRows(t, overflow) === 0;
+      if (!none && rr.right <= bounds.right + 1 && rr.bottom <= bounds.bottom + 1) continue;
+      let again: Range | undefined = overflow;
+      if (row.getAttribute('data-break-inside') === 'avoid' || getComputedStyle(row).breakInside === 'avoid') {
+        // Paged.js checks a page while it lays a row out: the row may still lack its later cells (Paged.js appends them
+        // after the break) — measured without them, the answer was wider than it ends up and its last kept lines ran on
+        // into the off-page column. The missing cells are put in for the measure (copies of the source row's), the
+        // widths frozen as measured with them (each cell's width in its first column: a cell the browser fragmented
+        // measures as the union of its fragments), and taken out again.
+        const src = this.sourceRows.get(row.getAttribute('data-ref') || '');
+        const temp: Element[] = [];
+        if (src && src.cells.length > row.cells.length) {
+          for (const c of Array.from(src.cells).slice(row.cells.length)) { const k = c.cloneNode(true) as Element; k.setAttribute('data-orz-measure', ''); row.appendChild(k); temp.push(k); }
+        }
+        if (!t.hasAttribute('data-orz-frozen-cols') && t.rows[0] === row) {
+          const cells = Array.from(row.cells);
+          const widths = cells.map((c) => c.getClientRects()[0]?.width ?? 0);
+          if (widths.every((x) => x > 0)) {
+            t.setAttribute('data-orz-frozen-cols', '');
+            t.style.tableLayout = 'fixed';
+            cells.forEach((c, i) => { (c as HTMLElement).style.width = `${widths[i]!.toFixed(2)}px`; });
+          }
+        }
+        row.removeAttribute('data-break-inside');
+        row.style.breakInside = 'auto';
+        row.setAttribute(ROW_SPLIT_ATTRIBUTE, '');
+        TableHeadHandler.rowsSplit++;
+        // what the row draws below its last line (its cells' bottom padding and border, the table's) must fit too: the
+        // break is found against an area that much shorter (else the last line went on into the off-page column)
+        const under = Math.max(0, ...Array.from(row.cells).map((c) => { const cs = getComputedStyle(c); return (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0); }))
+          + (parseFloat(getComputedStyle(t).borderBottomWidth) || 0) + (parseFloat(getComputedStyle(t).borderSpacing.split(' ').pop() || '0') || 0) + 2;
+        again = layout.findOverflow(rendered, new DOMRect(bounds.x, bounds.y, bounds.width, Math.max(0, bounds.height - under)));
+        for (const k of temp) k.remove();
+        if (!again || !none || keptBodyRows(t, again) > 0) return again ?? null;
+      }
+      if (!none) return null;
+      // still no body row kept under a repeated header: the header goes (it never repeats alone)
+      const head = Array.from(t.children).find((c) => c.tagName === 'THEAD' && c.hasAttribute(REPEATED_HEAD_ATTRIBUTE));
+      if (!head) return again === overflow ? null : again;
+      head.remove();
+      t.setAttribute('data-orz-head-dropped', '');
+      this.stats.repeated--;
+      TableHeadHandler.headsDropped++;
+      return layout.findOverflow(rendered, bounds) ?? null;
+    }
+    return null;
+  }
+
   renderNode(clone: Node, node: Node): void {
+    if (isEl(node) && node.tagName === 'TR' && node.getAttribute('data-ref')) this.sourceRows.set(node.getAttribute('data-ref')!, node as HTMLTableRowElement);
     const at = isEl(clone) ? clone : clone.parentElement;
     const table = at?.closest('table');
-    if (!table || !table.hasAttribute('data-split-from')) return;
+    if (!table || !table.hasAttribute('data-split-from') || table.hasAttribute('data-orz-head-dropped')) return;
     if (Array.from(table.children).some((c) => c.tagName === 'THEAD')) return;
-    const source = (isEl(node) ? node : node.parentElement)?.closest('table');
+    // the source table by the fragment's `data-ref` (the node's own ancestors are a fallback: a continuation rebuilt
+    // around a cell of a rowspan, round 5)
+    const ref = table.getAttribute('data-ref');
+    const root = node.getRootNode() as ParentNode;
+    const source = (ref && typeof root.querySelector === 'function' ? root.querySelector(`table[data-ref="${CSS.escape(ref)}"]`) : null)
+      ?? (isEl(node) ? node : node.parentElement)?.closest('table');
     const head = source && Array.from(source.children).find((c) => c.tagName === 'THEAD');
     if (!head) return;
     if (getComputedStyle(table).getPropertyValue('--orz-repeat-thead').trim() !== '1') return;
+    // a continuation that starts inside a row (the rest of a row taller than the page): no header over the rest of a
+    // row — under it, the rest did not fit either and Paged.js laid out a header alone, again and again ("Layout
+    // repeated"; closed loop round 5). The header repeats on the next page that starts with a row.
+    if ((isEl(node) ? node : node.parentElement)?.closest('td, th')) {
+      table.setAttribute('data-orz-head-dropped', '');
+      return;
+    }
     const copy = head.cloneNode(true) as Element;
     copy.setAttribute(REPEATED_HEAD_ATTRIBUTE, '');
     // after a caption / colgroup (they come first in a table), before the rows

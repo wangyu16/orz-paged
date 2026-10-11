@@ -55,6 +55,13 @@
   background: transparent;
   overflow: visible;
 }
+/* A table's header cells wrap (closed loop round 5): a theme's one-line
+   header (the neat themes' `nowrap`) made a long header wider than the page —
+   its last columns ran past the page edge. A header that fits keeps its one
+   line (the table's automatic layout gives it that width). */
+.orz-doc.markdown-body th {
+  white-space: normal;
+}
 
 /* ---- keep things together ---------------------------------------------------- */
 .markdown-body :is(h1, h2, h3, h4, h5, h6) {

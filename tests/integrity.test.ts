@@ -47,13 +47,13 @@ afterAll(async () => { await browser?.close(); await site.close(); files.clean()
 const chrome = browser ? describe : describe.skip;
 
 /** Lay out each text in a read view (`pool` pages at a time) and return the oracle's problems per case. */
-async function check(cases: { name: string; text: string }[], pool = 3): Promise<{ results: Record<string, string[]>; errors: string[]; stats: { tableMovedWhole: number; tablePulled: number; codeMoved: number } }> {
+async function check(cases: { name: string; text: string }[], pool = 3): Promise<{ results: Record<string, string[]>; errors: string[]; stats: { tableMovedWhole: number; tablePulled: number; codeMoved: number; rowsSplit: number } }> {
   const b = await bundle();
   const ctx: BrowserContext = await browser!.newContext({ viewport: { width: 1100, height: 1200 } });
   await routeCdn(ctx, { highlight: true }); // the real highlight.js (vendored, offline)
   const results: Record<string, string[]> = {};
   const errors: string[] = [];
-  const stats = { tableMovedWhole: 0, tablePulled: 0, codeMoved: 0 };
+  const stats = { tableMovedWhole: 0, tablePulled: 0, codeMoved: 0, rowsSplit: 0 };
   const queue = [...cases];
   await Promise.all(Array.from({ length: pool }, async (_, w) => {
     const page = await ctx.newPage();
@@ -66,10 +66,11 @@ async function check(cases: { name: string; text: string }[], pool = 3): Promise
       await pagesIdle(page);
       const r = await integrity(page, c.text);
       results[c.name] = r.pages > 0 ? r.problems : ['no pages'];
-      const st = await page.evaluate(() => (globalThis as unknown as { __orzPaged: { stats(): { tables: { movedWhole: number; pulled: number }; code: { moved: number } } } }).__orzPaged.stats());
+      const st = await page.evaluate(() => (globalThis as unknown as { __orzPaged: { stats(): { tables: { movedWhole: number; pulled: number; rowsSplit: number }; code: { moved: number } } } }).__orzPaged.stats());
       stats.tableMovedWhole += st.tables.movedWhole;
       stats.tablePulled += st.tables.pulled;
       stats.codeMoved += st.code.moved;
+      stats.rowsSplit += st.tables.rowsSplit;
     }
   }));
   await ctx.close();
@@ -146,7 +147,7 @@ chrome('the column integrity matrix (real Chrome)', () => {
     expect(readFileSync('tests/browser-env.ts', 'utf8')).not.toMatch(/stub/i);
   });
 
-  it('[R.12] long code across pages with the REAL highlight.js (11.9.0) on real source files — argparse lines 1200–1500 (Python), 300 lines of this repo\'s cols-flow.ts (TypeScript), 300 lines of Paged.js\' layout.js (JavaScript, labelled and unlabelled) — and synthetic fences (300-line Python, 240 unlabelled, a page-tall plain fence) at A4, A5 and Letter in three themes: every line on the pages, in order, with its whitespace (the oracle\'s `CODE`), none clipped, and the rest of the document after each fence present (`TEXT`, `[AFTER]`, `[END]`); blank and indentation-only lines at every offset of a page bottom keep the fragment\'s box inside the area (`PREBOX`); and the same lookup outside code — a phrase repeated between inline math across page breaks — keeps every character once, in order', async () => {
+  it('[R.12] long code across pages with the REAL highlight.js (11.9.0) on real source files — argparse lines 1200–1500 (Python), 300 lines of this repo\'s cols-flow.ts (TypeScript), 300 lines of Paged.js\' layout.js (JavaScript, labelled and unlabelled) — and synthetic fences (300-line Python, 240 unlabelled, a page-tall plain fence) at A4, A5 and Letter in three themes: every line on the pages, in order, with its whitespace (the oracle\'s `CODE`), none clipped, and the rest of the document after each fence present (`TEXT`, `[AFTER]`, `[END]`); blank and indentation-only lines at every offset of a page bottom keep the fragment\'s box inside the area (`PREBOX`); and the same lookup outside code — a phrase repeated between inline math across page breaks — keeps every character once, in order; periodic text in plain fences (a matrix of zeros, an ASCII grid, 120 identical `}` lines; round 5) keeps every line once, in order, and the text after it, as do fences nested in a list item and a blockquote; a fence with tall lines (line-height 2.4) at every offset of a page bottom keeps its box inside the area', async () => {
     const synthetic = (n: number, seed: number): string => Array.from({ length: n }, (_, i) => `def f${i}(x):  # [K${i}] ${prose(seed + i, 3)}\n    return x * ${i} + "s${i}"`).join('\n');
     const lines = (text: string, from: number, n: number): string => text.split('\n').slice(from, from + n).join('\n');
     const sources: Array<[string, string, string]> = [
@@ -174,6 +175,31 @@ chrome('the column integrity matrix (real Chrome)', () => {
       }
     }
     cases.push(...sweep);
+    // periodic text in plain fences (closed loop round 5: one text node, Paged.js found its rest by `indexOf` at an
+    // earlier line — lines repeated, "Layout repeated", the rest of the document lost): a 140-line matrix of zeros, a
+    // 160-line ASCII grid, 30 lines and 120 identical `    }` lines
+    const periodic: Array<[string, string]> = [
+      ['zeros', Array.from({ length: 140 }, () => '0 0 0 0 0 0 0 0 0 0 0 0').join('\n')],
+      ['grid', Array.from({ length: 160 }, (_, i) => (i % 2 ? '| . | . | . | . | . | . |' : '+---+---+---+---+---+---+')).join('\n')],
+      ['braces', `${Array.from({ length: 30 }, (_, i) => `line ${i} ${prose(i, 4)}`).join('\n')}\n${Array.from({ length: 120 }, () => '    }').join('\n')}`],
+    ];
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5']] as const) {
+      for (const [name, code] of periodic) cases.push({ name: `code-periodic-${name}-${theme}-${size}`, text: `{{nyml\nkind: document\ntitle: Code\ntheme: ${theme}\npage_size: ${size}\n}}\n\n**[P0]** ${prose(1, 30)}\n\n\`\`\`\`\n${code}\n\`\`\`\`\n\n**[AFTER]** ${prose(2, 60)}\n\n**[END]** ${prose(5, 12)}\n` });
+    }
+    // a highlighted fence nested in a list item and in a blockquote (its block's padding and border below it)
+    const py160 = readFileSync('tests/fixtures/code/argparse-3.12-1200-1500.py', 'utf8').split('\n').slice(0, 160).join('\n');
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5']] as const) {
+      const h = `{{nyml\nkind: document\ntitle: Code\ntheme: ${theme}\npage_size: ${size}\n}}\n\n**[P0]** ${prose(1, 30)}\n\n`;
+      cases.push({ name: `code-in-li-${theme}-${size}`, text: `${h}1. **[LI1]** ${prose(3, 10)}\n\n   \`\`\`python\n${py160.split('\n').map((l) => `   ${l}`).join('\n')}\n   \`\`\`\n\n2. **[LI2]** ${prose(4, 10)}\n\n**[END]** ${prose(5, 12)}\n` });
+      cases.push({ name: `code-in-quote-${theme}-${size}`, text: `${h}> **[Q1]** ${prose(3, 10)}\n>\n> \`\`\`python\n${py160.split('\n').map((l) => `> ${l}`).join('\n')}\n> \`\`\`\n\n**[END]** ${prose(5, 12)}\n` });
+    }
+    // a fence whose lines are much taller than their glyphs (line-height 2.4 on its code): the line box's half-leading
+    // below the glyphs at every offset of a page bottom (its top padding 0–38 px) — the fragment's box ends inside the
+    // area (`PREBOX`; round 5: dropping the half-leading from the break went unnoticed at the themes' line heights, P05)
+    const tallLines = Array.from({ length: 70 }, (_, i) => `    v${i} = step(v${i - 1}, "${prose(i, 2)}")`).join('\n');
+    for (let pad = 0; pad < 40; pad += 2) {
+      cases.push({ name: `code-leading-A5-${pad}`, text: `{{nyml\nkind: document\ntitle: Code\ntheme: light-neat-1\npage_size: A5\n}}\n\n**[P0]** x\n\n<pre style="padding-top: ${pad}px"><code style="line-height: 2.4">${tallLines}</code></pre>\n\n**[END]** ${prose(5, 12)}\n` });
+    }
     // the same lookup outside code: a phrase repeated between inline math (sibling text nodes alike) over page breaks
     for (const [theme, size] of [['light-academic-1', 'A5'], ['light-neat-1', 'A4']] as const) {
       const para = (k: number): string => `**[M${k}]** ${Array.from({ length: 45 }, () => 'Some explanatory text for this part with inline math $a_{i}+b$.').join(' ')}`;
@@ -185,7 +211,7 @@ chrome('the column integrity matrix (real Chrome)', () => {
     expect(errors).toEqual([]);
   }, 900_000);
 
-  it('[C.6] tables in columns: a table taller than the rest of the page (or than a whole page) inside `.cols` — in the left or right column or opening it, short rows and tall ones, 6 to 110 rows, with and without a repeated header, in four themes and sizes — is split between rows within its column (its widths kept, its header repeated) or, when a row is taller than a column page, laid out as plain flow: the grid never broken by Paged.js, no row in the hidden column, every row once', async () => {
+  it('[C.6] tables in columns: a table taller than the rest of the page (or than a whole page) inside `.cols` — in the left or right column or opening it, short rows and tall ones, 6 to 110 rows, with and without a repeated header, in four themes and sizes — is split between rows within its column (its widths kept, its header repeated) or, when a row is taller than a column page, laid out as plain flow: the grid never broken by Paged.js, no row in the hidden column, every row once; and code in a column taller than a column page (12–70 lines, three leads; round 5) lays its block out as plain flow — no grid broken, every line once', async () => {
     const tbl = (n: number, seed: number, tall: number): string => `| H0 | H1 |\n|---|---|\n${Array.from({ length: n }, (_, i) => `| [r${i}] ${prose(seed + i, tall && i % tall === tall - 1 ? 25 : 2)} | ${i} |`).join('\n')}`;
     const cases: { name: string; text: string }[] = [];
     for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5'], ['beige-decent-2', 'Letter'], ['light-playful-1', 'A5']] as const) {
@@ -198,11 +224,21 @@ chrome('the column integrity matrix (real Chrome)', () => {
         }
       }
     }
+    // code in a column (round 5): a fence taller than what a column page holds is never forced whole (it was clipped
+    // and Paged.js broke the grid, `PJSBREAK`): the block is laid out as plain flow and the fence breaks between lines
+    const py = readFileSync('tests/fixtures/code/argparse-3.12-1200-1500.py', 'utf8').split('\n').map((l) => l.slice(0, 28));
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5']] as const) {
+      for (const n of [12, 25, 40, 70]) {
+        for (const lead of [0, 8, 16]) {
+          cases.push({ name: `colcode-${theme}-${size}-n${n}-l${lead}`, text: `{{nyml\nkind: document\ntitle: CC\ntheme: ${theme}\npage_size: ${size}\n}}\n\n${Array.from({ length: lead }, (_, i) => `**[Q${i}]** ${prose(20 + i, 7)}`).join('\n\n')}\n\n::::: cols\n:::: col\n**[C1]** ${prose(3, 20)}\n\n\`\`\`python\n${py.slice(0, n).join('\n')}\n\`\`\`\n\n**[C1b]** ${prose(9, 30)}\n::::\n:::: col\n**[C2]** ${prose(4, 120)}\n::::\n:::::\n\n**[END]** ${prose(5, 12)}\n` });
+        }
+      }
+    }
     const { results, errors } = await check(cases);
     expect(Object.keys(results).length).toBe(cases.length);
     expect(failures(results)).toEqual({});
     expect(errors).toEqual([]);
-  }, 600_000);
+  }, 900_000);
 
   it('[P.11] a length sweep of long tables (20–60 rows, short and tall cells, a short and a page-long lead, three themes and sizes, with and without the repeated header): every row once and in order, none below the page area or in the hidden column, no header stranded alone at a page bottom', async () => {
     const tbl = (n: number, tall: number, seed: number): string => `| H0 | H1 | H2 |\n|---|---|---|\n${Array.from({ length: n }, (_, i) => `| [Tr${i}] ${prose(seed + i, tall && i % tall === tall - 1 ? 40 : 2)} | ${prose(seed * 7 + i, 1)} | ${i} |`).join('\n')}`;
@@ -239,4 +275,48 @@ chrome('the column integrity matrix (real Chrome)', () => {
     expect(stats.tableMovedWhole).toBeGreaterThan(0);
     expect(stats.tablePulled).toBeGreaterThan(0); // and a flush row pulled onward
   }, 900_000);
+
+  it('[P.11] a table row taller than the page area (closed loop round 5: a "Question / Answer / Pts" table whose answer ran to 360 words lost the row, the later rows and everything after the table — "Layout repeated"): one tall row among short ones, several, the first row tall, the last row tall, a tall answer of one long text and of 40–70 short lines, with and without the repeated header, at A4, A5 and Letter in three themes — every row and all the text after the table on the pages, once and in order, nothing in the hidden column (`HIDDENTEXT`), the header repeated on every continuation that holds a row\'s start, never a header alone (`HEADONLY`)', async () => {
+    const short = (n: number, seed: number, tag: string): string => Array.from({ length: n }, (_, i) => `| [${tag}${i}] ${prose(seed + i, 3)} | ${prose(seed * 3 + i, 4)} | ${i} |`).join('\n');
+    const lines = (n: number, seed: number): string => Array.from({ length: n }, (_, i) => `line ${i} ${prose(seed + i, 2)}`).join('<br>');
+    const tallRow = (tag: string, kind: 'words' | 'lines', n: number, seed: number): string => `| [${tag}] Explain | ${kind === 'words' ? prose(seed, n * 9) : lines(n, seed)} | 5 |`;
+    const head = '| Question | Answer | Pts |\n|---|---|---|';
+    const shapes: Array<[string, (n: number, kind: 'words' | 'lines') => string]> = [
+      ['mid', (n, k) => `${head}\n${short(5, 3, 'r')}\n${tallRow('TALL', k, n, 77)}\n${short(10, 30, 's')}`],
+      ['several', (n, k) => `${head}\n${short(3, 3, 'r')}\n${tallRow('TA', k, n, 77)}\n${short(3, 30, 's')}\n${tallRow('TB', k, n, 78)}\n${short(3, 60, 'u')}`],
+      ['first', (n, k) => `${head}\n${tallRow('TALL', k, n, 77)}\n${short(10, 3, 'r')}`],
+      ['last', (n, k) => `${head}\n${short(8, 3, 'r')}\n${tallRow('TALL', k, n, 77)}`],
+    ];
+    const cases: { name: string; text: string }[] = [];
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5'], ['beige-decent-2', 'Letter']] as const) {
+      for (const repeat of [true, false]) {
+        for (const [shape, table] of shapes) {
+          for (const [kind, n] of [['words', 40], ['lines', 55], ['words', 70]] as const) {
+            cases.push({ name: `tallrow-${shape}-${kind}${n}-${theme}-${size}-${repeat ? 'rep' : 'norep'}`, text: `{{nyml\nkind: document\ntitle: T\ntheme: ${theme}\npage_size: ${size}\n${repeat ? '' : 'repeat_table_header: false\n'}}}\n\n**[P0]** ${prose(1, 20)}\n\n${table(n, kind)}\n\n## [H] After the table\n\n**[AFTER]** ${prose(2, 60)}\n\n**[END]** ${prose(5, 12)}\n` });
+          }
+        }
+      }
+    }
+    const { results, errors, stats } = await check(cases);
+    expect(Object.keys(results).length).toBe(cases.length);
+    expect(failures(results)).toEqual({});
+    expect(errors).toEqual([]);
+    expect(stats.rowsSplit).toBeGreaterThan(0); // the rule was reached: tall rows were let break inside
+  }, 900_000);
+
+  it('[P.11] table header rare cases (closed loop round 5): a table of a header only (a long header in the neat themes\' one-line header style: it wraps instead of running past the page edge), and a raw HTML table with a caption, `rowspan` groups and a `tfoot` across page breaks after leads that leave its caption alone at a page bottom — the caption goes on with its table (never alone, never in the hidden column), the continuations repeat the header (found by the fragment\'s `data-ref`), every row once', async () => {
+    const cases: { name: string; text: string }[] = [];
+    const html = (n: number): string => `<table><caption>[CAP] Caption</caption><thead><tr><th>H0</th><th>H1</th></tr></thead><tbody>${Array.from({ length: n }, (_, i) => (i % 4 === 0 ? `<tr><td rowspan="4">[rs${i}] ${prose(i, 3)}</td><td>[c${i}] ${prose(i + 7, 3)}</td></tr>` : `<tr><td>[c${i}] ${prose(i + 7, 3)}</td></tr>`)).join('')}</tbody><tfoot><tr><td colspan="2">[FOOT] total</td></tr></tfoot></table>`;
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5'], ['light-neat-2', 'Letter']] as const) {
+      for (const lead of [0, 7, 14, 21]) {
+        const leadTxt = Array.from({ length: lead }, (_, i) => `**[Q${i}]** ${prose(20 + i, 7)}`).join('\n\n');
+        cases.push({ name: `headeronly-${theme}-${size}-l${lead}`, text: `{{nyml\nkind: document\ntitle: T\ntheme: ${theme}\npage_size: ${size}\n}}\n\n${leadTxt}\n\n| H0 long header ${prose(9, 12)} | H1 |\n|---|---|\n\n**[END]** ${prose(5, 12)}\n` });
+        cases.push({ name: `rowspan-${theme}-${size}-l${lead}`, text: `{{nyml\nkind: document\ntitle: T\ntheme: ${theme}\npage_size: ${size}\n}}\n\n${leadTxt}\n\n${html(80)}\n\n**[END]** ${prose(5, 12)}\n` });
+      }
+    }
+    const { results, errors } = await check(cases);
+    expect(Object.keys(results).length).toBe(cases.length);
+    expect(failures(results)).toEqual({});
+    expect(errors).toEqual([]);
+  }, 600_000);
 });

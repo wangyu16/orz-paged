@@ -395,7 +395,10 @@ your own keys (`audience: student`) and tag HTML in the body
 - `::: page-break` then `:::` on the next line starts a new page.
 - A long table breaks between rows and repeats its header row (`thead`) at
   the top of each page it continues on (`repeat_table_header: false` turns
-  that off). Running headers, footers and page numbers take the theme's body
+  that off). A row taller than a page breaks inside, under the header; the
+  page that continues it starts without the header. A table's unbreakable
+  content wider than the page (a long URL in a cell) runs past the page edge:
+  keep cells breakable. Running headers, footers and page numbers take the theme's body
   font and its muted text colour.
 - `:::: cols` / `::: col` … `:::` / `::::` lays text side by side. Across a
   page break a short block moves whole to the next page only when that leaves
@@ -408,8 +411,8 @@ your own keys (`audience: student`) and tag HTML in the body
   lone long column stays narrow; only paragraphs, list items, blockquotes,
   plain blocks and tables (between rows, header repeated) split — images,
   figures, code, math, headings, boxed asides move whole; a block no cut can
-  place (a table row taller than a column page) becomes plain flow, its
-  columns one after the other; keep a column's tables narrow (a table wider
+  place (a table row, or code, taller than a column page) becomes plain flow,
+  its columns one after the other; keep a column's tables narrow (a table wider
   than its column overflows it); one-line widows happen; a block taller than a
   page is clipped.
   Nested and numbered lists split too (a continued list keeps its numbers and

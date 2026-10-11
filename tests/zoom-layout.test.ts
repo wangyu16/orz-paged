@@ -117,4 +117,35 @@ chrome('page zoom never changes the pagination (real Chrome)', () => {
       await ed.close();
     }, 300_000);
   }
+
+  it('[R.16] a page zoom stored for the document (125 %, the reader\'s preference by uid) is applied to the empty read view before its first layout: that layout — straight into view — still runs at 100 % (`--orz-page-zoom: 1` while `data-orz-laying-out`) and lays out the same pages as a 1400 px window at 100 %; the zoom follows when it ends (closed loop round 5: removing the forced 100 % left this layout at 125 % — P10)', async () => {
+    const text = randomDoc(1).replace('title: Random 1', 'title: Random 1\nuid: doc-zoomstored00000001');
+    const wide = await openRead('stored-ref', text, 1400);
+    const ref = await pageTexts(wide.page, 'orz-pages');
+    await wide.close();
+    const ctx = await browser!.newContext({ viewport: { width: 1400, height: 900 } });
+    await ctx.addInitScript(PICKER_INIT);
+    await ctx.addInitScript(() => {
+      for (const k of ['reader.pageZoom', 'pageZoom']) localStorage.setItem(`orz-pref:doc-zoomstored00000001:${k}`, JSON.stringify('125'));
+      // what the first layout ran at: the zoom on the pages' container whenever a page is added
+      const w = window as unknown as { __zooms: string[] };
+      w.__zooms = [];
+      new MutationObserver(() => {
+        const c = document.getElementById('orz-pages');
+        if (c && c.hasAttribute('data-orz-laying-out')) w.__zooms.push(c.style.getPropertyValue('--orz-page-zoom'));
+      }).observe(document, { subtree: true, childList: true });
+    });
+    await routeCdn(ctx, { highlight: true });
+    const page = await ctx.newPage();
+    await page.goto(`file://${files.write('stored-125.paged.html', await assembleReal(text))}`);
+    await bootDone(page);
+    await pagesIdle(page);
+    const r = await page.evaluate(() => ({ zoom: document.getElementById('orz-pages')!.style.getPropertyValue('--orz-page-zoom'), choice: document.getElementById('orz-pages')!.getAttribute('data-orz-page-zoom'), during: [...new Set((window as unknown as { __zooms: string[] }).__zooms)] }));
+    expect(r.choice).toBe('125'); // the scenario: the stored zoom reached the view
+    expect(r.zoom).toBe('1.25'); // and applies when the layout ends
+    expect(r.during).toEqual(['1']); // at 100 % throughout the first layout
+    expect(firstDiff(await pageTexts(page, 'orz-pages'), ref)).toBe('same');
+    expect((await integrity(page, text)).problems).toEqual([]);
+    await ctx.close();
+  }, 300_000);
 });

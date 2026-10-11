@@ -486,6 +486,10 @@
   overflow: visible;
 }
 
+.orz-doc.markdown-body th {
+  white-space: normal;
+}
+
 .markdown-body :is(h1),
 .markdown-body :is(h2),
 .markdown-body :is(h3),

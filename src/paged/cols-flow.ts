@@ -42,7 +42,8 @@
  *   overflows): else Paged.js breaks the grid itself, flowing column 2 under
  *   column 1 (found with the derived print themes, which frame blocks and
  *   cells; the prototype's themes had no frame).
- * - A column whose FIRST block is taller than a whole page can never fit:
+ * - A column whose FIRST block is taller than a whole page can never fit
+ *   (a table whose first row, or code, is: plain flow instead — round 5):
  *   at the top of a page it is forced onto that page (clipped at the bottom,
  *   as Paged.js clips any over-tall box) instead of being deferred forever.
  *
@@ -58,7 +59,9 @@
  * Limits (documented, owner-accepted): a lone long column stays narrow; only
  * paragraphs, list items, blockquotes and plain divs split, and tables
  * between rows (their header repeated; round 3) — images, figures, code,
- * math, headings, boxed asides and nested grids move whole;
+ * math, headings, boxed asides and nested grids move whole; a table whose
+ * first row, or code, taller than a page lays its block out as plain flow
+ * (`data-cols-linear`; code: round 5);
  * one-line widows are possible; over-tall blocks clip.
  *
  * No markup contract change: the input is orz-markdown's `.cols > .col` as
@@ -453,10 +456,12 @@ function plan(clone: HTMLElement, trial: HTMLElement, limit: number, atTop: bool
     }
     for (const i of row) {
       const r = splitChildren(mCells[i], sCells[i], limit);
-      if (r.rest && r.nothingFit && atTop && Array.from(mCells[i].children).find((k) => rectOf(k))?.tagName === 'TABLE') {
+      if (r.rest && r.nothingFit && atTop && /^(TABLE|PRE)$/.test(Array.from(mCells[i].children).find((k) => rectOf(k))?.tagName ?? '')) {
         // a table whose first row is taller than a whole column page: no cut between rows can place it, and a
         // forced, clipped table is broken by Paged.js inside the hidden column (rows lost, closed loop round 3) —
-        // the block falls back to the page's own flow (its columns one after the other, Paged.js splits the row)
+        // the block falls back to the page's own flow (its columns one after the other, Paged.js splits the row).
+        // So does code taller than a column page (round 5: forced whole, the fence was clipped and Paged.js broke
+        // the grid; in the page's flow it breaks between lines like any fence — R.12)
         return { outcome: 'linear' };
       }
       if (r.rest && r.nothingFit && atTop) {

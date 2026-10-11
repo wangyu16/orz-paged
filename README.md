@@ -27,7 +27,10 @@ workflow; what paged adds is pages.
   right in the page (no frame): the header's page size, margins, theme and
   typography; running headers and footers and page numbers in the page
   margins, in the theme's body font and muted colour; long tables broken
-  between rows with their header row repeated on each page; title pages,
+  between rows with their header row repeated on each page (a row taller than
+  a page breaks inside, under the header; the rest of it continues on the next
+  page without one; a cell's unbreakable content wider than the page runs
+  past its edge); long code broken between lines; title pages,
   an abstract and a table of contents with the page number of each section; clean front matter (title, abstract and contents
   pages without furniture, the body numbered from 1). What you see is what
   prints.
@@ -162,8 +165,8 @@ its header and first row fit. A heading never ends a column's part on a page
 (it goes on with what it heads). Limits: a lone long column stays narrow;
 only paragraphs, list items, blockquotes, plain blocks and tables split —
 images, figures, code, math, headings and boxed asides move whole; a block
-that no cut can place (a table row taller than a column page) is laid out as
-plain flow, its columns one after the other; a table wider than its column
+that no cut can place (a table row, or code, taller than a column page) is
+laid out as plain flow, its columns one after the other; a table wider than its column
 (long unbreakable words in many cells) overflows it; a one-line widow is
 possible; a block taller than a page is clipped at the bottom.
 

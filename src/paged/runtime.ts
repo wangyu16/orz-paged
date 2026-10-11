@@ -117,7 +117,7 @@ export interface PagedRuntime {
   /** The running pagination's progress: pages laid out so far, of about how many (the shown layout's count; 0: unknown), or null. */
   progress(): { laid: number; of: number } | null;
   /** Counts since the runtime started: paginations run, abandoned (superseded mid-way), with a styled stage (`measured`); what the session gave up waiting for (`hung`: `sheet:<href>`, `fonts:…`, `enhance:<libraries>`); table rows pulled onto the next page and tables moved whole (a header that would have stayed alone), code breaks moved to a line start. */
-  stats(): { paginations: number; abandoned: number; measured: number; hung: string[]; incremental: number; last: Record<string, number>; tables: { pulled: number; movedWhole: number }; code: { moved: number } };
+  stats(): { paginations: number; abandoned: number; measured: number; hung: string[]; incremental: number; last: Record<string, number>; tables: { pulled: number; movedWhole: number; rowsSplit: number; headsDropped: number }; code: { moved: number } };
 }
 
 declare const __ORZ_PAGED_RUNTIME_VERSION__: string;
@@ -629,7 +629,11 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     if (o.incremental && !o.final && !direct && shown && !shown.provisional && !shown.grid && shown.target === target && shown.key === layoutKey && shown.token && pagesIn(target).length === shown.starts.length) {
       let k = 0;
       while (k < blocks.length && k < shown.blocks.length && blocks[k] === shown.blocks[k]) k++;
-      for (let i = Math.min(shown.starts.length, shown.dirtyFrom + 1) - 1; i >= 1; i--) {
+      // an edit inside code (the first changed block holds a `pre`): a whole layout. Restarted before the fence, its
+      // later pages broke the fence a line away from a fresh layout's (Paged.js checks a page's overflow every so many
+      // characters and a fence measured mid-way is ended by the code-break handler; closed loop round 5, E.7)
+      const codeChanged = k < blocks.length && /<pre[\s>]/i.test(blocks[k]!);
+      if (!codeChanged) for (let i = Math.min(shown.starts.length, shown.dirtyFrom + 1) - 1; i >= 1; i--) {
         const st = shown.starts[i];
         if (st && st.block < k) { from = i; startAt = st; break; }
       }
@@ -1021,7 +1025,7 @@ if (!W.__orzPaged) {
     idle,
     busy: () => waiting > 0 || reflows.size > 0,
     progress: () => (running ? { ...running } : null),
-    stats: () => ({ paginations, abandoned, measured: measuredStages, incremental: incrementals, last: { ...lastTimes }, hung: [...hung].map((k) => k.split('\n')[0]!.slice(0, 120)), tables: { pulled: TableHeadHandler.pulled, movedWhole: TableHeadHandler.movedWhole }, code: { moved: CodeBreakHandler.moved } }),
+    stats: () => ({ paginations, abandoned, measured: measuredStages, incremental: incrementals, last: { ...lastTimes }, hung: [...hung].map((k) => k.split('\n')[0]!.slice(0, 120)), tables: { pulled: TableHeadHandler.pulled, movedWhole: TableHeadHandler.movedWhole, rowsSplit: TableHeadHandler.rowsSplit, headsDropped: TableHeadHandler.headsDropped }, code: { moved: CodeBreakHandler.moved } }),
   });
   W.__orzPaged = api;
   // the preview frame's page hook (FC-19 §8.4): the bridge acknowledges the render when it settles

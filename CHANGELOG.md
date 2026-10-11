@@ -269,6 +269,38 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
 - Bundles orz-markdown 2.3.0's preview bridge that closes the `window.event`
   port theft; the real paged preview is tested against it (E.9).
 
+#### Closed loop, round 5 — closing
+
+Round 5 found no isolation fault; one HIGH single-construct layout fault and
+some MED/LOW ones, all fixed:
+
+- **A table row taller than the page** (HIGH; a 360-word answer in a
+  "Question / Answer / Pts" table): the row, the later rows and everything
+  after the table were lost ("Layout repeated"). Such a row now breaks inside
+  under its header (its fragment's widths frozen as measured with the whole
+  row, the break found clear of its bottom padding); a page that continues a
+  row starts without the repeated header, which returns on the next page that
+  starts with a row. A caption kept alone at a page bottom moves on with its
+  table; the repeated header's source is found by `data-ref`; header cells
+  wrap on paper (a neat theme's one-line header ran past the page edge).
+- **Periodic text in plain fences** (a `0 0 0` matrix, an ASCII grid, a run
+  of `}` lines): lines repeated or lost and the rest of the document gone. A
+  fence's text is split into one span per line; the line start of a blank line
+  alone in its span is found right; the half-leading is the code's own line
+  height.
+- **Code in columns** taller than a column page lays its block out as plain
+  flow (it was clipped and the grid broken).
+- **The editor preview**: an edit inside code re-lays the preview out whole
+  (an incremental restart before the fence broke it a line away from a fresh
+  layout).
+- **Tests**: tall-row tables (P.11), periodic fences and tall-leading code
+  (R.12), code in columns (C.6), an edit inside a fence (E.7), a stored page
+  zoom before the first layout (R.16), the bridge's key-getter override, its
+  unwritable hooks and scroll sync without reader input (E.9, the kit's
+  E.35); the integrity oracle adds `HIDDENTEXT` and checks `REPEAT` and
+  `HEADONLY` against the table's own header and rows. Mutants P05 and P10 are
+  now caught; P08 (the width clamp) is equivalent (recorded in CLAIMS P.11).
+
 ## [0.7.3] — 2026-07-17
 
 ### Changed

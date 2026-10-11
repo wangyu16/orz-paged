@@ -21,6 +21,10 @@
  *    with another node is wrapped in its own `<span data-orz-ws>` on the
  *    stage, before the layout: no element is skipped, each text node is its
  *    parent's only child (found unambiguously), and the text is the same.
+ *    (c) Inside one text node Paged.js finds the rest of a broken node by
+ *    `indexOf`: periodic text (identical lines in a plain fence) matched an
+ *    earlier line (closed loop round 5) — a `pre`'s text is split into one
+ *    span per line, so a break at a line start falls at an element.
  * 2. **A code line cut through at the page bottom** ({@link CodeBreakHandler}):
  *    Paged.js breaks a text node at the first word whose TOP is below the
  *    page area, so a line that starts above the bottom but ends below it
@@ -61,6 +65,41 @@ export function keepCodeWhitespace(root: ParentNode): number {
       span.append(s);
       n++;
     }
+    if (block.tagName === 'PRE') n += splitLines(block);
+  }
+  return n;
+}
+
+/**
+ * Every text node of a `pre` that holds more than one line is split at its
+ * newlines, one `<span data-orz-ws>` per line (each line its parent's only
+ * text), so that a page break, which the code-break handler puts at a line
+ * start, falls at the start of an element (closed loop round 5): Paged.js
+ * locates the rest of a broken text node by `indexOf` of the rendered rest
+ * inside it, and in periodic text — a matrix of `0 0 0` rows, an ASCII grid,
+ * a run of identical `}` lines in a plain fence (one text node) — that is an
+ * earlier line: lines repeated or lost, "Layout repeated", the rest of the
+ * document gone. Returns how many spans it made.
+ */
+function splitLines(pre: Element): number {
+  let n = 0;
+  const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+  const texts: Text[] = [];
+  for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+    const d = (t as Text).data;
+    const nl = d.indexOf('\n');
+    if (nl >= 0 && nl < d.length - 1) texts.push(t as Text);
+  }
+  for (const t of texts) {
+    const parts = t.data.match(/[^\n]*\n|[^\n]+$/g) ?? [t.data];
+    const spans = parts.map((part) => {
+      const span = document.createElement('span');
+      span.setAttribute(CODE_SPACE_ATTRIBUTE, '');
+      span.textContent = part;
+      return span;
+    });
+    t.replaceWith(...spans);
+    n += spans.length;
   }
   return n;
 }
@@ -107,9 +146,14 @@ const charRect = (t: Text, i: number): DOMRect | null => {
   return rs.length ? rs[rs.length - 1]! : null;
 };
 
-/** A pre's line height in px (0: `normal`, the glyph box is the line). */
+/**
+ * A pre's line height in px (0: `normal`, the glyph box is the line): its lines' — the fence's `code` when that is
+ * a block of its own (a theme gives the code its line height, not the pre: round 5, the pre's was not its lines').
+ */
 function lineHeightOf(pre: Element): number {
-  const lh = parseFloat(getComputedStyle(pre).lineHeight);
+  const code = pre.querySelector(':scope > code');
+  const lines = code && getComputedStyle(code).display !== 'inline' ? code : pre;
+  const lh = parseFloat(getComputedStyle(lines).lineHeight);
   return Number.isFinite(lh) ? lh : 0;
 }
 
@@ -200,7 +244,11 @@ export function codeBreakPoint(pre: Element, node: Node, offset: number, bottom:
   // open the line: the character after the line's newline (its indentation goes with it)
   for (let k = at.t; k >= 0; k--) {
     const t = texts[k]!;
-    const nl = t.data.lastIndexOf('\n', (k === at.t ? at.c : t.data.length) - 1);
+    // (before the line's first character: `lastIndexOf` at -1 would find a newline AT 0 — the line's own end when the
+    // line is a blank one alone in its text node, one span per line since round 5)
+    const from = (k === at.t ? at.c : t.data.length) - 1;
+    if (from < 0) continue;
+    const nl = t.data.lastIndexOf('\n', from);
     if (nl >= 0) {
       if (nl + 1 < t.data.length) return { node: t, offset: nl + 1 };
       // the newline ends its text node: the line opens at the next text
