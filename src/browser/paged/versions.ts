@@ -6,9 +6,10 @@
  * A document offers a choice key when its content carries
  * `data-show-when="key=value"` / `data-hide-when="key=value"` (elements such
  * as the exam's answer key do) or its header's `dynamic_choices` names it.
- * The values offered are those the content and the header use; "(not set)"
- * removes the key (content shown only for a value goes, content hidden only
- * for a value stays). Picking writes the header's `dynamic_choices` map (a
+ * The values offered are those the content and the header use; "default"
+ * (round 4: "(not set)" read oddly) removes the key — the document as
+ * written, no choice made (content shown only for a value goes, content
+ * hidden only for a value stays). Picking writes the header's `dynamic_choices` map (a
  * `|` block; the key keeps its spelling there) — document data, one undoable
  * header edit.
  */

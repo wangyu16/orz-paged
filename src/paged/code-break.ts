@@ -3,16 +3,24 @@
  * faults with long code blocks, worked around here. Browser only (DOM),
  * registered by the paged runtime (src/paged/runtime.ts).
  *
- * 1. **Whitespace between highlight tokens** ({@link keepCodeWhitespace}):
- *    Paged.js deep-clones an inline element (a highlight.js token `<span>`)
- *    and continues its walk at the next *significant* node (`nodeAfter` →
- *    `nextSignificantNode`), so a whitespace-only text node right after it —
- *    the newline and indentation between two tokens — is skipped. On every
- *    page that continued a highlighted fence the lines ran together (a
- *    300-line Python fence lost lines 51–300 off the page area). Each
- *    whitespace-only text node inside `pre` or `code` is wrapped in a
- *    `<span data-orz-ws>` on the stage, before the layout: an element is never
- *    skipped, and the text is the same.
+ * 1. **Text nodes of code** ({@link keepCodeWhitespace}): two faults.
+ *    (a) Paged.js deep-clones an inline element (a highlight.js token
+ *    `<span>`) and continues its walk at the next *significant* node
+ *    (`nodeAfter` → `nextSignificantNode`), so a whitespace-only text node
+ *    right after it — the newline and indentation between two tokens — is
+ *    skipped: on every page that continued a highlighted fence the lines ran
+ *    together (closed loop round 3). (b) Where a page breaks inside a text
+ *    node, Paged.js finds that node in the source BY ITS CONTENT
+ *    (`indexOfTextNode`: the first sibling text node that *includes* the
+ *    rendered one), so among sibling text nodes it can pick an earlier one
+ *    with the same text — and real highlighted code is full of them (the
+ *    `\n    state[` between two tokens repeats on every line): with the real
+ *    highlight.js a long fence repeated or skipped lines, Paged.js reported
+ *    "Layout repeated" and everything after the fence was lost (closed loop
+ *    round 4). Every text node inside `pre` / `code` that shares its parent
+ *    with another node is wrapped in its own `<span data-orz-ws>` on the
+ *    stage, before the layout: no element is skipped, each text node is its
+ *    parent's only child (found unambiguously), and the text is the same.
  * 2. **A code line cut through at the page bottom** ({@link CodeBreakHandler}):
  *    Paged.js breaks a text node at the first word whose TOP is below the
  *    page area, so a line that starts above the bottom but ends below it
@@ -24,10 +32,14 @@
  */
 import { Handler } from 'pagedjs';
 
-/** The attribute of a whitespace-only text node of code wrapped in a span. */
+/** The attribute of a text node of code wrapped in its own span. */
 export const CODE_SPACE_ATTRIBUTE = 'data-orz-ws';
 
-/** Wrap every whitespace-only text node inside `pre` / `code` of `root` in a `<span data-orz-ws>`; returns how many. */
+/**
+ * Wrap every text node inside `pre` / `code` of `root` that is not already
+ * its parent element's only child (the block itself never counts as such a
+ * parent) in a `<span data-orz-ws>`; returns how many.
+ */
 export function keepCodeWhitespace(root: ParentNode): number {
   let n = 0;
   for (const block of Array.from(root.querySelectorAll('pre, code'))) {
@@ -36,13 +48,51 @@ export function keepCodeWhitespace(root: ParentNode): number {
     const spaces: Text[] = [];
     for (let t = walker.nextNode(); t; t = walker.nextNode()) {
       const s = t as Text;
-      if (s.data !== '' && !/[^\t\n\r ]/.test(s.data) && !s.parentElement?.hasAttribute(CODE_SPACE_ATTRIBUTE)) spaces.push(s);
+      const parent = s.parentElement;
+      if (s.data === '' || !parent || parent.hasAttribute(CODE_SPACE_ATTRIBUTE)) continue;
+      // alone in a token span (or in the fence's `code`): found unambiguously already
+      if (parent !== block && parent.childNodes.length === 1) continue;
+      spaces.push(s);
     }
     for (const s of spaces) {
       const span = document.createElement('span');
       span.setAttribute(CODE_SPACE_ATTRIBUTE, '');
       s.replaceWith(span);
       span.append(s);
+      n++;
+    }
+  }
+  return n;
+}
+
+/**
+ * The same fault outside code (closed loop round 4): a paragraph whose text
+ * between inline elements repeats — "… with inline math $a$. … with inline
+ * math $b$." — has sibling text nodes Paged.js cannot tell apart where a page
+ * breaks inside one (`indexOfTextNode` takes the first sibling that includes
+ * it): the continuation repeated or skipped text and everything after could
+ * be lost. A text node (not whitespace only) that an EARLIER sibling text
+ * node includes is wrapped in its own `<span data-orz-ws>` (only those: most
+ * text is untouched).
+ * Returns how many.
+ */
+export function disambiguateTextNodes(root: ParentNode): number {
+  let n = 0;
+  const parents = new Set<Element>();
+  const walker = document.createTreeWalker(root as Node, NodeFilter.SHOW_TEXT);
+  for (let t = walker.nextNode(); t; t = walker.nextNode()) if (t.parentElement && t.parentElement.tagName !== 'PRE' && !t.parentElement.closest('pre')) parents.add(t.parentElement);
+  for (const parent of parents) {
+    // (whitespace-only text is never a break point that matters, and a span made of it would be a box: a grid's
+    // newlines between its cells would become cells)
+    const texts = Array.from(parent.childNodes).filter((c): c is Text => c.nodeType === 3 && /[^\t\n\r ]/.test((c as Text).data));
+    if (texts.length < 2) continue;
+    for (let i = 1; i < texts.length; i++) {
+      const t = texts[i]!;
+      if (!texts.slice(0, i).some((e) => e.data.includes(t.data))) continue;
+      const span = document.createElement('span');
+      span.setAttribute(CODE_SPACE_ATTRIBUTE, '');
+      t.replaceWith(span);
+      span.append(t);
       n++;
     }
   }
@@ -74,8 +124,9 @@ function textsOf(pre: Element): Text[] {
 /**
  * Where the overflow of a `pre` should start, given Paged.js' break point
  * (`node`, `offset`) inside it and the page area's bottom: the start of the
- * first line (of non-space glyphs before the break) that ends below `bottom`
- * — right after that line's newline — or null when the break is right.
+ * first line before the break (measured by its glyphs; a blank line by its
+ * newline or spaces) whose line box ends below `bottom` — right after the
+ * previous line's newline — or null when the break is right.
  */
 export function codeBreakPoint(pre: Element, node: Node, offset: number, bottom: number, lineHeight = 0): { node: Text; offset: number } | null {
   const texts = textsOf(pre);
@@ -99,14 +150,31 @@ export function codeBreakPoint(pre: Element, node: Node, offset: number, bottom:
     ci = 0;
   }
   if (ti < 0) return null;
-  // step back over the glyphs before the break while they end below the area
+  // the pre's text as one string: a blank line (empty, or only spaces) has no glyph, but its box is a line all the
+  // same — at a page bottom it ended below the area like any line (closed loop round 4)
+  const base: number[] = [];
+  let full = '';
+  for (const t of texts) { base.push(full.length); full += t.data; }
+  const blank = new Map<number, boolean>();
+  const onBlankLine = (g: number): boolean => {
+    const start = full.lastIndexOf('\n', g - 1) + 1;
+    let v = blank.get(start);
+    if (v === undefined) {
+      const end = full.indexOf('\n', start);
+      v = !/[^\t\r ]/.test(full.slice(start, end < 0 ? full.length : end));
+      blank.set(start, v);
+    }
+    return v;
+  };
+  // step back over the glyphs (and blank lines) before the break while they end below the area
   let at: { t: number; c: number } | null = null;
-  let steps = 0;
+  // (no step cap: the walk ends at the first line above the area — a cap of 4000 characters left a long fence's
+  // last lines below the area; closed loop round 4)
   outer: for (let k = ti; k >= 0; k--) {
     const t = texts[k]!;
     for (let i = (k === ti ? ci : t.data.length) - 1; i >= 0; i--) {
-      if (++steps > 4000) break outer;
-      if (/\s/.test(t.data[i]!)) continue;
+      // the whitespace of a line with glyphs is measured by its glyphs
+      if (/\s/.test(t.data[i]!) && !onBlankLine(base[k]! + i)) continue;
       const r = charRect(t, i);
       if (!r) continue;
       // the line box reaches half the leading below the glyphs

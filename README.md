@@ -54,7 +54,10 @@ workflow; what paged adds is pages.
 - **Page zoom.** *Page zoom* (Automatic, Fit width, 100 %, 125 %) scales the
   pages for reading. It is your preference, not the document's: kept in this
   browser for this document (by its `uid`), never saved into the file, and it
-  never changes pagination (a text-size control would).
+  never changes pagination (a text-size control would): the pages are always
+  laid out at 100 % and scaled only when the layout has ended, so a narrow
+  window shows — and prints — the same pages as a wide one (the editor's
+  preview, scaled to its pane, too).
 - **Templates.** *New document from template…* lists the twelve templates and
   saves a fresh file of the chosen one (its starter text, a new `uid`, named
   `<template>.paged.html` in the save dialog); the
@@ -150,13 +153,19 @@ screen-only; the header's `font_preset`, `decoration_color` and
 a **short** block (one that fits on a fresh page) moves whole to the next
 page when that leaves less than about a third of the page empty; otherwise —
 and for a **long** block — it is split column by column at the page bottom
-(column 1 continues in column 1 on the next page). Limits: a lone long column
-stays narrow; only paragraphs, list items, blockquotes, plain blocks and
-tables (between rows, their header repeated) split — images, figures, code,
-math, headings and boxed asides move whole; a block that no cut can place (a
-table row taller than a column page) is laid out as plain flow, its columns
-one after the other; a table wider than its column (long unbreakable words in many cells) overflows it; a one-line widow is possible; a block taller than a page
-is clipped at the bottom.
+(column 1 continues in column 1 on the next page). The third holds for every
+move: a block whose column would keep nothing on the page (its first block an
+image, say) moves whole only below it — above it, that column continues on
+the next page while the others split. A table splits too, between rows, its
+header repeated: a column that opens with a table keeps it on the page when
+its header and first row fit. A heading never ends a column's part on a page
+(it goes on with what it heads). Limits: a lone long column stays narrow;
+only paragraphs, list items, blockquotes, plain blocks and tables split —
+images, figures, code, math, headings and boxed asides move whole; a block
+that no cut can place (a table row taller than a column page) is laid out as
+plain flow, its columns one after the other; a table wider than its column
+(long unbreakable words in many cells) overflows it; a one-line widow is
+possible; a block taller than a page is clipped at the bottom.
 
 ## Install
 

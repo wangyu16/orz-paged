@@ -27,6 +27,9 @@ const CHROME = [
   'tests/read-view-net.test.ts',
   'tests/bundle.test.ts',
   'tests/assemble.test.ts',
+  'tests/zoom-layout.test.ts',
+  'tests/incremental.test.ts',
+  'tests/preview-attack.test.ts',
 ];
 
 export default defineConfig({

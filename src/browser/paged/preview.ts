@@ -35,7 +35,7 @@ import { PAGED_RUNTIME } from '../runtime-source.js';
 export const PREVIEW_FRAME_CSS = `
 html { background: #e8e9ed; scroll-behavior: auto; }
 body { margin: 0 !important; padding: 0 !important; }
-#orz-doc { display: block; margin: 0; padding: 0; min-height: 100vh; }
+#orz-doc { display: block; margin: 0; padding: 0; min-height: 100vh; overflow-anchor: none; }
 #orz-doc .pagedjs_pages { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px 0 48px; zoom: var(--orz-page-zoom, 1); }
 :where(#orz-doc) .pagedjs_page { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 4px 14px rgba(0,0,0,.10); }
 #orz-doc[data-orz-updating]::before { content: "updating\\2026"; position: fixed; top: 8px; left: 10px; z-index: 5; font: 12px/1.6 system-ui, sans-serif; color: #5b616e; background: rgba(255,255,255,.85); padding: 0 8px; border-radius: 9px; pointer-events: none; }

@@ -153,14 +153,15 @@ chrome('the example web app (real Chrome)', () => {
       const orig = w.OrzCarrier.printDocument;
       w.OrzCarrier.printDocument = (h, o) => { const rec: { ok?: boolean } = {}; w.__docs.push(rec); return orig(h, o).then((ok) => { rec.ok = ok; return ok; }); };
     });
-    /** The print frame's pages once laid out (it goes a second after it printed). */
+    /** The print frame's pages once laid out (it goes a second after it printed), with its `__orzPrintReady` set. */
     const printFramePages = async (): Promise<number> => {
       for (let i = 0; i < 150; i++) {
         for (const f of page.frames()) {
           if (f === page.mainFrame()) continue;
           const marked = await f.frameElement().then((e) => e.getAttribute('data-orz-print')).catch(() => null);
           if (marked === null) continue;
-          const n = await f.evaluate(() => (document.getElementById('orz-pages')?.textContent?.includes('resists pH change') ? document.querySelectorAll('.pagedjs_page').length : 0)).catch(() => 0);
+          // the print document's runtime announces its final layout (`__orzPrintReady`, what printDocument waits for)
+          const n = await f.evaluate(() => (document.getElementById('orz-pages')?.textContent?.includes('resists pH change') && typeof (window as unknown as { __orzPrintReady?: { then?: unknown } }).__orzPrintReady?.then === 'function' ? document.querySelectorAll('.pagedjs_page').length : 0)).catch(() => 0);
           if (n > 0) return n;
         }
         await page.waitForTimeout(100);

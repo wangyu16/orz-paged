@@ -9,12 +9,13 @@
  * marked: its continuation never broke, text was lost or repeated).
  */
 import { describe, it, expect, afterAll } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { assemble } from '../src/assemble.js';
-import { REPLAN_STEP } from '../src/paged/cols-flow.js';
+import { MOVE_WHOLE_MAX_EMPTY, REPLAN_STEP } from '../src/paged/cols-flow.js';
 import { bundle, launch, pagesIdle, routeCdn, serve, tempDir, type Browser, type BrowserContext } from './browser-env.js';
-import { integrity, prose, withLayout } from './integrity.js';
+import { integrity, MOVE_MAX_EMPTY, prose, withLayout } from './integrity.js';
 
 const FIX = 'tests/fixtures/columns';
 const DOCS = readdirSync(FIX).filter((f) => f.endsWith('.md')).sort().map((f) => f.slice(0, -3));
@@ -23,6 +24,8 @@ describe('[C.4] the column handler\'s round-2 rules (source)', () => {
   it('[C.4] a re-plan moves the cut by at least a line; an empty head of a block moved whole is never drawn and its continuation follows at once when it lands on a fresh page; an over-tall kept-whole block (an exam question) is split at a page top; three auto columns keep a smaller minimum', () => {
     const src = readFileSync('src/paged/cols-flow.ts', 'utf8');
     expect(REPLAN_STEP).toBeGreaterThanOrEqual(12);
+    expect(MOVE_WHOLE_MAX_EMPTY).toBe(MOVE_MAX_EMPTY); // the handler's threshold is the owner's third (the oracle's own copy)
+    expect(MOVE_MAX_EMPTY).toBe(1 / 3);
     expect(src).toContain('limit -= Math.max(Math.ceil(over) + 1, REPLAN_STEP);');
     expect(src).toMatch(/node\.hasAttribute\(MOVED\) && !node\.firstElementChild/);
     expect(src).toContain("rest.removeAttribute('data-break-before')");
@@ -44,12 +47,13 @@ afterAll(async () => { await browser?.close(); await site.close(); files.clean()
 const chrome = browser ? describe : describe.skip;
 
 /** Lay out each text in a read view (`pool` pages at a time) and return the oracle's problems per case. */
-async function check(cases: { name: string; text: string }[], pool = 3): Promise<{ results: Record<string, string[]>; errors: string[] }> {
+async function check(cases: { name: string; text: string }[], pool = 3): Promise<{ results: Record<string, string[]>; errors: string[]; stats: { tableMovedWhole: number; tablePulled: number; codeMoved: number } }> {
   const b = await bundle();
   const ctx: BrowserContext = await browser!.newContext({ viewport: { width: 1100, height: 1200 } });
-  await routeCdn(ctx, { highlight: true }); // highlight.js' token DOM (a stand-in, offline)
+  await routeCdn(ctx, { highlight: true }); // the real highlight.js (vendored, offline)
   const results: Record<string, string[]> = {};
   const errors: string[] = [];
+  const stats = { tableMovedWhole: 0, tablePulled: 0, codeMoved: 0 };
   const queue = [...cases];
   await Promise.all(Array.from({ length: pool }, async (_, w) => {
     const page = await ctx.newPage();
@@ -62,10 +66,14 @@ async function check(cases: { name: string; text: string }[], pool = 3): Promise
       await pagesIdle(page);
       const r = await integrity(page, c.text);
       results[c.name] = r.pages > 0 ? r.problems : ['no pages'];
+      const st = await page.evaluate(() => (globalThis as unknown as { __orzPaged: { stats(): { tables: { movedWhole: number; pulled: number }; code: { moved: number } } } }).__orzPaged.stats());
+      stats.tableMovedWhole += st.tables.movedWhole;
+      stats.tablePulled += st.tables.pulled;
+      stats.codeMoved += st.code.moved;
     }
   }));
   await ctx.close();
-  return { results, errors };
+  return { results, errors, stats };
 }
 
 const failures = (results: Record<string, string[]>): Record<string, string[]> => Object.fromEntries(Object.entries(results).filter(([, p]) => p.length).map(([k, p]) => [k, p.slice(0, 4)]));
@@ -87,6 +95,31 @@ chrome('the column integrity matrix (real Chrome)', () => {
     expect(errors).toEqual([]);
   }, 600_000);
 
+  it('[C.4] the hybrid\'s threshold at every height of a page (round 4): a short block (most of a page: it straddles the page bottom from every lead, split above a third left, moved below), a long block whose left column opens with a 25-row table, and a long block with headings through its columns, a long block whose left column opens with an image, after a lead one short paragraph longer each time, in two themes at A5 — a block moves whole by choice only when that leaves less than a third of the page empty (`MOVEGAP`), a column opening with a table keeps its header and rows when they fit (`TABLEMOVE`), a column\'s part never ends with a heading (`HEADLAST`), and the oracle\'s other checks hold', async () => {
+    const cols = (left: string, right: string): string => `::::: cols\n:::: col\n${left}\n::::\n:::: col\n${right}\n::::\n:::::`;
+    const tbl = (n: number, seed: number): string => `| H0 | H1 |\n|---|---|\n${Array.from({ length: n }, (_, i) => `| [tr${i}] ${prose(seed + i, 2)} | ${i} |`).join('\n')}`;
+    const heads = (seed: number): string => Array.from({ length: 9 }, (_, i) => `### [H${seed}x${i}] Part ${i}\n\n**[B${seed}x${i}]** ${prose(seed * 13 + i, 26)}`).join('\n\n');
+    const blocks: Array<[string, string]> = [
+      ['short', cols(`**[S1]** ${prose(61, 40)}\n\n**[S3]** ${prose(65, 25)}`, `**[S2]** ${prose(62, 62)}`)],
+      ['table', cols(`${tbl(25, 70)}\n\n**[T1]** ${prose(63, 30)}`, `**[T2]** ${prose(64, 200)}`)],
+      ['headings', cols(heads(1), heads(2))],
+      // a column opening with an image (it cannot split): moved whole only below the threshold, else that column goes on
+      ['image', cols(`<img src="fig.svg" style="width:100%;height:330px">\n\n**[I1]** ${prose(66, 80)}`, `**[I2]** ${prose(67, 230)}`)],
+    ];
+    const cases: { name: string; text: string }[] = [];
+    for (const theme of ['light-academic-1', 'beige-decent-2']) {
+      for (const [name, block] of blocks) {
+        for (let lead = 0; lead <= 24; lead += 2) {
+          cases.push({ name: `threshold-${name}-${theme}-lead${lead}`, text: `{{nyml\nkind: document\ntitle: Threshold\ntheme: ${theme}\npage_size: A5\n}}\n\n${Array.from({ length: lead }, (_, i) => `**[Q${i}]** ${prose(20 + i, 7)}`).join('\n\n')}\n\n${block}\n\n**[END]** ${prose(5, 12)}\n` });
+        }
+      }
+    }
+    const { results, errors } = await check(cases);
+    expect(Object.keys(results).length).toBe(cases.length);
+    expect(failures(results)).toEqual({});
+    expect(errors).toEqual([]);
+  }, 600_000);
+
   it('[C.5] a ratio block (`::: cols 1 2`, an inline style): three columns with custom widths at Letter in the default theme, and a length sweep of a long right column (0–40 steps of 9 words) at A5 and A4 — nothing lost or repeated', async () => {
     const S = 'The measured response follows the predicted curve closely across the full range of inputs. Small deviations appear near the boundary, where the approximation is known to weaken.';
     const W = S.split(' ');
@@ -103,19 +136,54 @@ chrome('the column integrity matrix (real Chrome)', () => {
     expect(errors).toEqual([]);
   }, 300_000);
 
-  it('[R.12] long highlighted code fences (240 and 300 lines, Python and unlabelled, highlight.js\' token DOM) and a page-tall plain fence, at A4 and A5 in three themes: every line on the pages, in order, with its whitespace (newlines, indentation), none clipped at a page bottom', async () => {
-    const code = (n: number, seed: number): string => Array.from({ length: n }, (_, i) => `def f${i}(x):  # [K${i}] ${prose(seed + i, 3)}\n    return x * ${i} + "s${i}"`).join('\n');
-    const cases: { name: string; text: string }[] = [];
-    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5'], ['beige-decent-2', 'A4']] as const) {
-      for (const [lang, n] of [['python', 300], ['', 240], ['text', 120]] as const) {
-        cases.push({ name: `code-${lang || 'auto'}-${n}-${theme}-${size}`, text: `{{nyml\nkind: document\ntitle: Code\ntheme: ${theme}\npage_size: ${size}\n}}\n\n**[P0]** ${prose(1, 30)}\n\n\`\`\`${lang}\n${code(n, n)}\n\`\`\`\n\n**[END]** ${prose(2, 12)}\n` });
+  it('[R.12] the real highlight.js is what the tests highlight with: the vendored build is cdnjs\' highlight.js at the version orz-markdown pins (SHA-512 = cdnjs\' SRI), and no stand-in is left', async () => {
+    const { PREVIEW_LIB_VERSIONS } = await import('orz-markdown/preview-frame');
+    expect(PREVIEW_LIB_VERSIONS.highlightjs).toBe('11.9.0');
+    const js = readFileSync('tests/fixtures/vendor/highlight.js-11.9.0/highlight.min.js');
+    expect(createHash('sha512').update(js).digest('base64')).toBe('D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==');
+    expect(js.toString('utf8', 0, 40)).toContain('Highlight.js v11.9.0');
+    expect(existsSync('tests/fixtures/hljs-stub.js')).toBe(false);
+    expect(readFileSync('tests/browser-env.ts', 'utf8')).not.toMatch(/stub/i);
+  });
+
+  it('[R.12] long code across pages with the REAL highlight.js (11.9.0) on real source files — argparse lines 1200–1500 (Python), 300 lines of this repo\'s cols-flow.ts (TypeScript), 300 lines of Paged.js\' layout.js (JavaScript, labelled and unlabelled) — and synthetic fences (300-line Python, 240 unlabelled, a page-tall plain fence) at A4, A5 and Letter in three themes: every line on the pages, in order, with its whitespace (the oracle\'s `CODE`), none clipped, and the rest of the document after each fence present (`TEXT`, `[AFTER]`, `[END]`); blank and indentation-only lines at every offset of a page bottom keep the fragment\'s box inside the area (`PREBOX`); and the same lookup outside code — a phrase repeated between inline math across page breaks — keeps every character once, in order', async () => {
+    const synthetic = (n: number, seed: number): string => Array.from({ length: n }, (_, i) => `def f${i}(x):  # [K${i}] ${prose(seed + i, 3)}\n    return x * ${i} + "s${i}"`).join('\n');
+    const lines = (text: string, from: number, n: number): string => text.split('\n').slice(from, from + n).join('\n');
+    const sources: Array<[string, string, string]> = [
+      ['argparse', 'python', readFileSync('tests/fixtures/code/argparse-3.12-1200-1500.py', 'utf8').replace(/\n$/, '')],
+      ['colsflow', 'typescript', lines(readFileSync('src/paged/cols-flow.ts', 'utf8'), 100, 300)],
+      ['layoutjs', 'javascript', lines(readFileSync('node_modules/pagedjs/src/chunker/layout.js', 'utf8'), 300, 300)],
+      ['layoutjs-auto', '', lines(readFileSync('node_modules/pagedjs/src/chunker/layout.js', 'utf8'), 300, 300)],
+      ['synthetic-python', 'python', synthetic(300, 300)],
+      ['synthetic-auto', '', synthetic(240, 240)],
+      ['plain', 'text', synthetic(120, 120)],
+    ];
+    // blank lines and indentation-only lines at every offset of a page bottom: a lead spacer 0–22 px high moves the
+    // code's lines through a whole line height in 2 px steps (a lead of whole lines would keep them aligned)
+    const blanks = Array.from({ length: 90 }, (_, i) => (i % 3 === 2 ? (i % 2 ? '' : '        ') : `    v${i} = step(v${i - 1}, "${prose(i, 2)}")`)).join('\n');
+    const sweep: { name: string; text: string }[] = [];
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5']] as const) {
+      for (let lead = 0; lead < 24; lead++) {
+        sweep.push({ name: `code-blank-lines-${theme}-${size}-lead${lead}`, text: `{{nyml\nkind: document\ntitle: Code\ntheme: ${theme}\npage_size: ${size}\n}}\n\n**[P0]** ${prose(10, 4)}\n\n<div class="orz-test-spacer" style="height: ${lead}px"></div>\n\n\`\`\`python\ndef run(v0):\n${blanks}\n\`\`\`\n\n**[END]** ${prose(5, 12)}\n` });
       }
+    }
+    const cases: { name: string; text: string }[] = [];
+    for (const [theme, size] of [['light-neat-1', 'A4'], ['light-academic-1', 'A5'], ['beige-decent-2', 'Letter']] as const) {
+      for (const [name, lang, code] of sources) {
+        cases.push({ name: `code-${name}-${theme}-${size}`, text: `{{nyml\nkind: document\ntitle: Code\ntheme: ${theme}\npage_size: ${size}\n}}\n\n**[P0]** ${prose(1, 30)}\n\n\`\`\`\`${lang}\n${code}\n\`\`\`\`\n\n## After the code\n\n**[AFTER]** ${prose(2, 60)}\n\n- **[L1]** ${prose(3, 12)}\n- **[L2]** ${prose(4, 12)}\n\n**[END]** ${prose(5, 12)}\n` });
+      }
+    }
+    cases.push(...sweep);
+    // the same lookup outside code: a phrase repeated between inline math (sibling text nodes alike) over page breaks
+    for (const [theme, size] of [['light-academic-1', 'A5'], ['light-neat-1', 'A4']] as const) {
+      const para = (k: number): string => `**[M${k}]** ${Array.from({ length: 45 }, () => 'Some explanatory text for this part with inline math $a_{i}+b$.').join(' ')}`;
+      cases.push({ name: `prose-repeated-between-math-${theme}-${size}`, text: `{{nyml\nkind: document\ntitle: Repeated\ntheme: ${theme}\npage_size: ${size}\n}}\n\n${para(1)}\n\n## [H] After the first\n\n${para(2)}\n\n${para(3)}\n\n**[END]** ${prose(5, 12)}\n` });
     }
     const { results, errors } = await check(cases);
     expect(Object.keys(results).length).toBe(cases.length);
     expect(failures(results)).toEqual({});
     expect(errors).toEqual([]);
-  }, 300_000);
+  }, 900_000);
 
   it('[C.6] tables in columns: a table taller than the rest of the page (or than a whole page) inside `.cols` — in the left or right column or opening it, short rows and tall ones, 6 to 110 rows, with and without a repeated header, in four themes and sizes — is split between rows within its column (its widths kept, its header repeated) or, when a row is taller than a column page, laid out as plain flow: the grid never broken by Paged.js, no row in the hidden column, every row once', async () => {
     const tbl = (n: number, seed: number, tall: number): string => `| H0 | H1 |\n|---|---|\n${Array.from({ length: n }, (_, i) => `| [r${i}] ${prose(seed + i, tall && i % tall === tall - 1 ? 25 : 2)} | ${i} |`).join('\n')}`;
@@ -150,10 +218,25 @@ chrome('the column integrity matrix (real Chrome)', () => {
           }
         }
       }
+      // a table's header at every height of a page bottom (a lead one short paragraph longer each time): the header
+      // never stays alone at the bottom (closed loop round 4: report-35 p19 — a heading, a paragraph, then the table)
+      for (let lead = 14; lead < 30; lead++) {
+        cases.push({ name: `table-head-at-bottom-${theme}-${size}-lead${lead}`, text: `{{nyml\nkind: document\ntitle: T\ntheme: ${theme}\npage_size: ${size}\n}}\n\n${Array.from({ length: lead }, (_, i) => `**[Q${i}]** ${prose(40 + i, 9)}`).join('\n\n')}\n\n### A heading\n\n**[QH]** ${prose(90, 30)}\n\n${tbl(12, 0, 7)}\n\n**[END]** ${prose(4, 20)}\n` });
+      }
     }
-    const { results, errors } = await check(cases);
+    // a table's first and second body rows at every offset of the page bottom (a lead spacer 0–31 px in 1 px steps): a
+    // row flush with the bottom goes on with the overflow — never the only body row (the header would stay alone)
+    for (let sp = 0; sp < 32; sp++) {
+      cases.push({ name: `table-row-flush-A5-${sp}`, text: `{{nyml\nkind: document\ntitle: T\ntheme: light-academic-1\npage_size: A5\n}}\n\n${Array.from({ length: 8 }, (_, i) => `**[F${i}]** ${prose(140 + i, 9)}`).join('\n\n')}\n\n<div class="orz-test-spacer" style="height: ${sp}px"></div>\n\n${tbl(8, 0, 9)}\n\n**[END]** ${prose(4, 20)}\n` });
+    }
+    // the 35-page report (its p19 stranded a header before round 4) at three widths of the window
+    cases.push({ name: 'report-35', text: readFileSync('tests/fixtures/report-35.paged.md', 'utf8') });
+    const { results, errors, stats } = await check(cases);
     expect(Object.keys(results).length).toBe(cases.length);
     expect(failures(results)).toEqual({});
     expect(errors).toEqual([]);
+    // the sweep reaches the round-4 rule: some fragments would have kept only the header and moved whole instead
+    expect(stats.tableMovedWhole).toBeGreaterThan(0);
+    expect(stats.tablePulled).toBeGreaterThan(0); // and a flush row pulled onward
   }, 900_000);
 });

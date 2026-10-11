@@ -34,12 +34,33 @@ export const PREVIEW_ACK_MS = 1000;
 export const PREVIEW_DEBOUNCE_MS = 800;
 
 /**
+ * How long the preview waits, after an edit abandoned its layout and no newer
+ * render came, with no further edit, before it lays the same text out again
+ * (closed loop round 4): an edit undone — a key typed and deleted — returns
+ * the editor to the text last rendered, the kit sends no render for it (the
+ * same text), and the preview stayed half old pages, half new ones,
+ * "updating…" for good. Longer than the kit's pause before a render plus a
+ * render, so a real newer text arrives first.
+ */
+export const PREVIEW_RETRY_MS = PREVIEW_DEBOUNCE_MS + 1700;
+
+/**
  * The attribute the pages' root carries while what it shows is not yet the
  * final layout of the latest text (the read view re-laying out, the editor
  * preview behind the editor's text): the view's CSS draws a quiet
  * "updating…" mark from it (closed loop round 2, M3/L3).
  */
 export const UPDATING_ATTRIBUTE = 'data-orz-updating';
+
+/**
+ * The attribute a pages root carries while a layout runs IN it (a first
+ * layout, laid out straight into view): its page zoom stays 100 % until the
+ * layout ends — a zoom applied meanwhile (the read view's page zoom, the
+ * editor preview's fit to its pane) changed the pagination of every page
+ * after the first (closed loop round 4: a 700 px window printed other pages
+ * than a wide one). Zoom and fit wait for the layout to end.
+ */
+export const LAYING_OUT_ATTRIBUTE = 'data-orz-laying-out';
 
 /** The "updating…" mark of a pages root, with `aria-busy` (assistive technology waits for the final pages). */
 export function markUpdating(el: Element, on: boolean): void {

@@ -27,7 +27,11 @@ describe('the handler (Node)', () => {
     expect(src).toContain('if (this.stats.split + this.stats.moved > MAX_CUTS) return;');
     expect(MAX_CUTS).toBe(2000);
     expect(src).toMatch(/if \(r\.rest && r\.nothingFit && atTop\)/);
-    expect(src).toMatch(/if \(!atTop && box\.height <= areaRect\.height - SAFETY && emptied < MOVE_WHOLE_MAX_EMPTY\)/); // a short block moves whole (leaving under a third of the page empty)
+    // a short block moves whole (leaving under a third of the page empty); round 4: so does a block whose column would
+    // keep nothing — only under the same threshold
+    expect(src).toContain('const mayMove = emptied < MOVE_WHOLE_MAX_EMPTY;');
+    expect(src).toMatch(/if \(!atTop && box\.height <= areaRect\.height - SAFETY && mayMove\)/);
+    expect(src).toMatch(/if \(!atTop && ri === 0 && mayMove\)/);
     expect(DOCS).toEqual(['a_long', 'b_unequal', 'c_short_bottom', 'd_three_custom', 'e_section', 'f_exam', 'g_edge', 'h_overtall', 'i_nested_tight', 'j_nested_loose', 'k_ordered', 'l_nested_tight_a4', 'm_table', 'n_table_first']); // m, n: tables in columns (round 3)
     // C.3: a list item that cannot keep anything here moves whole — its children go back (they were lost); a continued
     // ordered list keeps its numbering, a continued item does not repeat its marker, an ended column keeps only its track

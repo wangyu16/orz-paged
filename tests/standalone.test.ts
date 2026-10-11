@@ -221,12 +221,17 @@ chrome('the read view: Paged.js pages in the page (real Chrome)', () => {
 });
 
 chrome('the handle and its paged items (real Chrome)', () => {
-  it('[K.1] one control at rest (the pencil); its list: Edit, Print, Save, Download a copy, New document, Save as new copy, the settings (Version only while the document offers versions), New document from template…, Page zoom', async () => {
+  it('[K.1] one control at rest (the pencil); its list: Edit, Print, Save, Download a copy, New document, Save as new copy, the settings (Version only while the document offers versions), New document from template…, Page zoom — each with its icon', async () => {
     const ctx = await context();
     const exam = await openFile(ctx, 'handle-exam.paged.html', await assembleReal(TEMPLATE_TEXTS['exam-section']!));
     const shown = await exam.evaluate(`Array.from(${APP}.root.querySelectorAll('button, a')).filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute('aria-label'))`);
     expect(shown).toEqual(['Edit and more']);
     expect(await handleItems(exam)).toEqual(['Edit', 'Print', 'Save', 'Download a copy', 'New document', 'Save as new copy', 'Theme', 'Page size', 'Template', 'Page numbers', 'Number style', 'Version', 'New document from template…', 'Page zoom']);
+    // every item has its icon (round 4: Template, Page numbers, Number style, Version and Page zoom had none)
+    await exam.evaluate(`${APP}.menu.open()`);
+    const bare = await exam.evaluate(`Array.from(${APP}.root.querySelectorAll('[role=menuitem]')).filter((b) => !b.querySelector('svg path')).map((b) => b.getAttribute('aria-label') || b.textContent.trim())`);
+    await exam.evaluate(`${APP}.menu.close()`);
+    expect(bare).toEqual([]);
     const note = await openFile(ctx, 'handle-note.paged.html', await assembleReal(TEMPLATE_TEXTS['note']!));
     expect(await handleItems(note)).not.toContain('Version');
     // the version item follows the document: a header with choices brings it
@@ -307,13 +312,13 @@ chrome('the handle and its paged items (real Chrome)', () => {
     await ctx.close();
   });
 
-  it('[K.4] Version (a kit setting with choicesFor / apply / hidden) writes the header\'s dynamic_choices (one undoable edit) and the pages follow; "(not set)" removes the key', async () => {
+  it('[K.4] Version (a kit setting with choicesFor / apply / hidden) writes the header\'s dynamic_choices (one undoable edit) and the pages follow; "default" (the key not set) removes the key', async () => {
     const ctx = await context();
     const text = TEMPLATE_TEXTS['exam-section']!;
     const page = await openFile(ctx, 'version-pick.paged.html', await assembleReal(text));
     await chooseInHandle(page, 'Version');
     const items = await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-handle__sub .orz-handle__item')).map((b) => [(b.querySelector('.orz-handle__label') || b).textContent, b.getAttribute('aria-checked')])`);
-    expect(items).toEqual([['answer key: hide', 'true'], ['answer key: show', 'false'], ['answer key: (not set)', 'false']]);
+    expect(items).toEqual([['answer key: hide', 'true'], ['answer key: show', 'false'], ['answer key: default', 'false']]);
     await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-handle__sub .orz-handle__item')).find((b) => (b.querySelector('.orz-handle__label') || b).textContent === 'answer key: show').click()`);
     const shown = await page.evaluate(`${APP}.getText()`) as string;
     expect(shown).toBe(editHeader(text, { dynamic_choices: { multiline: 'answer-key: show' } }));

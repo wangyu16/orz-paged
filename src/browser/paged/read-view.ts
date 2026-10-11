@@ -35,7 +35,7 @@ import { applyZoom, type PageZoom } from './zoom.js';
 export const VIEW_CSS = `
 html { background: #e8e9ed; }
 body { margin: 0; }
-#orz-view { min-height: 100vh; }
+#orz-view { min-height: 100vh; overflow-anchor: none; }
 #orz-view[hidden] { display: none !important; }
 .orz-pages .pagedjs_pages { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 24px 0 72px; zoom: var(--orz-page-zoom, 1); }
 :where(.orz-pages) .pagedjs_page { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 6px 18px rgba(0,0,0,.10); }
@@ -219,8 +219,10 @@ export function createReadView(doc: Document): PagedReadView {
           isCurrent: () => mine === generation && !destroyed,
           // the one re-flow after late fonts or libraries (R.6): its pages are the final ones
           onReflow: (r) => { if (mine === generation && !destroyed) { last = r; reZoom(); settledMark(r); } },
-          onShown: () => { status.hidden = true; reZoom(); },
+          // (the zoom is applied when the layout ends: a layout always runs at 100 %, closed loop round 4)
+          onShown: () => { status.hidden = true; },
         });
+        reZoom(); // a first layout, done or abandoned, holds 100 % until here
         if (result.cancelled) return;
         status!.hidden = true;
         last = result;

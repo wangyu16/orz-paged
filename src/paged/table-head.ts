@@ -22,7 +22,10 @@
  * widths as they are measured (`table-layout: fixed`, the table's and the
  * first row's cells' widths), and pulls a kept row whose bottom is within
  * {@link FLUSH_PX} of the page bottom into the overflow (it would end below
- * it after any re-measure), never the fragment's only body row.
+ * it after any re-measure), never the fragment's only body row. A fragment
+ * that would hold the header and no body row moves whole to the next page
+ * (round 4: the first row's `break-before: avoid` alone left a header at a
+ * page bottom).
  *
  * The page CSS opts in with `--orz-repeat-thead: 1` on tables (set by
  * src/doc/page-css.ts when `repeat_table_header` is true; a table can opt out
@@ -54,18 +57,50 @@ function overflowRow(overflow: Range, rendered: Element): HTMLTableRowElement | 
   return row && rendered.contains(row) ? (row as HTMLTableRowElement) : null;
 }
 
-/** Freeze a laid-out table fragment's column widths (the removal of its overflow must not re-measure them). */
-function freeze(table: HTMLTableElement): void {
+/**
+ * Freeze a laid-out table fragment's column widths (the removal of its
+ * overflow must not re-measure them): its first row's cells keep their
+ * widths (`table-layout: fixed`), together at most the page area's width
+ * (`maxWidth`). Only the cells are frozen, never the table's width: a table
+ * running into Paged.js' off-page column measures as the union of its
+ * fragments (`getBoundingClientRect`, even `offsetWidth`: several pages wide),
+ * and frozen at that width it ran off the page wherever a theme let the
+ * width apply (closed loop round 4, F9). The first row lies in one column:
+ * its width is the table's.
+ */
+function freeze(table: HTMLTableElement, maxWidth: number): void {
   if (table.hasAttribute('data-orz-frozen-cols')) return;
   const first = table.rows[0];
   if (!first) return;
   const widths = Array.from(first.cells).map((c) => c.getBoundingClientRect().width);
-  const w = table.getBoundingClientRect().width;
+  const w = first.getBoundingClientRect().width;
   if (!w || widths.some((x) => !x)) return;
+  const k = maxWidth > 0 ? Math.min(1, maxWidth / w) : 1;
   table.setAttribute('data-orz-frozen-cols', '');
   table.style.tableLayout = 'fixed';
-  table.style.width = `${w}px`;
-  Array.from(first.cells).forEach((c, i) => { (c as HTMLElement).style.width = `${widths[i]}px`; });
+  Array.from(first.cells).forEach((c, i) => { (c as HTMLElement).style.width = `${(widths[i]! * k).toFixed(2)}px`; });
+}
+
+/** The body rows of a table fragment before the overflow starts (what the fragment keeps). */
+function keptBodyRows(table: HTMLTableElement, overflow: Range): number {
+  let n = 0;
+  for (const body of Array.from(table.tBodies)) {
+    for (const row of Array.from(body.rows)) {
+      // a row at or after the overflow's start is not kept
+      if (overflow.comparePoint(row, 0) >= 0) return n;
+      if ((row.textContent || '').trim() || row.querySelector('img, svg')) n++;
+    }
+  }
+  return n;
+}
+
+/** The table a Paged.js overflow range starts in (in `rendered`), or null. */
+function overflowTable(overflow: Range, rendered: Element): HTMLTableElement | null {
+  const c = overflow.startContainer;
+  const at = isEl(c) && c.childNodes[overflow.startOffset] ? c.childNodes[overflow.startOffset]! : c;
+  const el = isEl(at) ? at : at.parentElement;
+  const t = el?.closest('table') ?? (isEl(c) ? c.closest('table') : null);
+  return t && rendered.contains(t) ? (t as HTMLTableElement) : null;
 }
 
 export class TableHeadHandler extends Handler {
@@ -81,17 +116,43 @@ export class TableHeadHandler extends Handler {
   /** Rows pulled onto the next page (tests read it). */
   static pulled = 0;
 
+  /** Tables moved whole to the next page because their fragment would have held only the header (tests read it). */
+  static movedWhole = 0;
+
   onOverflow(overflow: Range | undefined, rendered: Element, bounds: DOMRect): Range | undefined {
     if (!overflow) return undefined;
+    // a fragment that would keep the table's header and no body row (a header stranded at the page bottom — the
+    // first row's `break-before: avoid` did not hold it, report-35 p19; closed loop round 4): the whole table goes on
+    // to the next page, unless it already starts at the top of this one (it can go nowhere better)
+    const whole = overflowTable(overflow, rendered);
+    if (whole && !whole.hasAttribute('data-split-from') && Array.from(whole.children).some((c) => c.tagName === 'THEAD' && (c.textContent || '').trim())
+      && keptBodyRows(whole, overflow) === 0 && (whole.rows[0]?.getBoundingClientRect().top ?? bounds.top) > bounds.top + 2 && overflow.comparePoint(whole, 0) < 0) {
+      const r = document.createRange();
+      r.setStartBefore(whole);
+      r.setEnd(overflow.endContainer, overflow.endOffset);
+      TableHeadHandler.movedWhole++;
+      return r;
+    }
     const row = overflowRow(overflow, rendered);
     const table = row?.closest('table') as HTMLTableElement | null | undefined;
     if (!row || !table) return undefined;
-    freeze(table);
+    freeze(table, bounds.width);
     // a kept row flush with the page bottom goes on with the overflow (not the fragment's only body row)
     const prev = row.previousElementSibling as HTMLElement | null;
     if (!prev || prev.tagName !== 'TR' || row.parentElement?.tagName !== 'TBODY') return undefined;
-    if (!prev.previousElementSibling) return undefined; // the only body row before it stays
     if (prev.getBoundingClientRect().bottom <= bounds.bottom - FLUSH_PX) return undefined;
+    if (!prev.previousElementSibling) {
+      // the fragment's only body row is flush with the bottom: never pulled alone (its header would stay behind), and
+      // kept it ran into the hidden column (round 4, a 1 px sweep) — the whole table goes on to the next page instead,
+      // unless it starts at the top of this one
+      const t = table as HTMLTableElement;
+      if (t.hasAttribute('data-split-from') || (t.rows[0]?.getBoundingClientRect().top ?? bounds.top) <= bounds.top + 2) return undefined;
+      const whole = document.createRange();
+      whole.setStartBefore(t);
+      whole.setEnd(overflow.endContainer, overflow.endOffset);
+      TableHeadHandler.movedWhole++;
+      return whole;
+    }
     const r = document.createRange();
     r.setStartBefore(prev);
     r.setEnd(overflow.endContainer, overflow.endOffset);

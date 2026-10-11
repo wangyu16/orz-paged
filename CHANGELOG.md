@@ -231,6 +231,44 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
 - `front_matter: yes` (and the other yes-words) stays a synonym of `clean`
   (owner), documented.
 
+#### Closed loop, round 4 (fixes before the release)
+
+- **Long code with the real highlight.js printed wrong** (UPSTREAM Paged.js
+  0.4.3 finds a break's text node by its content): the text between tokens
+  repeats on every line, so a long fence repeated or skipped lines, Paged.js
+  stopped ("Layout repeated") and the rest of the document was lost. Every
+  text node of code now has its own element, the 4000-character step cap is
+  gone, a blank line at a page bottom is measured like any line, and prose
+  with a phrase repeated between inline elements gets the same treatment.
+  Tested with the real highlight.js 11.9.0 (vendored; the stand-in is
+  retired) on real sources (R.12).
+- **Page zoom changed the pagination**: the zoom (and the editor preview's
+  fit) was applied while the first layout ran, so a narrow window laid out —
+  and printed — other pages. A layout now always runs at 100 %; the zoom
+  follows when it ends (R.16).
+- **Late fonts**: a font server that answers after the page gave up on it now
+  re-lays out the pages once, and Print prints that layout (R.17); Paged.js'
+  own unbounded wait for every declared font (UPSTREAM `loadFonts`: a font
+  file that never arrived kept the page blank for good) is bounded, a face it
+  gave up on making the layout provisional with one re-flow (R.6, R.13).
+- **The preview**: an edit undone while it re-laid out (a key typed and
+  deleted) no longer leaves it half old, half new, "updating…" for good
+  (E.8); the incremental re-layout is not used on a ruled grid
+  (light-playful-1) and is tested against whole layouts — layout key, restart
+  point, dirty pages, columns and tables, provisional layouts (E.7); the
+  scroll position holds across interim swaps (`overflow-anchor: none`, E.6).
+- **Tables**: a header that would stay alone at a page bottom — or with only
+  a bottom-flush first row that ran into Paged.js' hidden column — moves the
+  table to the next page (report-35 p19); frozen column widths are the cells' only,
+  clamped to the page (P.11).
+- **Two columns**: the third-of-a-page threshold holds for every move; a
+  column opening with a table keeps it when its header and first row fit; a
+  heading never ends a column's part on a page (C.4).
+- **Chrome**: icons for Template, Page numbers, Number style, Version and Page
+  zoom; Version's "(not set)" reads "default" (K.1, K.4).
+- Bundles orz-markdown 2.3.0's preview bridge that closes the `window.event`
+  port theft; the real paged preview is tested against it (E.9).
+
 ## [0.7.3] — 2026-07-17
 
 ### Changed

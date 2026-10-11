@@ -11,11 +11,30 @@
  * stay in the header text.
  */
 import type { SettingChoice, SettingControl } from 'orz-markdown/carrier/app';
+import type { KindIcon } from 'orz-markdown/carrier/shell';
 import { resolveSettings } from '../../doc/settings.js';
 import { canonicalTemplate, templateList } from '../../doc/templates.js';
 import { presentationOf } from '../../presentation.js';
 import { themeChoices } from './themes.js';
 import { versionChange, versionChoices, versionsHiddenAsker } from './versions.js';
+
+/**
+ * The paged settings' own icons (`KindIcon`: path data on the 24×24 grid; the
+ * kit has no icon for these): every item of the handle's list has one
+ * (round 4).
+ */
+export const PAGED_ICONS = Object.freeze({
+  /** Template: a page laid out in blocks. */
+  template: { paths: ['M5 3h14v18H5z', 'M5 9h14', 'M11 9v12'] },
+  /** Page numbers: a page with its number at the foot. */
+  pageNumbers: { paths: ['M6 3h12v18H6z', 'M10.5 17h3'] },
+  /** Number style: the number sign. */
+  numberStyle: { paths: ['M10 4L8 20', 'M16 4l-2 16', 'M5 9h15', 'M4 15h15'] },
+  /** Version: two versions of a page. */
+  version: { paths: ['M9 3h10v14H9z', 'M5 7v14h10'] },
+  /** Page zoom: a magnifier with a plus. */
+  pageZoom: { paths: ['M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z', 'M15.5 15.5L20 20', 'M8 10.5h5', 'M10.5 8v5'] },
+} satisfies Record<string, KindIcon>);
 
 /** The page sizes offered (the header also takes a custom CSS size, which no choice checks). */
 export const PAGE_SIZES: ReadonlyArray<{ value: string; label: string }> = Object.freeze([
@@ -49,12 +68,17 @@ export const PAGE_NUMBER_STYLES: ReadonlyArray<{ value: string; label: string }>
   { value: 'parentheses', label: '(1)' },
 ]);
 
-/** A Version choice's value: the choice key and its value (null: "(not set)", the key removed). */
+/** The Version choice that removes a key (no choice made: the document as written). */
+export const VERSION_DEFAULT_LABEL = 'default';
+
+/** A Version choice's value: the choice key and its value (null: "default", the key removed). */
 const versionValue = (key: string, value: string | null): string => JSON.stringify([key, value]);
 
 /**
  * Version (REBUILD §3b guide 6): one choice per value of each dynamic choice
- * key the document defines ("answer key: show", …, "answer key: (not set)"),
+ * key the document defines ("answer key: show", …, "answer key: default" —
+ * the key not set: the document as written, no choice made; round 4,
+ * "(not set)" read oddly),
  * a separator between keys, the header's values checked; choosing one writes
  * `dynamic_choices` (one undoable header edit). Hidden while the document
  * defines none.
@@ -62,13 +86,14 @@ const versionValue = (key: string, value: string | null): string => JSON.stringi
 export const VERSION_SETTING: SettingControl = {
   key: 'dynamic_choices',
   label: 'Version',
+  icon: PAGED_ICONS.version,
   choices: [],
   current: () => '',
   choicesFor(text: string): SettingChoice[] {
     const out: SettingChoice[] = [];
     versionChoices(text).forEach((c, i) => {
       [...c.values, null].forEach((v, j) => {
-        out.push({ value: versionValue(c.key, v), label: `${c.label}: ${v ?? '(not set)'}`, checked: c.current === v, ...(i > 0 && j === 0 ? { separator: true } : {}) });
+        out.push({ value: versionValue(c.key, v), label: `${c.label}: ${v ?? VERSION_DEFAULT_LABEL}`, checked: c.current === v, ...(i > 0 && j === 0 ? { separator: true } : {}) });
       });
     });
     return out;
@@ -100,18 +125,21 @@ export const PAGED_SETTINGS: readonly SettingControl[] = Object.freeze([
   {
     key: 'template',
     label: 'Template',
+    icon: PAGED_ICONS.template,
     choices: templateList().map((t) => ({ value: t.id, label: t.label })),
     current: (text: string) => canonicalTemplate(String(resolveSettings(text).template ?? '')) ?? '',
   },
   {
     key: 'page_number_position',
     label: 'Page numbers',
+    icon: PAGED_ICONS.pageNumbers,
     choices: PAGE_NUMBER_POSITIONS,
     current: (text: string) => resolveSettings(text).pageNumberPosition,
   },
   {
     key: 'page_number_style',
     label: 'Number style',
+    icon: PAGED_ICONS.numberStyle,
     choices: PAGE_NUMBER_STYLES,
     current: (text: string) => resolveSettings(text).pageNumberStyle,
   },

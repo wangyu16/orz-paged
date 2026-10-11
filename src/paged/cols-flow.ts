@@ -49,6 +49,11 @@
  * The move threshold ({@link MOVE_WHOLE_MAX_EMPTY}, owner decision round 3):
  * a short block moves whole only when that leaves less than a third of the
  * page empty; a short block that starts higher up is split at the page bottom.
+ * Round 4: the threshold holds for every move by choice — also a block moved
+ * because one column would keep nothing on this page (above a third, that
+ * column keeps nothing here and the others split); a table in that column
+ * keeps something when its header and first body row fit; and a heading
+ * never ends a column's part on a page (it goes on with what it heads).
  *
  * Limits (documented, owner-accepted): a lone long column stays narrow; only
  * paragraphs, list items, blockquotes and plain divs split, and tables
@@ -74,7 +79,7 @@ const SAFETY = 2;
  */
 export const MOVE_WHOLE_MAX_EMPTY = 1 / 3;
 
-/** On the (undrawn) head of a short block the hybrid moved whole to the next page. */
+/** On the (undrawn) head of a block the hybrid moved whole to the next page by choice: `""` a short block, `"column"` one whose column would have kept nothing. */
 export const MOVED_SHORT = 'data-cols-moved-short';
 
 /** The runaway guard: splits plus moves per pagination. */
@@ -340,6 +345,17 @@ function splitChildren(m: HTMLElement, s: HTMLElement, limit: number): { rest: H
   const r = rectOf(n)!;
   let partial: HTMLElement | null = null;
   if (isEl(n) && r.top < limit) partial = splitBlock(n, sk[i] as HTMLElement, limit);
+  if (!partial) {
+    // a heading never ends a column's part on a page: it goes on with what it heads (closed loop round 4)
+    let j = i - 1;
+    for (; j >= 0; j--) {
+      const k = mk[j];
+      if (!rectOf(k)) continue; // whitespace, nothing drawn
+      if (isEl(k) && /^H[1-6]$/.test(k.tagName)) { i = j; continue; }
+      break;
+    }
+    keptContent = mk.slice(0, i).some((k) => !!rectOf(k));
+  }
   const rest = s.cloneNode(false) as HTMLElement;
   reRefSelf(rest);
   rest.style.marginTop = '0';
@@ -386,14 +402,14 @@ function fill(clone: HTMLElement, from: HTMLElement): void {
 }
 
 /** A split planned on a copy of the source (`trial`): its outcome and, for a cut, the continuation. */
-type Plan = { outcome: 'fits' | 'fallback' | 'linear' } | { outcome: 'split' | 'moved'; rest: HTMLElement };
+type Plan = { outcome: 'fits' | 'fallback' | 'linear' } | { outcome: 'split' | 'moved'; rest: HTMLElement; byChoice?: boolean };
 
 /**
  * Plan the cut of one block against `limit` on `trial` (a deep copy of the
  * source; `clone` holds the measured copies of the source's children, same
  * indices). Only `trial` is changed.
  */
-function plan(clone: HTMLElement, trial: HTMLElement, limit: number, atTop: boolean): Plan {
+function plan(clone: HTMLElement, trial: HTMLElement, limit: number, atTop: boolean, mayMove: boolean): Plan {
   const mCells = Array.from(clone.children) as HTMLElement[];
   const sCells = Array.from(trial.children) as HTMLElement[];
   // group the cells into grid rows by their top edge
@@ -420,13 +436,20 @@ function plan(clone: HTMLElement, trial: HTMLElement, limit: number, atTop: bool
   const restCells: HTMLElement[] = [];
   if (mCells[row[0]].getBoundingClientRect().top < limit) {
     // when one column could keep nothing while another keeps content, the row would read out of
-    // order (Q20 above Q10): move it whole
-    if (!atTop && ri === 0) {
+    // order (Q20 above Q10): move it whole — only when that leaves less than a third of the page empty (the
+    // hybrid's threshold applies to every move, closed loop round 4); else the column keeps nothing here
+    if (!atTop && ri === 0 && mayMove) {
       const keepsNothing = (c: HTMLElement): boolean => {
-        const f = Array.from(c.children).find((k) => rectOf(k));
-        return !!f && f.getBoundingClientRect().bottom > limit && (unbreakable(f as HTMLElement) || f.getBoundingClientRect().top + 2 * parseFloat(getComputedStyle(f).lineHeight || '20') > limit);
+        const f = Array.from(c.children).find((k) => rectOf(k)) as HTMLElement | undefined;
+        if (!f || f.getBoundingClientRect().bottom <= limit) return false;
+        // a table splits between rows (round 3): it keeps nothing only when its header and first body row do not fit
+        if (f.tagName === 'TABLE') {
+          const body = (f as HTMLTableElement).tBodies[0]?.rows[0];
+          return !body || body.getBoundingClientRect().bottom > limit;
+        }
+        return unbreakable(f) || f.getBoundingClientRect().top + 2 * parseFloat(getComputedStyle(f).lineHeight || '20') > limit;
       };
-      if (row.some((i) => keepsNothing(mCells[i]))) return { outcome: 'moved', rest: moveAllOf(trial) };
+      if (row.some((i) => keepsNothing(mCells[i]))) return { outcome: 'moved', rest: moveAllOf(trial), byChoice: true };
     }
     for (const i of row) {
       const r = splitChildren(mCells[i], sCells[i], limit);
@@ -537,7 +560,8 @@ export function splitColsAt(clone: HTMLElement, src: HTMLElement, area: HTMLElem
   // the hybrid: a block that fits on a fresh page moves there whole — when that leaves less than a third of this page
   // empty (MOVE_WHOLE_MAX_EMPTY); else it is split here
   const emptied = (areaRect.bottom - box.top) / areaRect.height;
-  if (!atTop && box.height <= areaRect.height - SAFETY && emptied < MOVE_WHOLE_MAX_EMPTY) {
+  const mayMove = emptied < MOVE_WHOLE_MAX_EMPTY;
+  if (!atTop && box.height <= areaRect.height - SAFETY && mayMove) {
     cleanup();
     finishRest(clone, src, moveAllOf(src));
     clone.style.display = 'none';
@@ -549,7 +573,7 @@ export function splitColsAt(clone: HTMLElement, src: HTMLElement, area: HTMLElem
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     if (attempt > 0) fill(clone, src);
     const trial = src.cloneNode(true) as HTMLElement;
-    const p = plan(clone, trial, limit, atTop);
+    const p = plan(clone, trial, limit, atTop, mayMove);
     chosen = { trial, plan: p };
     if (p.outcome !== 'split') break;
     // check the head as it will be laid out: every cell must end above the page bottom
@@ -572,7 +596,12 @@ export function splitColsAt(clone: HTMLElement, src: HTMLElement, area: HTMLElem
   const cut = p as Extract<Plan, { rest: HTMLElement }>;
   src.replaceChildren(...Array.from(chosen!.trial.childNodes));
   finishRest(clone, src, cut.rest);
-  if (cut.outcome === 'moved') clone.style.display = 'none';
+  if (cut.outcome === 'moved') {
+    clone.style.display = 'none';
+    // a move by choice (a column that would keep nothing) is held to the threshold too: the oracle checks the space
+    // it left (MOVEGAP); a move forced because no column keeps anything is not a choice
+    if (cut.byChoice) clone.setAttribute(MOVED_SHORT, 'column');
+  }
   return cut.outcome;
 }
 

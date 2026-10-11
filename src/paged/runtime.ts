@@ -38,22 +38,25 @@
  *      the stage in step 2, so it is laid out with the pages), copy-as-Markdown
  *      on the pages.
  */
-import { Handler, Polisher, Previewer, registerHandlers } from 'pagedjs';
+import { Chunker, Handler, Polisher, Previewer, registerHandlers } from 'pagedjs';
 import { enhanceDocument } from 'orz-markdown/preview-frame';
 import { applyDynamicChoices, collectDynamicChoices } from '../doc/dynamic.js';
 import { BaselineGridHandler, type GridStats } from './baseline-grid.js';
 import { ColsFlowHandler, type ColsStats } from './cols-flow.js';
 import { INPUT_ATTRIBUTE, type PagedInput } from './input.js';
 import { TableHeadHandler } from './table-head.js';
-import { CodeBreakHandler, keepCodeWhitespace } from './code-break.js';
-import { FINAL_WAIT_MS, FIRST_WAIT_MS, LATE_WAIT_MS, markUpdating, PREVIEW_ACK_MS, UPDATING_ATTRIBUTE } from './constants.js';
+import { CodeBreakHandler, disambiguateTextNodes, keepCodeWhitespace } from './code-break.js';
+import { FINAL_WAIT_MS, FIRST_WAIT_MS, LAYING_OUT_ATTRIBUTE, LATE_WAIT_MS, markUpdating, PREVIEW_ACK_MS, PREVIEW_RETRY_MS, UPDATING_ATTRIBUTE } from './constants.js';
 
 export { FINAL_WAIT_MS, FIRST_WAIT_MS, LATE_WAIT_MS, PREVIEW_ACK_MS, UPDATING_ATTRIBUTE };
 
 export interface PaginateOptions {
   /** False once the caller no longer wants this pagination (a newer one superseded it). */
   isCurrent?(): boolean;
-  /** Scale the pages to the target's width (the editor preview), never above 100 %. */
+  /**
+   * Scale the pages to the target's width (the editor preview), never above
+   * 100 % — once the layout has ended: a layout always runs at 100 %.
+   */
   fit?: boolean;
   /**
    * Called with the result of the one re-flow that follows a layout made
@@ -113,8 +116,8 @@ export interface PagedRuntime {
   busy(): boolean;
   /** The running pagination's progress: pages laid out so far, of about how many (the shown layout's count; 0: unknown), or null. */
   progress(): { laid: number; of: number } | null;
-  /** Counts since the runtime started: paginations run, abandoned (superseded mid-way), with a styled stage (`measured`); what the session gave up waiting for (`hung`: `sheet:<href>`, `fonts:…`, `enhance:<libraries>`). */
-  stats(): { paginations: number; abandoned: number; measured: number; hung: string[]; incremental: number; last: Record<string, number> };
+  /** Counts since the runtime started: paginations run, abandoned (superseded mid-way), with a styled stage (`measured`); what the session gave up waiting for (`hung`: `sheet:<href>`, `fonts:…`, `enhance:<libraries>`); table rows pulled onto the next page and tables moved whole (a header that would have stayed alone), code breaks moved to a line start. */
+  stats(): { paginations: number; abandoned: number; measured: number; hung: string[]; incremental: number; last: Record<string, number>; tables: { pulled: number; movedWhole: number }; code: { moved: number } };
 }
 
 declare const __ORZ_PAGED_RUNTIME_VERSION__: string;
@@ -174,13 +177,59 @@ function ensureLinks(urls: readonly string[]): HTMLLinkElement[] {
  */
 const hung = new Set<string>();
 
+/**
+ * What given up on arrives after all (closed loop round 4): a hung stylesheet
+ * loads (its link's late `load`), hung webfonts finish loading
+ * (`document.fonts` `loadingdone`) or hung libraries arrive — the layouts
+ * shown were made without them and are final (no re-flow was announced), so
+ * Print would print them. Each shown target is laid out ONCE more, a whole
+ * layout, a moment after the last such arrival; `idle()` waits for it.
+ */
+let lateTimer: ReturnType<typeof setTimeout> | undefined;
+let lateDone: (() => void) | null = null;
+function lateArrived(): void {
+  if (!lateDone) {
+    const pending = new Promise<void>((r) => { lateDone = r; });
+    reflows.add(pending);
+    void pending.then(() => reflows.delete(pending));
+  }
+  clearTimeout(lateTimer);
+  lateTimer = setTimeout(() => {
+    const done = lateDone!;
+    lateDone = null;
+    const jobs: Promise<unknown>[] = [];
+    for (const [target, job] of [...shownJobs]) {
+      if (!target.isConnected) { shownJobs.delete(target); continue; }
+      jobs.push(paginate(job.input, target, { ...job.options, incremental: false, progressive: false, onShown: undefined })
+        .then((r) => { if (!r.cancelled) job.options.onReflow?.(r); })
+        .catch(() => undefined));
+    }
+    void Promise.all(jobs).then(done, done);
+  }, LATE_SETTLE_MS);
+}
+/** The wait after a late arrival before the re-flow (more fonts of the same sheet arrive together). */
+const LATE_SETTLE_MS = 300;
+
 /** Mark failed stylesheet links (once per link): an errored link never fires again, a later wait on it would hang. */
 function watchLink(l: HTMLLinkElement): void {
   if ((l as unknown as { __orzWatched?: boolean }).__orzWatched) return;
   (l as unknown as { __orzWatched?: boolean }).__orzWatched = true;
   const href = l.getAttribute('href') || '';
   l.addEventListener('error', () => { hung.add(`sheet:${href}`); });
-  l.addEventListener('load', () => { hung.delete(`sheet:${href}`); });
+  // a stylesheet given up on that loads after all: no longer hung, and the shown layouts follow it
+  l.addEventListener('load', () => { if (hung.delete(`sheet:${href}`)) lateArrived(); });
+}
+
+/** Hung webfonts that finish loading after all: the shown layouts follow them (once every font has loaded, the key goes). */
+function watchFonts(): void {
+  const fonts = document.fonts as (FontFaceSet & EventTarget) | undefined;
+  if (!fonts || typeof fonts.addEventListener !== 'function') return;
+  fonts.addEventListener('loadingdone', () => {
+    const keys = [...hung].filter((k) => k.startsWith('fonts:'));
+    if (!keys.length) return;
+    if (fonts.status === 'loaded') for (const k of keys) hung.delete(k);
+    lateArrived();
+  });
 }
 
 /** The stylesheet links still loading that this session has not given up on. */
@@ -292,8 +341,13 @@ function renumber(root: HTMLElement, on: boolean): void {
   body.forEach((p, i) => p.style.setProperty('--orz-pageno', `"${i + 1}"`));
 }
 
-/** Scale the pages to `root`'s width (`--orz-page-zoom`), never above 1 (the page's unscaled width: drawn width over the scale). */
+/**
+ * Scale the pages to `root`'s width (`--orz-page-zoom`), never above 1 (the
+ * page's unscaled width: drawn width over the scale) — not while a layout
+ * runs in `root` ({@link LAYING_OUT_ATTRIBUTE}: the layout fits it when it ends).
+ */
 function fitTo(root: HTMLElement): void {
+  if (root.hasAttribute(LAYING_OUT_ATTRIBUTE)) return;
   const p = root.querySelector<HTMLElement>('.pagedjs_page');
   const now = Number(root.style.getPropertyValue('--orz-page-zoom')) || 1;
   const w = p ? p.getBoundingClientRect().width / now : 0;
@@ -394,6 +448,12 @@ interface ShownLayout {
   dirtyFrom: number;
   /** Laid out before fonts or libraries arrived: the next layout is a whole one. */
   provisional: boolean;
+  /**
+   * Laid out on a theme's baseline grid (light-playful-1's ruling): the next
+   * layout is a whole one — an incremental restart placed the blocks off the
+   * whole layout's grid positions (closed loop round 4).
+   */
+  grid: boolean;
 }
 let shown: ShownLayout | null = null;
 
@@ -498,7 +558,8 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     const needs = `enhance:${needsOf(stage)}`;
     const fontsHung = hung.has(`fonts:${fontsKey}`);
     let enhancedDone = false;
-    const enhancing = Promise.resolve().then(() => enhanceDocument(root, { scheme: 'light', static: true, runtime: true, ...(NONCE ? { nonce: NONCE } : {}) })).catch(() => undefined).then(() => { enhancedDone = true; hung.delete(needs); });
+    // (libraries given up on that arrive after all: the shown layouts follow them, round 4)
+    const enhancing = Promise.resolve().then(() => enhanceDocument(root, { scheme: 'light', static: true, runtime: true, ...(NONCE ? { nonce: NONCE } : {}) })).catch(() => undefined).then(() => { enhancedDone = true; if (hung.delete(needs)) lateArrived(); });
     const enhanced = hung.has(needs) ? Promise.resolve() : enhancing;
     const decoded = Promise.all(Array.from(stage.querySelectorAll('img')).map((i) => i.decode().catch(() => undefined)));
     const sheets = stylesheetsSettled(LATE_WAIT_MS);
@@ -536,6 +597,11 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     //    changed: the pages before it are kept and the new ones replace the rest as each is laid out
     const direct = !target.querySelector('.pagedjs_page');
     if (!direct) document.body.appendChild(out);
+    else {
+      // laid out in view: at 100 % until it ends (a zoom or fit meanwhile changed the pagination; closed loop round 4)
+      target.setAttribute(LAYING_OUT_ATTRIBUTE, '');
+      target.style.setProperty('--orz-page-zoom', '1');
+    }
     // a theme switch: the shown pages' styles (the old theme's rules and custom properties — its `--orz-grid` made the
     // new theme's text snap to the old ruling) would shape this layout too; they are switched off while it runs (the
     // shown pages take the new theme's styles meanwhile) and on again when it is cancelled (closed loop round 2, R.10)
@@ -547,7 +613,8 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     // the content for Paged.js: every element given its `data-ref` here (Paged.js' own, a random UUID per element,
     // took a third of a second on a long document), then the stage and its measuring styles leave the document
     // before the layout — so they are not laid out or restyled again with every page
-    keepCodeWhitespace(stage); // after the highlighting (UPSTREAM Paged.js: whitespace between tokens skipped)
+    keepCodeWhitespace(stage); // after the highlighting (UPSTREAM Paged.js: whitespace between tokens skipped, text nodes found by content)
+    disambiguateTextNodes(stage); // the same lookup by content outside code: repeated text between inline elements
     const blockRoot = (stage.querySelector('.orz-doc') as HTMLElement | null) ?? stage;
     const blocks = Array.from(blockRoot.children).map((e) => e.outerHTML);
     const prefix = `o${++paginations}-`;
@@ -559,7 +626,7 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     // the incremental plan: the last shown page that starts before the first changed block
     let from = 0;
     let startAt: PageStart | null = null;
-    if (o.incremental && !o.final && !direct && shown && !shown.provisional && shown.target === target && shown.key === layoutKey && shown.token && pagesIn(target).length === shown.starts.length) {
+    if (o.incremental && !o.final && !direct && shown && !shown.provisional && !shown.grid && shown.target === target && shown.key === layoutKey && shown.token && pagesIn(target).length === shown.starts.length) {
       let k = 0;
       while (k < blocks.length && k < shown.blocks.length && blocks[k] === shown.blocks[k]) k++;
       for (let i = Math.min(shown.starts.length, shown.dirtyFrom + 1) - 1; i >= 1; i--) {
@@ -604,7 +671,7 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
         if (running) running.laid = index + 1;
         if (direct) {
           // the first layout shows as it goes: the page is already in the target
-          if (index === 0) { if (o.fit) fitTo(target); showFirst(); }
+          if (index === 0) showFirst(); // (fit to the pane only when the layout ends: never while it runs)
           ownerOf.set(el, mine);
           return;
         }
@@ -616,11 +683,12 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
         copy.setAttribute('data-orz-interim', '');
         ownerOf.set(copy, mine);
         live.add(mine);
+        // (the pages' CSS has `overflow-anchor: none`: the browser never moves the view for the swap either; round 4)
         const se = document.scrollingElement || document.documentElement;
         const top = se.scrollTop;
         if (shownPages[index]) shownPages[index]!.replaceWith(copy);
         else shownPages[shownPages.length - 1]?.after(copy);
-        se.scrollTop = top;
+        if (se.scrollTop !== top) se.scrollTop = top;
         if (shown && shown.target === target) shown.dirtyFrom = Math.min(shown.dirtyFrom, index);
         interim++;
         if (interim === 1) mark('first');
@@ -631,6 +699,8 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     // page instead of laying out every page and swapping them in (closed loop round 2, E.5)
     let flow: Awaited<ReturnType<Previewer['preview']>>;
     abandonIf = () => !isCurrent();
+    pagedFontsLate = null;
+    pagedFontCap = o.final ? LATE_WAIT_MS : FIRST_WAIT_MS;
     try {
       flow = await previewer.preview(content, input.sheets.map((x) => ({ [x.name]: x.css })), direct ? target : out);
     } catch (e) {
@@ -646,6 +716,13 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
       flowHooks = null;
       running = null;
     }
+    // faces the layout used that had not loaded within Paged.js' bounded wait (headings, the ruling: page-only fonts
+    // the stage never requested): the layout is provisional, ONE re-flow follows them (R.6, closed loop round 4)
+    if (pagedFontsLate && late === null && !o.final) {
+      const fontsLate = pagedFontsLate;
+      late = within(fontsLate, LATE_WAIT_MS).then(() => { if (document.fonts?.status === 'loading') hung.add(`fonts:${fontsKey}`); });
+    }
+    pagedFontsLate = null;
     const cols = ColsFlowHandler.last ? { ...(ColsFlowHandler.last as ColsFlowHandler).stats } : empty;
     const gridStats = BaselineGridHandler.last ? { ...(BaselineGridHandler.last as BaselineGridHandler).stats, grid: Math.max(0, (BaselineGridHandler.last as BaselineGridHandler).stats.grid) } : noGrid;
     const chunker = (flow as unknown as PagedChunker);
@@ -708,6 +785,7 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
       token: (anyToken ? (anyToken.constructor as ShownLayout['token']) : null) ?? token,
       dirtyFrom: Infinity,
       provisional: late !== null,
+      grid: gridStats.grid > 0,
     };
 
     // 6. front matter, TOC, copy-as-Markdown, fit
@@ -723,6 +801,10 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     return { result: { cancelled: false, pages: total, cols, grid: gridStats, choices, ms: performance.now() - t0, provisional: late !== null, ...(incremental ? { from: from + 1 } : {}) }, late };
   } finally {
     for (const x of others) if (live.has(x)) styles(x, true); // cancelled or failed: the shown pages keep their styles
+    if (target.hasAttribute(LAYING_OUT_ATTRIBUTE)) {
+      target.removeAttribute(LAYING_OUT_ATTRIBUTE);
+      if (o.fit) fitTo(target); // the editor preview: fit now (a first layout, done or abandoned)
+    }
     previewer?.polisher.destroy();
     stage.remove();
     out.remove();
@@ -732,6 +814,8 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
 
 /** The latest request per target: a re-flow runs only while no newer request was made for its target. */
 const latest = new WeakMap<HTMLElement, number>();
+/** The input and options of the layout each target shows (a late font, stylesheet or library re-flows it: {@link lateArrived}). */
+const shownJobs = new Map<HTMLElement, { input: PagedInput; options: PaginateOptions }>();
 let requests = 0;
 /** Re-flows announced but not yet done (idle() waits for them: Print prints the final layout). */
 const reflows = new Set<Promise<unknown>>();
@@ -757,6 +841,7 @@ function paginate(input: PagedInput, target: HTMLElement, options: PaginateOptio
   latest.set(target, mine);
   const wanted = (): boolean => latest.get(target) === mine && (options.isCurrent ? options.isCurrent() : true);
   return enqueue(() => paginateNow(input, target, options)).then(({ result, late }) => {
+    if (!result.cancelled) shownJobs.set(target, { input, options });
     if (late && !result.cancelled) {
       const reflow = late.then(() => (wanted() ? enqueue(() => paginateNow(input, target, { ...options, isCurrent: wanted, final: true })) : null))
         .then((r) => { if (r && !r.result.cancelled) options.onReflow?.(r.result); })
@@ -812,7 +897,12 @@ async function applyPreview(html: string): Promise<PaginateResult | null> {
   const doc = document.getElementById('orz-doc');
   const input = decodePreviewHtml(String(html));
   if (!doc || !doc.hasAttribute('data-orz-paged-preview') || !input) return null;
-  const mine = ++previewSeq;
+  layOutPreview(doc, input, ++previewSeq);
+  return null;
+}
+
+/** One layout of the preview's render `mine` (see {@link applyPreview}). */
+function layOutPreview(doc: HTMLElement, input: PagedInput, mine: number): void {
   const seen = edits;
   markUpdating(doc, true);
   const wanted = (): boolean => mine === previewSeq && edits === seen;
@@ -821,15 +911,25 @@ async function applyPreview(html: string): Promise<PaginateResult | null> {
     if (!r.cancelled) { try { W.__orzPreview?.report?.(); } catch { /* the bridge's own error */ } }
     return r;
   };
+  // an edit abandoned it and no newer render follows (an edit undone): the same text again, once the typing pauses
+  const retry = (): void => {
+    let quiet = edits;
+    const check = (): void => {
+      if (mine !== previewSeq || !doc.isConnected) return; // a newer render lays out
+      if (edits !== quiet) { quiet = edits; setTimeout(check, PREVIEW_RETRY_MS); return; }
+      layOutPreview(doc, input, mine);
+    };
+    setTimeout(check, PREVIEW_RETRY_MS);
+  };
   // the edited page first: the layout starts at the first page the edit changed (the pages before it are kept) and
   // each new page replaces the shown one as it is laid out. The render is acknowledged at once — the layout runs on
   // and a newer render abandons it at its next page — so the kit paces renders by the renderer alone (its pause:
   // the debounce, or twice the text's render), not by the frame's layout: one key to the edited page in about a
   // second on a 35-page report (7.7–9.1 s before; closed loop round 3)
-  void paginate(input, doc, { fit: true, incremental: true, progressive: true, isCurrent: wanted, onReflow: (r) => { settle(r); } }).then(settle).catch((e) => { try { console.error("orz-paged: the preview could not be laid out", e); } catch { /* no console */ } });
-  return null;
+  void paginate(input, doc, { fit: true, incremental: true, progressive: true, isCurrent: wanted, onReflow: (r) => { settle(r); } })
+    .then((r) => { settle(r); if (r.cancelled && mine === previewSeq) retry(); })
+    .catch((e) => { try { console.error("orz-paged: the preview could not be laid out", e); } catch { /* no console */ } });
 }
-
 
 /** A print document's layout (see {@link PagedRuntime.layOutPayload}). */
 async function layOutPayload(html: string, target: HTMLElement): Promise<void> {
@@ -878,9 +978,41 @@ function stampPagedStyles(): void {
   proto.insert = stamped(proto.insert);
 }
 
+/**
+ * UPSTREAM Paged.js 0.4.3: `Chunker.flow` awaits `loadFonts()`, which loads
+ * EVERY font face of the document not yet loaded and waits for all of them,
+ * unbounded — a font server that answers the stylesheet but never a font
+ * file kept the page blank for good (closed loop round 4; the round-3 tests
+ * held the stylesheet itself, so no face was declared). The wait stays (the
+ * faces a theme uses only on the pages — headings, the ruled paper — load
+ * here, before the layout measures them) but is bounded: at most
+ * `FIRST_WAIT_MS` (a layout whose faces were still loading then is
+ * provisional: its ONE re-flow waits up to `LATE_WAIT_MS` for them), and none
+ * once the session found webfonts that never arrive (`hung`); what arrives
+ * later still re-flows the pages (R.6, R.17).
+ */
+function boundPagedFontWait(): void {
+  const proto = Chunker.prototype as unknown as { loadFonts(): Promise<unknown> };
+  const load = proto.loadFonts;
+  proto.loadFonts = function (this: unknown): Promise<unknown> {
+    const waiting = load.call(this);
+    if ([...hung].some((k) => k.startsWith('fonts:'))) return Promise.resolve();
+    let done = false;
+    void waiting.then(() => { done = true; }, () => { done = true; });
+    // faces still loading after the cap: this layout is provisional, its re-flow follows them (paginateNow)
+    return within(waiting, pagedFontCap).then(() => { pagedFontsLate = done ? null : waiting; });
+  };
+}
+/** Paged.js' font wait in the running pagination: `FIRST_WAIT_MS`, or `LATE_WAIT_MS` for a final pass (the re-flow lays out with the fonts). */
+let pagedFontCap = FIRST_WAIT_MS;
+/** Font faces Paged.js' bounded wait gave up on in the running pagination (null: none). */
+let pagedFontsLate: Promise<unknown> | null = null;
+
 if (!W.__orzPaged) {
   registerHandlers(AbandonHandler, BaselineGridHandler, ColsFlowHandler, TableHeadHandler, CodeBreakHandler); // the grid before the columns: a block is placed before the column handler measures it
   stampPagedStyles();
+  boundPagedFontWait();
+  watchFonts();
   const api: PagedRuntime = Object.freeze({
     version: typeof __ORZ_PAGED_RUNTIME_VERSION__ === 'string' ? __ORZ_PAGED_RUNTIME_VERSION__ : '',
     paginate,
@@ -889,7 +1021,7 @@ if (!W.__orzPaged) {
     idle,
     busy: () => waiting > 0 || reflows.size > 0,
     progress: () => (running ? { ...running } : null),
-    stats: () => ({ paginations, abandoned, measured: measuredStages, incremental: incrementals, last: { ...lastTimes }, hung: [...hung].map((k) => k.split('\n')[0]!.slice(0, 120)) }),
+    stats: () => ({ paginations, abandoned, measured: measuredStages, incremental: incrementals, last: { ...lastTimes }, hung: [...hung].map((k) => k.split('\n')[0]!.slice(0, 120)), tables: { pulled: TableHeadHandler.pulled, movedWhole: TableHeadHandler.movedWhole }, code: { moved: CodeBreakHandler.moved } }),
   });
   W.__orzPaged = api;
   // the preview frame's page hook (FC-19 §8.4): the bridge acknowledges the render when it settles

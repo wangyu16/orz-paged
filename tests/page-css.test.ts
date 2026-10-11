@@ -182,6 +182,12 @@ describe('[T.2] buildPageCss — layout behavior', () => {
     expect(css).not.toContain('--orz-repeat-thead');
     expect(css).not.toContain('max-height: 100%');
   });
+
+  it('[P.11] a table\'s first body row never leaves its header alone at a page bottom (`tbody > tr:first-child { break-before: avoid }`, with or without the repeated header and row breaks)', () => {
+    for (const over of [{}, { repeatTableHeader: false, avoidTableRowBreaks: false }]) {
+      expect(buildPageCss(makeSettings(over))).toContain('tbody > tr:first-child { break-before: avoid; }');
+    }
+  });
 });
 
 describe('[T.2] buildPageCss — first-page suppression', () => {

@@ -131,10 +131,13 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   light-playful-1 opts in; its ruling is the page box's `::before`, never a
   positioned `.pagedjs_area`), `table-head.ts` (a split table's `thead`
   repeated on each continuation page, as Paged.js lays it out:
-  `repeat_table_header`; it also freezes a split table's column widths and
-  pulls a bottom-flush row onward — UPSTREAM row loss, P.11),
-  `code-break.ts` (code across pages: whitespace between highlight tokens
-  kept, a line never cut through at the page bottom — R.12), `constants.ts` (the waits, the "updating…"
+  `repeat_table_header`; it also freezes a split table's cells' widths and
+  pulls a bottom-flush row onward — UPSTREAM row loss — and moves a table
+  whose fragment would hold only its header, P.11),
+  `code-break.ts` (code across pages: every text node of code in its own
+  element — Paged.js finds a break's text node by content — and repeated
+  sibling text in prose too, a line never cut through at the page bottom —
+  R.12), `constants.ts` (the waits, the "updating…"
   attribute: readable without a DOM), `input.ts`. The TOC is built on the
   stage before the layout; only its numbers are set after (R.8). The column
   integrity oracle is `tests/integrity.ts`; the full matrix
@@ -188,7 +191,12 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   anything run per pause (a setting's `hidden`, `current`) is a cheap text
   test, never a render (K.6); the runtime waits at most `FIRST_WAIT_MS` (2 s)
   for fonts and libraries, then lays out and re-flows once when they arrive
-  (R.6); what never arrived is remembered for the session (R.13).
+  (R.6); what never arrived is remembered for the session (R.13), and when
+  it arrives after all the shown pages re-flow once (R.17); Paged.js' own
+  font wait (`Chunker.loadFonts`, unbounded upstream) is bounded, and faces it
+  gave up on make the layout provisional (one re-flow). **A layout
+  always runs at 100 %** (round 4, R.16): page zoom and the preview's fit
+  apply only when it ends (`data-orz-laying-out`).
 - **Paged.js is pinned at 0.4.3**: the two-column handler, the baseline grid
   and the nonce stamping hook into its internals; a bump needs the column
   regression (C.1) and the ruled-paper check (P.9) green.

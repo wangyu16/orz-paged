@@ -18,6 +18,10 @@ declare module 'pagedjs' {
       renderTo: HTMLElement,
     ): Promise<{ total: number; pages: unknown[]; performance: number }>;
   }
+  export class Chunker {
+    /** Loads every font face of the document not yet loaded and waits for all of them (awaited by `flow`). */
+    loadFonts(): Promise<unknown>;
+  }
   export class Handler {
     constructor(chunker: unknown, polisher: unknown, caller: unknown);
   }

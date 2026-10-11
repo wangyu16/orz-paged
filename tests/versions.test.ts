@@ -40,7 +40,7 @@ describe('the Version setting', () => {
     const t1 = performance.now();
     const choices = VERSION_SETTING.choicesFor!(big + '\n');
     const perChoices = performance.now() - t1;
-    expect(choices.map((c) => c.label)).toEqual(['answer key: hide', 'answer key: show', 'answer key: (not set)']);
+    expect(choices.map((c) => c.label)).toEqual(['answer key: hide', 'answer key: show', 'answer key: default']);
     // eslint-disable-next-line no-console
     console.log(`[K.6] hidden ${perHidden.toFixed(3)} ms, choicesFor ${perChoices.toFixed(1)} ms on a ${big.length}-character exam`);
     expect(perHidden).toBeLessThan(2);
@@ -58,7 +58,7 @@ describe('the Version setting', () => {
     rememberRendered(text, a.bodyHtml);
     expect(versionsHidden(text)).toBe(false);
     expect(versionChoices(text).map((c) => [c.key, c.values, c.current])).toEqual([['answer_key', ['show'], null]]);
-    expect(VERSION_SETTING.choicesFor!(text).map((c) => c.label)).toEqual(['answer key: show', 'answer key: (not set)']);
+    expect(VERSION_SETTING.choicesFor!(text).map((c) => c.label)).toEqual(['answer key: show', 'answer key: default']);
     // an include without versions: Version hides once rendered
     const plain = text.replace('With an include', 'Plain include');
     rememberRendered(plain, (await renderDocumentAsync(plain, { includes: { 'parts/answers.md': 'No versions here.\n' } })).bodyHtml);
@@ -81,7 +81,7 @@ describe('the Version setting after a render', () => {
     // the include now carries versioned content; the read view renders the same text again
     rememberRendered(text, (await renderDocumentAsync(text, { includes: { 'parts/changing.md': '<div data-show-when="answer-key=show">The answers.</div>\n' } })).bodyHtml);
     expect(hiddenFor(VERSION_SETTING, text)).toBe(false);
-    expect(VERSION_SETTING.choicesFor!(text).map((c) => c.label)).toEqual(['answer key: show', 'answer key: (not set)']);
+    expect(VERSION_SETTING.choicesFor!(text).map((c) => c.label)).toEqual(['answer key: show', 'answer key: default']);
     expect(VERSION_SETTING.hidden).not.toBe(before);
     // the same render again: nothing changed, the function (and so the kit's memo) is kept
     const now = VERSION_SETTING.hidden;
@@ -92,7 +92,7 @@ describe('the Version setting after a render', () => {
     expect(hiddenFor(VERSION_SETTING, text)).toBe(true);
   });
 
-  it('[K.9] a version edit keeps the key as the header spells it (case, dashes) and the other lines; a new key is added in dashed form; (not set) removes it, and the map goes when empty', () => {
+  it('[K.9] a version edit keeps the key as the header spells it (case, dashes) and the other lines; a new key is added in dashed form; "default" removes it, and the map goes when empty', () => {
     const text = '{{nyml\nkind: document\ndynamic_choices: |\n  Answer-Key: hide\n  audience: student\n}}\n\nx\n';
     expect(versionChange(text, 'answer_key', 'show')).toEqual({ dynamic_choices: { multiline: 'Answer-Key: show\naudience: student' } });
     expect(versionChange(text, 'Audience', 'teacher')).toEqual({ dynamic_choices: { multiline: 'Answer-Key: hide\naudience: teacher' } });
@@ -111,6 +111,6 @@ describe('the Version setting after a render', () => {
     const q = '{{nyml\nkind: document\ntitle: One question\n}}\n\n{{nyml\nkind: question-open\nn: 1\nbody: Why?\nanswer: Because.\n}}\n';
     expect(mayOfferVersions(q)).toBe(true);
     expect(versionsHidden(q)).toBe(false);
-    expect(VERSION_SETTING.choicesFor!(q).map((c) => c.label)).toEqual(['answer key: show', 'answer key: (not set)']);
+    expect(VERSION_SETTING.choicesFor!(q).map((c) => c.label)).toEqual(['answer key: show', 'answer key: default']);
   });
 });

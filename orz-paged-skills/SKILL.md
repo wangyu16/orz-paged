@@ -400,7 +400,11 @@ your own keys (`audience: student`) and tag HTML in the body
 - `:::: cols` / `::: col` … `:::` / `::::` lays text side by side. Across a
   page break a short block moves whole to the next page only when that leaves
   less than about a third of the page empty; otherwise (and for a long block)
-  it splits column by column (column 1 continues in column 1). **Limits:** a
+  it splits column by column (column 1 continues in column 1). The third holds
+  for every move (a column that would keep nothing continues on the next page
+  while the others split); a column opening with a table keeps it when its
+  header and first row fit; a heading never ends a column's part on a page.
+  **Limits:** a
   lone long column stays narrow; only paragraphs, list items, blockquotes,
   plain blocks and tables (between rows, header repeated) split — images,
   figures, code, math, headings, boxed asides move whole; a block no cut can
@@ -416,7 +420,9 @@ your own keys (`audience: student`) and tag HTML in the body
   PDF* in the dialog); Cmd/Ctrl+P while editing leaves the editor first. The
   CLI makes no PDF. On a slow network the pages show after about 2 s with
   fallback fonts and are laid out again when the fonts arrive; Print waits for
-  that.
+  that — also when a font server the page gave up on answers later.
+- Long code fences print whole across pages (every line, in order, none cut
+  at a page bottom), highlighted or not.
 - Print-first content: math, code, tables, Mermaid, `{{smiles}}`, `{{chart}}`,
   `{{qr}}`, images, callouts (`::: info` / `success` / `warning` / `danger`),
   footnotes all print. Tabs, `::: spoil` and video are discouraged (they hide
@@ -518,7 +524,8 @@ The pages in the page, and ONE control: a pencil at the bottom-left (click:
 Edit; hover or tap: Edit, Print, Save, Download a copy, New document, Save as
 new copy, Theme, Page size, Template, Page numbers, Number style, Version, New
 document from template…, Page zoom). Settings write the header (undoable,
-unsaved until Save); *Page zoom* is the reader's and never saved. **Edit**
+unsaved until Save); *Page zoom* is the reader's and never saved, and never
+changes the pages (they are laid out at 100 %, then scaled). **Edit**
 (Cmd/Ctrl+E): editor + live page preview. **Save** (Cmd/Ctrl+S) writes
 `assemble(text)` in place in Chromium, downloads elsewhere; a save over a file
 changed on disk asks first. A quiet, once-a-day update offer on local files.

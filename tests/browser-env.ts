@@ -24,6 +24,7 @@ export type Browser = import('playwright-core').Browser;
 export type BrowserContext = import('playwright-core').BrowserContext;
 export type Page = import('playwright-core').Page;
 export type Route = import('playwright-core').Route;
+export type Frame = import('playwright-core').Frame;
 
 const builds = new Map<string, Promise<BrowserBuild>>();
 /** The browser bundle of this package (or of another version), built once per test file. */
@@ -89,7 +90,12 @@ export interface RouteOptions {
   latest?: { release: string; bundle: string; version: string } | null;
   /** Count requests here. */
   log?: string[];
-  /** Serve a highlight.js stand-in (tests/fixtures/hljs-stub.js: hljs' API and token DOM) at highlight.js' pinned URL, and an empty highlight.js stylesheet. */
+  /**
+   * Serve the REAL highlight.js at its pinned URL (11.9.0, orz-markdown's `PREVIEW_LIB_VERSIONS`: the cdnjs build
+   * and its GitHub stylesheet, vendored byte for byte in tests/fixtures/vendor/highlight.js-11.9.0 — SHA-512 as
+   * cdnjs' SRI). Closed loop round 4: a stand-in with a simpler token DOM hid a fault the real one shows (repeated
+   * text nodes between tokens), so no stand-in is served.
+   */
   highlight?: boolean;
 }
 
@@ -125,8 +131,10 @@ export async function routeCdn(ctx: BrowserContext, o: RouteOptions = {}): Promi
         if (existsSync(file)) return ok(readFileSync(file), TYPES[extname(file)] ?? 'application/octet-stream');
       }
     }
-    if (o.highlight && /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/highlight\.js\//.test(url)) {
-      return /\.js$/.test(url) ? ok(readFileSync(join(process.cwd(), 'tests/fixtures/hljs-stub.js')), 'text/javascript; charset=utf-8') : ok('/* highlight.js stylesheet (test) */', 'text/css; charset=utf-8');
+    const hl = /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/highlight\.js\/11\.9\.0\/(highlight\.min\.js|styles\/github\.min\.css)$/.exec(url);
+    if (o.highlight && hl) {
+      const file = join(process.cwd(), 'tests/fixtures/vendor/highlight.js-11.9.0', hl[1]!.replace('styles/', ''));
+      return ok(readFileSync(file), hl[1]!.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8');
     }
     // webfont stylesheets of other hosts (Google Fonts): empty too
     if (/^https:\/\/fonts\.googleapis\.com\//.test(url)) return ok('/* webfont stylesheet (test) */', 'text/css; charset=utf-8');

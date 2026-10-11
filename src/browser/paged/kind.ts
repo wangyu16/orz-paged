@@ -14,7 +14,7 @@ import { DEFAULT_TEMPLATE, newDocument } from '../../assemble.js';
 import { assemble, extract, formats, kind, mountEditor, readDocument, renderPreview, version } from '../carrier.js';
 import { PAGED_ACTIONS } from './actions.js';
 import { createReadView, type PagedReadView } from './read-view.js';
-import { PAGED_SETTINGS } from './settings.js';
+import { PAGED_ICONS, PAGED_SETTINGS } from './settings.js';
 import { PAGE_ZOOMS, isPageZoom } from './zoom.js';
 
 export const PAGED_KIND: StandaloneKind = {
@@ -34,6 +34,7 @@ export const PAGED_KIND: StandaloneKind = {
     choices: [{
       key: 'pageZoom',
       label: 'Page zoom',
+      icon: PAGED_ICONS.pageZoom,
       choices: PAGE_ZOOMS,
       default: 'auto',
       apply: (view: CarrierReadView, id: string) => { if (isPageZoom(id)) (view as unknown as PagedReadView).setZoom(id); },

@@ -19,6 +19,7 @@ import { readFileSync } from 'node:fs';
 import { FIRST_WAIT_MS, LATE_WAIT_MS } from '../src/paged/constants.js';
 import { assembleReal, bootDone, launch, PICKER_INIT, pagesIdle, routeCdn, serve, tempDir, type Browser, type BrowserContext, type Page, type Route } from './browser-env.js';
 import { TEMPLATE_TEXTS } from './helpers.js';
+import { prose } from './integrity.js';
 
 const browser: Browser | null = await launch();
 const files = tempDir('orz-paged-relayout-');
@@ -38,6 +39,12 @@ async function heldFonts(): Promise<{ ctx: BrowserContext; release(): void }> {
   const released = new Promise<void>((r) => { release = r; });
   await ctx.route(/^https:\/\/fonts\.googleapis\.com\//, async (route: Route) => { await released; await route.fallback().catch(() => undefined); });
   return { ctx, release };
+}
+
+/** A Google Fonts stylesheet for `url`'s families (`family=Name:…`), every face from `src`. */
+function fontFaces(url: string, src: string): string {
+  const families = [...new URL(url).searchParams.getAll('family')].map((f) => f.split(':')[0]!.replace(/\+/g, ' '));
+  return families.map((f) => `@font-face { font-family: '${f}'; font-style: normal; font-weight: 100 900; src: url(${src}) format('woff2'); }\n@font-face { font-family: '${f}'; font-style: italic; font-weight: 100 900; src: url(${src}) format('woff2'); }`).join('\n');
 }
 
 /** Record each print: the read view's state at that moment. */
@@ -223,6 +230,84 @@ chrome('re-layouts and print (real Chrome)', () => {
     expect((await printed(page)).every((p) => !p.provisional && !p.busy)).toBe(true);
     await ctx.close();
   }, 120_000);
+
+  it('[R.13] webfont FILES that never arrive (the font stylesheet answers, its sources hang) and a content library that never arrives (highlight.js held) cost their wait once per session too: after the first layout gave up on them, a setting is final at once (no provisional layout, no re-flow, no second wait)', async () => {
+    const ctx = await browser!.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx.addInitScript(PICKER_INIT);
+    await routeCdn(ctx);
+    await ctx.route(/^https:\/\/fonts\.googleapis\.com\//, (route: Route) => route.fulfill({ status: 200, headers: { 'content-type': 'text/css', 'access-control-allow-origin': '*' }, body: fontFaces(route.request().url(), 'https://fonts.gstatic.com/hang.woff2') }));
+    await ctx.route(/^https:\/\/fonts\.gstatic\.com\//, () => { /* never answers */ });
+    await ctx.route(/^https:\/\/cdnjs\.cloudflare\.com\//, () => { /* never answers */ });
+    const page = await ctx.newPage();
+    const text = `${TEMPLATE_TEXTS['report-section']!}\n\n\`\`\`python\ndef held(x):\n    return x\n\`\`\`\n`;
+    await page.goto(`file://${files.write('hang-files.paged.html', await assembleReal(text))}`, { waitUntil: 'commit' });
+    await bootDone(page);
+    await pagesIdle(page);
+    const hung = await page.evaluate(() => (window as unknown as { __orzPaged: { stats(): { hung: string[] } } }).__orzPaged.stats().hung);
+    expect(hung.some((h) => h.startsWith('fonts:'))).toBe(true);
+    expect(hung.some((h) => h.startsWith('enhance:') && h.includes('pre code'))).toBe(true);
+    const runs = (): Promise<number> => page.evaluate(() => (window as unknown as { __orzPaged: { stats(): { paginations: number } } }).__orzPaged.stats().paginations);
+    const before = await runs();
+    const t0 = Date.now();
+    await page.evaluate(`${APP}.setSetting({ page_number_style: 'brackets' })`);
+    await page.waitForFunction((n) => (window as unknown as { __orzPaged: { stats(): { paginations: number }; busy(): boolean } }).__orzPaged.stats().paginations > n && !(window as unknown as { __orzPaged: { busy(): boolean } }).__orzPaged.busy(), before, { timeout: 30_000, polling: 20 });
+    await pagesIdle(page);
+    const wait = Date.now() - t0;
+    // eslint-disable-next-line no-console
+    console.log(`[R.13] font files and highlight.js hanging: the setting was final in ${wait} ms`);
+    expect(wait).toBeLessThan(FIRST_WAIT_MS + 3000);
+    expect(await page.evaluate(`${APP}.view.lastResult().provisional`)).toBe(false);
+    expect(await runs()).toBe(before + 1); // no re-flow after it
+    await ctx.close();
+  }, 120_000);
+
+  it('[R.17] a font server that answers only after the session gave up on it (a wide replacement font): the shown pages are laid out once more when the stylesheet and its fonts arrive — they equal a file opened with the fonts at hand — and Print prints that layout', async () => {
+    const font = readFileSync('node_modules/katex/dist/fonts/KaTeX_Typewriter-Regular.woff2');
+    const route = async (ctx: BrowserContext, held: Promise<void> | null): Promise<void> => {
+      await ctx.route(/^https:\/\/fonts\.googleapis\.com\//, async (r: Route) => { if (held) await held; await r.fulfill({ status: 200, headers: { 'content-type': 'text/css', 'access-control-allow-origin': '*' }, body: fontFaces(r.request().url(), 'https://fonts.gstatic.com/wide.woff2') }).catch(() => undefined); });
+      await ctx.route(/^https:\/\/fonts\.gstatic\.com\//, (r: Route) => r.fulfill({ status: 200, headers: { 'content-type': 'font/woff2', 'access-control-allow-origin': '*' }, body: font }));
+    };
+    // long enough that the wide font moves the page breaks
+    const text = `${TEMPLATE_TEXTS['report-section']!}\n\n${Array.from({ length: 8 }, (_, i) => `**[W${i}]** ${prose(70 + i, 120)}`).join('\n\n')}\n`;
+    const pageTexts = (page: Page): Promise<string[]> => page.evaluate(() => Array.from(document.querySelectorAll('#orz-pages > .pagedjs_pages > .pagedjs_page')).map((p) => (p.querySelector('.pagedjs_page_content')?.textContent || '').replace(/\s+/g, ' ').trim()));
+    // the reference: the fonts at hand from the start
+    const refCtx = await browser!.newContext({ viewport: { width: 1280, height: 900 } });
+    await refCtx.addInitScript(PICKER_INIT);
+    await routeCdn(refCtx);
+    await route(refCtx, null);
+    const refPage = await refCtx.newPage();
+    await refPage.goto(`file://${files.write('late-ref.paged.html', await assembleReal(text))}`);
+    await bootDone(refPage);
+    await pagesIdle(refPage);
+    const ref = await pageTexts(refPage);
+    await refCtx.close();
+    // the session: the font stylesheet held past FIRST_WAIT_MS + LATE_WAIT_MS (given up on: final pages with fallback fonts)
+    const ctx = await browser!.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx.addInitScript(PICKER_INIT);
+    await routeCdn(ctx);
+    let release!: () => void;
+    const released = new Promise<void>((r) => { release = r; });
+    await route(ctx, released);
+    const page = await ctx.newPage();
+    await page.goto(`file://${files.write('late.paged.html', await assembleReal(text))}`, { waitUntil: 'commit' });
+    await bootDone(page);
+    await pagesIdle(page);
+    expect(await page.evaluate(() => (window as unknown as { __orzPaged: { stats(): { hung: string[] } } }).__orzPaged.stats().hung.some((h) => h.startsWith('sheet:https://fonts.googleapis.com')))).toBe(true);
+    const fallback = await pageTexts(page);
+    expect(fallback).not.toEqual(ref); // the wide font changes the pagination: the scenario is real
+    const runs = await page.evaluate(() => (window as unknown as { __orzPaged: { stats(): { paginations: number } } }).__orzPaged.stats().paginations);
+    release();
+    await page.waitForFunction((n) => (window as unknown as { __orzPaged: { stats(): { paginations: number } } }).__orzPaged.stats().paginations > n, runs, { timeout: 15_000, polling: 50 });
+    await recordPrints(page);
+    await page.keyboard.press(`${MOD}+p`);
+    await page.waitForFunction(() => (window as unknown as { __printed: unknown[] }).__printed.length === 1, null, { timeout: 30_000 });
+    expect(await pageTexts(page)).toEqual(ref);
+    const prints = await printed(page);
+    expect(prints.length).toBe(1);
+    expect(prints[0]!.busy).toBe(false);
+    expect(prints[0]!.provisional).toBe(false);
+    await ctx.close();
+  }, 150_000);
 
   it('[R.15] one print at a time: Print pressed three times while the pages are laid out opens ONE dialog (the further presses only say so again), with a quiet, announced "Preparing pages… (n of N)" line while it waits (never printed)', async () => {
     const ctx = await browser!.newContext({ viewport: { width: 1280, height: 900 } });
