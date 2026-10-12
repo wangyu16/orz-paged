@@ -71,6 +71,9 @@ describe('print themes as files', () => {
     ['fixed/sticky', /position\s*:\s*(fixed|sticky)/],
     ['viewport unit', /\d(vw|vh|vmin|vmax)\b/],
     ['QR overlay', /\.qrcode-overlay/],
+    // light-playful-1's screen notebook (orz-markdown >= 2.3.0, inside @media screen): its ruling is the
+    // article's background; on paper the page box draws the ruling (the layer), so it must never come through
+    ['the source\'s screen ruling', /background-origin\s*:[^;]*content-box|--orz-rule\s*:/],
   ];
 
   it('[P.2] no print theme (nor base.css) carries a screen-only construct', () => {

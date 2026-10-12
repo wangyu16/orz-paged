@@ -248,28 +248,6 @@
   padding-bottom: var(--rule);
 }
 
-.markdown-body > p::before,
-.markdown-body > ul:not(.toc-list)::before,
-.markdown-body > ol::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  inset: 0 calc(-1 * var(--pad-r)) 0 calc(-1 * var(--pad-l));
-  background: linear-gradient(to bottom,
-      transparent calc(var(--rule) - var(--rule-drop) - 1px),
-      var(--rule-ink) calc(var(--rule) - var(--rule-drop) - 1px),
-      var(--rule-ink) calc(var(--rule) - var(--rule-drop)),
-      transparent calc(var(--rule) - var(--rule-drop)))
-    0 0 / 100% var(--rule) repeat-y;
-  pointer-events: none;
-}
-
-.markdown-body > p:has(> img:only-child)::before,
-.markdown-body > p.katex-block::before,
-.markdown-body > p:has(.katex-display)::before {
-  display: none;
-}
-
 .markdown-body > p :is(code),
 .markdown-body > p :is(kbd),
 .markdown-body > p :is(samp),

@@ -122,6 +122,11 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
   and grows sheets to the next rule; a title block or TOC on its own page
   starts at the top of the ruled page. P.9 checks it per line, per sheet edge
   and by pixels.
+- The source theme (orz-markdown 2.3.0) is now the same notebook on screen
+  (orz-mdhtml, the editor's preview): its old per-paragraph ruling is gone
+  from the derived theme, and its screen ruling and grid live in
+  `@media screen`, which the derivation drops — print is unchanged (P.9),
+  and P.2 now refuses the screen ruling in any derived theme.
 - Element fields of lines (`address`, `contacts`, `title`, `organization`)
   split on line breaks as well as `|`: the templates' addresses and CV
   contacts, written one per line, ran together on one line.

@@ -80,6 +80,9 @@
   padding-bottom: var(--orz-grid);
 }
 
+/* (defensive: the source theme draws no per-block ruling since orz-markdown
+   2.3.0 — its screen ruling is the article's background inside @media screen,
+   which the derivation drops) */
 .markdown-body > p::before,
 .markdown-body > ul:not(.toc-list)::before,
 .markdown-body > ol::before {

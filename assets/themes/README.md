@@ -116,17 +116,16 @@ Per-theme layers (`layers/<id>.css`):
   - On the lines (no background): paragraphs and lists (one line per rule, a
     blank line after), headings (straight, a whole number of lines — a large
     one spans two, a blank line after the two largest), display formulas
-    (the baseline on a rule, the height rounded up to whole lines), quotes
-    (the theme's hand and ink, framed along two rules, the clip on the
-    frame), rules (`hr`: the squiggle along a rule), footnotes (a dashed
-    rule over a page rule) and the TOC element. The handler measures where
-    each kind's baseline falls on a probe and sets `--orz-sh-<k>` (a shift
-    onto the rule), `--orz-mb-<k>` (the margin that ends it at its last
-    line) and `--orz-fr-<k>` (its first rule: the quote frame).
+    (the baseline on a rule, the height rounded up to whole lines), rules
+    (`hr`: the squiggle along a rule), footnotes (a dashed rule over a page
+    rule) and the TOC element. The handler measures where each kind's
+    baseline falls on a probe and sets `--orz-sh-<k>` (a shift onto the
+    rule) and `--orz-mb-<k>` (the margin that ends it at its last line).
   - Attached on top (opaque sheets: `--paper-slip`, a hard offset shadow):
-    tables, code, callouts (taped, tilted as in the source), figures and
-    pictures (taped on, a white border), diagrams, columns (each column a
-    sheet) and the boxed document elements (title blocks, abstract,
+    tables, code, callouts (taped, tilted as in the source), quotes (the
+    source's slip: clipped on, slightly tilted), figures and pictures (taped
+    on, a white border), diagrams, columns (each column a sheet) and the
+    boxed document elements (title blocks, abstract,
     letterhead, CV header, exam questions). A sheet starts on a rule one
     blank line under the text above, and is grown to end on a rule; the
     text after it is back on the lines after one blank line.
@@ -136,7 +135,12 @@ Per-theme layers (`layers/<id>.css`):
     inline formula grows its line) is marked `.orz-off-grid` and hides the
     ruling behind it.
   The pink margin line is drawn on the page sheet, top to bottom of every
-  page. The title's pink is a shade deeper (5:1 instead of 4.4:1 on the
+  page. The source theme is the same notebook on screen since orz-markdown
+  2.3.0 (its ruling is the article's background, kept on the grid by the
+  kit's in-page enhancement); all of that is inside `@media screen`, which
+  the derivation drops like every `@media` block, so it never doubles up
+  with the page ruling — `tests/themes.test.ts` checks that the derived
+  theme carries no screen ruling (P.2). The title's pink is a shade deeper (5:1 instead of 4.4:1 on the
   cream paper). Checked by `tests/ruled-paper.test.ts` (P.9: every written
   line against its rule, every sheet's edges, the rule ink behind headings
   and formulas; screenshots `/tmp/paged-themes/light-playful-1-aligned-p<n>.png`).
