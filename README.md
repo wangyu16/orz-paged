@@ -432,17 +432,10 @@ edit it there and assemble again.
 
 ## Versions
 
-> **Release status.** 1.0.0 is prepared on the branch `rebuild/1.0` and is
-> not published yet; the latest published version is 0.7.3 (the 0.x line
-> described in [Migrating from 0.x](#migrating-from-0x)). 1.0.0 depends on
-> `orz-markdown ^2.3.0`, which must be published first; until then the
-> `npx orz-paged@1` and `orz-paged-browser@1` commands in this README do not
-> resolve. At the release both packages go to 1.0.0 with `orz-markdown
-> ^2.3.0` from the registry (the lockfile refreshed), and the cdn example
-> (`examples/letter.paged.html`) is regenerated: until the bump it loads
-> `orz-paged-browser@0.7.3`, a 0.x engine that cannot open it, so it does not
-> boot from the web before the release; after it, it loads `@1.0.0` and is
-> checked against the published bundle.
+> **Release status.** 1.0.0 is the first release of the rebuild (text
+> format 1); it depends on `orz-markdown ^2.3.0`, which must be published first
+> (it is: 2.3.0). The 0.x line (up to 0.7.3) is described in
+> [Migrating from 0.x](#migrating-from-0x).
 
 Two packages, released together with the same version: `orz-paged` (the CLI
 and the Node library) and `orz-paged-browser` (the browser engine and editor

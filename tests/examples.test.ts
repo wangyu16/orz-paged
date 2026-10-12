@@ -51,12 +51,13 @@ describe('docs say what is true', () => {
     return next < 0 ? text.slice(at) : text.slice(at, at + heading.length + next);
   };
 
-  it('[D.2] README and CHANGELOG: the release state (1.0.0 prepared on rebuild/1.0, not published; it needs orz-markdown at the range package.json declares, published first); "Migrating" shows `new` with `--title` (gone are only the 0.x forms)', () => {
+  it('[D.2] README and CHANGELOG: the release state (1.0.0 released; it needs orz-markdown at the range package.json declares, published first); "Migrating" shows `new` with `--title` (gone are only the 0.x forms)', () => {
     const pkg = JSON.parse(read('package.json')) as { dependencies: Record<string, string> };
     const range = pkg.dependencies['orz-markdown']!;
     const readme = read('README.md');
     const versions = section(readme, '## Versions');
-    expect(versions).toMatch(/1\.0\.0 is prepared on the branch `rebuild\/1\.0` and is\s+> not published yet/);
+    expect(versions).toMatch(/1\.0\.0 is the first release of the rebuild/);
+    expect(versions).not.toMatch(/not published yet|prepared on the branch/);
     expect(versions).toContain(`\`orz-markdown ${range}\`, which must be published first`);
     expect(read('CHANGELOG.md')).toContain(`Requires \`orz-markdown ${range}\``);
     const migrating = section(readme, '## Migrating from 0.x');

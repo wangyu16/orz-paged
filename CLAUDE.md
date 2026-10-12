@@ -25,23 +25,20 @@ Two npm packages live here, **versioned in lockstep**:
   `esm/orz-paged.browser.mjs`, `release.json`, hand-written `index.d.ts`,
   `require.cjs` (a `require()` shim that throws), `docs/embedding.md` (copied).
 
-> **Status:** published 0.7.3; **1.0.0 prepared on branch `rebuild/1.0`**
-> (steps 1–7 of REBUILD §3b done: base, isomorphic assembler, engine and
-> bundle, the paged kind on `carrier/app`, the 9 derived print themes, CLI
-> and library, conformance, docs and examples). Next: the closed loop, then
-> the release (orz-markdown 2.3.0 first: it holds every former kit gap, and
-> no `KIT GAP` workaround is left here). Claims in `notes/CLAIMS.md` (bound by
+> **Status:** **1.0.0** (released from branch `rebuild/1.0`, fast-forwarded
+> to `main`; plan in `../docs/REBUILD.md` §3b): the rebuild on the
+> orz-markdown 2.3.0 carrier kit — base, isomorphic assembler, engine and
+> bundle, the paged kind on `carrier/app`, the 9 derived print themes, CLI and
+> library, conformance, docs and examples, closed loop (5 rounds). No `KIT
+> GAP` workaround is left. Claims in `notes/CLAIMS.md` (bound by
 > `tests/claims.test.ts`).
 >
-> **orz-markdown is linked, not installed, until 2.3.0 is published:**
-> `node_modules/orz-markdown` is a symlink to the local checkout
-> (`rm -rf node_modules/orz-markdown && ln -s ../../orz-markdown
-> node_modules/orz-markdown`; do not `npm install` over it — that restores the
-> published 2.2.0, which lacks the 2.3.0 API). The bundle resolves the kit's
-> dependencies from its real directory (one KaTeX: `build/bundle.ts`).
-> **After orz-markdown 2.3.0 is published, refresh the lockfile**
-> (`npx npm@11 install orz-markdown@^2.3.0`, which replaces the symlink) and
-> rebuild before the release.
+> **orz-markdown is installed from the registry** (`^2.3.0`, a real
+> directory, no symlink). To try an unpublished orz-markdown, link
+> `node_modules/orz-markdown` to `../../orz-markdown`; the bundle resolves the
+> kit's dependencies from its real directory (one KaTeX: `build/bundle.ts`).
+> Never release from a link: `npx npm@11 install orz-markdown@^<x>` replaces
+> it and refreshes the lockfile.
 
 ## Commands
 
