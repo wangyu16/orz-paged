@@ -805,9 +805,7 @@
 .markdown-body > :is(ul) :is(sup),
 .markdown-body > :is(ul) :is(sub),
 .markdown-body > :is(ol) :is(sup),
-.markdown-body > :is(ol) :is(sub),
-.markdown-body > :is(blockquote) :is(sup),
-.markdown-body > :is(blockquote) :is(sub) {
+.markdown-body > :is(ol) :is(sub) {
   vertical-align: baseline;
   position: relative;
   line-height: 0;
@@ -815,15 +813,13 @@
 
 .markdown-body > :is(p) sup,
 .markdown-body > :is(ul) sup,
-.markdown-body > :is(ol) sup,
-.markdown-body > :is(blockquote) sup {
+.markdown-body > :is(ol) sup {
   top: -0.45em;
 }
 
 .markdown-body > :is(p) sub,
 .markdown-body > :is(ul) sub,
-.markdown-body > :is(ol) sub,
-.markdown-body > :is(blockquote) sub {
+.markdown-body > :is(ol) sub {
   top: 0.25em;
 }
 
@@ -896,60 +892,6 @@
 
 .markdown-body > p .katex-display {
   margin: 0;
-}
-
-.markdown-body > blockquote {
-  top: var(--orz-sh-quote, 0px);
-  margin: 0 0.4rem var(--orz-mb-quote, 0px);
-  padding: 0 1.4rem var(--orz-grid);
-  background: none;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  transform: none;
-  line-height: var(--orz-grid);
-}
-
-.markdown-body > blockquote::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(var(--orz-fr-quote, var(--orz-grid)) - var(--orz-grid) - 1px);
-  bottom: calc(var(--orz-grid) - var(--orz-fr-quote, var(--orz-grid)));
-  border: 1.5px solid var(--border-color);
-  border-radius: 3px;
-  pointer-events: none;
-}
-
-.markdown-body > blockquote::before {
-  top: calc(var(--orz-fr-quote, var(--orz-grid)) - var(--orz-grid) - 0.95rem);
-  left: -0.35rem;
-}
-
-.markdown-body > blockquote:first-child {
-  padding-top: var(--orz-grid);
-}
-
-.markdown-body > blockquote:first-child::after {
-  top: calc(var(--orz-fr-quote, var(--orz-grid)) - 1px);
-}
-
-.markdown-body > blockquote:first-child::before {
-  top: calc(var(--orz-fr-quote, var(--orz-grid)) - 0.95rem);
-}
-
-.markdown-body > blockquote :is(p),
-.markdown-body > blockquote :is(ul),
-.markdown-body > blockquote :is(ol),
-.markdown-body > blockquote :is(li) {
-  line-height: var(--orz-grid);
-  margin-top: 0;
-  margin-bottom: 0;
-}
-
-.markdown-body > blockquote > * + * {
-  margin-top: var(--orz-grid);
 }
 
 .markdown-body > hr:not(.footnotes-sep) {
@@ -1031,7 +973,7 @@
   margin-bottom: 0;
 }
 
-.markdown-body > :where(:not(p):not(ul):not(ol):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(blockquote):not(hr):not(section.footnotes):not(.orz-el-toc):not(.orz-el-letter-inside-address):not(.orz-el-timestamp)),
+.markdown-body > :where(:not(p):not(ul):not(ol):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(hr):not(section.footnotes):not(.orz-el-toc):not(.orz-el-letter-inside-address):not(.orz-el-timestamp)),
 .markdown-body > ul.toc-list {
   background-color: var(--page-bg);
   margin-top: 0;
@@ -1085,6 +1027,22 @@
 
 .markdown-body > .cols {
   background-color: transparent;
+}
+
+.markdown-body > blockquote {
+  position: relative;
+  margin: 0 0.4rem;
+  padding: 1rem 1.4rem 0.9rem;
+  background-color: var(--orz-sheet);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  box-shadow: var(--orz-sheet-shadow);
+  transform: rotate(-0.5deg);
+}
+
+.markdown-body > blockquote::before {
+  top: -0.95rem;
+  left: 0.2rem;
 }
 
 .markdown-body > p.orz-picture,

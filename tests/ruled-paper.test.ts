@@ -4,9 +4,9 @@
  * paged runtime in real Chrome. On every page: the ruling starts at the
  * content box top with the body leading as its pitch; (a) every line of text
  * written on the lines — paragraphs, lists, headings of every level, display
- * formulas (their baseline), quotes, footnotes — sits on a rule (the rule
+ * formulas (their baseline), footnotes — sits on a rule (the rule
  * 0–3 px under its baseline); (b) every sheet attached on top — a table,
- * code, a callout, a figure, columns — is opaque and starts and ends on a
+ * code, a callout, a quote (a slip clipped on), a figure, columns — is opaque and starts and ends on a
  * rule (or starts at the content box top); (c) the ruling runs on behind what
  * is on the lines: none of those blocks has a background, and the page
  * pixels between the lines of a heading and of a formula show the rule ink.
@@ -26,7 +26,7 @@ const SHOTS = '/tmp/paged-themes';
 const para = (n: number, words: string): string => Array.from({ length: n }, (_, i) => `${words} (${i + 1})`).join(' ');
 const PICTURE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='120' viewBox='0 0 320 120'%3E%3Crect width='320' height='120' fill='%23cfe7fc'/%3E%3Cpath d='M0 95 L70 45 L130 80 L200 30 L320 90 V120 H0Z' fill='%233d6e17' fill-opacity='.55'/%3E%3Ccircle cx='260' cy='30' r='14' fill='%23fff1a1'/%3E%3C/svg%3E";
 
-/** A rich document of about three pages: headings of every level, display formulas of one to three lines, a quote, footnotes, and sheets (a table, code, a callout, a figure, columns) between runs of text. */
+/** A rich document of about three pages: headings of every level, display formulas of one to three lines, footnotes, and sheets (a table, code, a callout, a quote, a figure, columns) between runs of text. */
 export const RULED_SAMPLE = `{{nyml
 kind: document
 title: A Notebook Page
@@ -97,7 +97,7 @@ $$\\sum_{k=1}^{n} \\frac{1}{k^2} = \\cfrac{\\pi^2}{6 + \\cfrac{1}{1 + \\cfrac{1}
 
 ${para(4, 'After the display formulas the text is back on the lines.')}
 
-> A quotation is written on the lines, in the theme's hand, without a slip of paper behind it. It runs over two lines of the page.
+> A quotation is a slip of paper clipped onto the page, written in the theme's hand and slightly tilted. It runs over two lines of the slip.
 
 ${para(2, 'After the quote the text goes on.')}
 
@@ -127,7 +127,7 @@ ${para(12, 'The last paragraph runs on to the next page and keeps to the lines t
 `;
 
 /** Blocks written on the lines (the rest are sheets on top). */
-const ON_LINES = String.raw`^(P|UL|OL|H[1-6]|BLOCKQUOTE|HR)$`;
+const ON_LINES = String.raw`^(P|UL|OL|H[1-6]|HR)$`;
 
 /** On every page of a rendered document: the ruling's start and pitch; each written line against its rule; the sheets' edges; backgrounds. */
 async function gridReport(r: Awaited<ReturnType<typeof renderPaged>>) {
@@ -337,7 +337,7 @@ async function ruleInkBehind(r: Awaited<ReturnType<typeof renderPaged>>): Promis
 }
 
 chrome('light-playful-1: a ruled notebook page (real Chrome, the paged runtime)', () => {
-  it('[P.9] on every page what is written sits on the rules (text, lists, headings of every level, display formulas, a quote, footnotes) and the ruling runs on behind it; sheets (a table, code, a callout, a figure, columns) are opaque and start and end on a rule', async () => {
+  it('[P.9] on every page what is written sits on the rules (text, lists, headings of every level, display formulas, footnotes) and the ruling runs on behind it; sheets (a table, code, a callout, a quote, a figure, columns) are opaque and start and end on a rule', async () => {
     const r = await renderPaged(browser!, RULED_SAMPLE, { scale: 1.5 });
     try {
       expect(r.errors).toEqual([]);
@@ -353,10 +353,10 @@ chrome('light-playful-1: a ruled notebook page (real Chrome, the paged runtime)'
       const sampled = expectOnGrid(r, report);
       const kinds = report.flatMap((p) => p.kinds);
       // every kind was laid out and checked
-      for (const k of ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'UL', 'OL', 'BLOCKQUOTE', 'SECTION', 'math', 'sheet:TABLE', 'sheet:PRE', 'sheet:DIV', 'sheet:FIGURE']) expect(kinds, k).toContain(k);
+      for (const k of ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'UL', 'OL', 'SECTION', 'math', 'sheet:TABLE', 'sheet:PRE', 'sheet:DIV', 'sheet:BLOCKQUOTE', 'sheet:FIGURE']) expect(kinds, k).toContain(k);
       expect(kinds.filter((k) => k === 'math').length).toBe(3);
       const lines = report.flatMap((p) => p.lines);
-      for (const w of ['H1:', 'H2:', 'H3:', 'H4:', 'H5:', 'H6:', 'BLOCKQUOTE:', 'SECTION:', 'math:']) expect(lines.some((l) => l.text.startsWith(w)), `${w} sampled`).toBe(true);
+      for (const w of ['H1:', 'H2:', 'H3:', 'H4:', 'H5:', 'H6:', 'SECTION:', 'math:']) expect(lines.some((l) => l.text.startsWith(w)), `${w} sampled`).toBe(true);
       expect(report.slice(0, 3).every((p) => p.lines.length >= 5), JSON.stringify(report.map((p) => p.lines.length))).toBe(true);
       expect(sampled).toBeGreaterThan(40);
       expect(await ruleInkBehind(r), 'the ruling shows behind headings and formulas').toEqual([]);
@@ -365,7 +365,7 @@ chrome('light-playful-1: a ruled notebook page (real Chrome, the paged runtime)'
     }
   }, 120_000);
 
-  it('[P.9] a quote, then a paragraph that runs over the page bottom: every line of text is inside its page and the paragraph continues on the next page (Letter 11/1.5, A5 12/1.5, Letter 9/2; closed loop round 1 — a positioned page area clipped it)', async () => {
+  it('[P.9] a quote (a tilted slip clipped on: a sheet), then a paragraph that runs over the page bottom: every line of text is inside its page and the paragraph continues on the next page (Letter 11/1.5, A5 12/1.5, Letter 9/2; closed loop round 1 — a positioned page area clipped it)', async () => {
     const tail = Array.from({ length: 90 }, (_, i) => `Tail sentence goes on and on [T${i + 1}]`).join(' ');
     const lead = Array.from({ length: 6 }, (_, i) => `Running text on the lines with words [R${i + 1}].`).join(' ');
     const bodies = {

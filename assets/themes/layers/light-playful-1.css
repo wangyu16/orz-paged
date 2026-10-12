@@ -8,13 +8,13 @@
      src/paged/baseline-grid.ts). Nothing written on it hides it.
    - On the lines (transparent): paragraphs and lists (one line box per
      rule), headings (a whole number of lines; a large one spans two),
-     display formulas (rounded up to whole lines), quotes (framed along two
-     rules), rules (hr), footnotes and the TOC element. The grid measures
+     display formulas (rounded up to whole lines), rules (hr), footnotes and
+     the TOC element. The grid measures
      where each kind's baseline falls and sets --orz-sh-<k> (a shift onto the
      rule) and --orz-mb-<k> (the margin that ends it at the end of its last
      line); the text after each is back on the lines.
-   - Attached on top (opaque sheets): tables, code, callouts, figures and
-     pictures, diagrams, columns, spoilers and tabs, and the boxed document
+   - Attached on top (opaque sheets): tables, code, callouts, quotes (a
+     slip of paper clipped on, slightly tilted), figures and pictures, diagrams, columns, spoilers and tabs, and the boxed document
      elements (title blocks, abstract, letterhead, CV header, exam
      questions). A sheet starts and ends on a rule; the grid places it one
      line under the text above and grows it to the next rule.
@@ -104,14 +104,14 @@
 }
 
 /* inline marks do not grow a line box (a raised footnote mark included) */
-.markdown-body > :is(p, ul, ol, blockquote) :is(sup, sub) {
+.markdown-body > :is(p, ul, ol) :is(sup, sub) {
   vertical-align: baseline;
   position: relative;
   line-height: 0;
 }
 
-.markdown-body > :is(p, ul, ol, blockquote) sup { top: -0.45em; }
-.markdown-body > :is(p, ul, ol, blockquote) sub { top: 0.25em; }
+.markdown-body > :is(p, ul, ol) sup { top: -0.45em; }
+.markdown-body > :is(p, ul, ol) sub { top: 0.25em; }
 
 .markdown-body > :is(p, ul, ol) :is(img, .task-list-item-checkbox) {
   vertical-align: middle;
@@ -157,61 +157,6 @@
 
 .markdown-body > p .katex-display {
   margin: 0;
-}
-
-/* a quote: written on the lines in the theme's hand and ink, framed along the
-   rule above its first line and the rule under its blank last line (no slip
-   of paper behind it, no tilt); the paper clip holds the frame's edge. First
-   on a page, it starts one line down (its frame's top rule is on the page). */
-.markdown-body > blockquote {
-  top: var(--orz-sh-quote, 0px);
-  margin: 0 0.4rem var(--orz-mb-quote, 0px);
-  padding: 0 1.4rem var(--orz-grid);
-  background: none;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  transform: none;
-  line-height: var(--orz-grid);
-}
-
-.markdown-body > blockquote::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(var(--orz-fr-quote, var(--orz-grid)) - var(--orz-grid) - 1px);
-  bottom: calc(var(--orz-grid) - var(--orz-fr-quote, var(--orz-grid)));
-  border: 1.5px solid var(--border-color);
-  border-radius: 3px;
-  pointer-events: none;
-}
-
-.markdown-body > blockquote::before {
-  top: calc(var(--orz-fr-quote, var(--orz-grid)) - var(--orz-grid) - 0.95rem);
-  left: -0.35rem;
-}
-
-.markdown-body > blockquote:first-child {
-  padding-top: var(--orz-grid);
-}
-
-.markdown-body > blockquote:first-child::after {
-  top: calc(var(--orz-fr-quote, var(--orz-grid)) - 1px);
-}
-
-.markdown-body > blockquote:first-child::before {
-  top: calc(var(--orz-fr-quote, var(--orz-grid)) - 0.95rem);
-}
-
-.markdown-body > blockquote :is(p, ul, ol, li) {
-  line-height: var(--orz-grid);
-  margin-top: 0;
-  margin-bottom: 0;
-}
-
-.markdown-body > blockquote > * + * {
-  margin-top: var(--orz-grid);
 }
 
 /* a rule is one line: the squiggle drawn along the rule, a blank line after */
@@ -295,7 +240,7 @@
 
 /* any other block is opaque (it hides the ruling: it is on top of the page);
    the grid sets its spacing, so its own margins go */
-.markdown-body > :where(:not(p):not(ul):not(ol):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(blockquote):not(hr):not(section.footnotes):not(.orz-el-toc):not(.orz-el-letter-inside-address):not(.orz-el-timestamp)),
+.markdown-body > :where(:not(p):not(ul):not(ol):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(hr):not(section.footnotes):not(.orz-el-toc):not(.orz-el-letter-inside-address):not(.orz-el-timestamp)),
 .markdown-body > ul.toc-list {
   background-color: var(--page-bg);
   margin-top: 0;
@@ -322,6 +267,29 @@
 /* the columns are two sheets side by side: the ruling shows between them */
 .markdown-body > .cols {
   background-color: transparent;
+}
+
+/* a quote: a slip of paper clipped onto the page (the source theme's look:
+   the slip's paper and edge, a slight tilt, the paper clip over its top
+   edge). A sheet like the others: the grid starts it on a rule one line under
+   the text above and grows it to end on a rule. The tilt is a transform: it
+   moves only what is painted, never the layout or the pagination. */
+.markdown-body > blockquote {
+  position: relative;
+  margin: 0 0.4rem;
+  padding: 1rem 1.4rem 0.9rem;
+  background-color: var(--orz-sheet);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  box-shadow: var(--orz-sheet-shadow);
+  transform: rotate(-0.5deg);
+}
+
+/* the clip holds the slip: over its top edge near the left corner, its lower
+   loop on the paper, clear of the first letter */
+.markdown-body > blockquote::before {
+  top: -0.95rem;
+  left: 0.2rem;
 }
 
 /* a picture or a figure: a photo pasted in, on a white-ish border, taped at the top */

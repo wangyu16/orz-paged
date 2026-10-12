@@ -19,23 +19,22 @@
  *
  * - **text** — paragraphs and lists: one line box per rule (the theme sets
  *   the leading), started on a grid line;
- * - **lined** — headings, quotes, rules (`hr`), footnotes, the TOC element:
+ * - **lined** — headings, rules (`hr`), footnotes, the TOC element:
  *   written on the lines in another face or size. Their leading is a whole
  *   number of lines (the theme's CSS); where their first baseline falls in a
  *   line box depends on the font, so the handler measures it once per
  *   pagination on a probe of each and sets, on every page's text block,
  *   `--orz-sh-<k>` (a relative shift, at most half a line, that puts the
  *   first baseline on a rule), `--orz-mb-<k>` (the margin-bottom that ends
- *   the block at the end of its last line, plus its own blank line) and
- *   `--orz-fr-<k>` (where its first rule is: a quote's frame) — the theme's
- *   CSS applies them; the block itself starts on a grid line;
+ *   the block at the end of its last line, plus its own blank line) — the
+ *   theme's CSS applies them; the block itself starts on a grid line;
  * - **math** — a display formula: its height depends on the formula, so it
  *   is aligned when it is complete (when the next block is appended, or at
  *   the page end): its baseline is moved onto a rule (a relative shift) and
  *   its height rounded up to whole lines (padding-bottom), plus the theme's
  *   blank line;
- * - **box** — everything else (tables, code, callouts, figures, diagrams,
- *   columns, the boxed document elements): a sheet on top of the paper. Its
+ * - **box** — everything else (tables, code, callouts, quotes, figures,
+ *   diagrams, columns, the boxed document elements): a sheet on top of the paper. Its
  *   top is placed on a rule (one line under the text above it) and, when it
  *   is complete, it is grown to end on a rule; the text after it is back on
  *   the lines.
@@ -119,10 +118,9 @@ function isImageOnly(el: HTMLElement): boolean {
   return kids.length === 1 && isEl(kids[0]) && kids[0].tagName === 'IMG';
 }
 
-/** The lined kinds, each with its probe (the custom properties are `--orz-sh-<id>`, `--orz-mb-<id>` and `--orz-fr-<id>`). */
+/** The lined kinds, each with its probe (the custom properties are `--orz-sh-<id>` and `--orz-mb-<id>`; a quote is a box — a slip of paper clipped on, owner 2026-10-11). */
 const LINED: ReadonlyArray<{ id: string; html: string; match(el: HTMLElement): boolean }> = [
   ...[1, 2, 3, 4, 5, 6].map((n) => ({ id: `h${n}`, html: `<h${n}>X</h${n}>`, match: (el: HTMLElement) => el.tagName === `H${n}` })),
-  { id: 'quote', html: '<blockquote><p>X</p></blockquote>', match: (el) => el.tagName === 'BLOCKQUOTE' },
   { id: 'fn', html: '<section class="footnotes"><ol class="footnotes-list"><li class="footnote-item"><p>X</p></li></ol></section>', match: (el) => el.tagName === 'SECTION' && el.classList.contains('footnotes') },
   { id: 'toc', html: '<section class="orz-element orz-el-toc"><h2 class="orz-toc-heading">X</h2></section>', match: (el) => el.classList.contains('orz-el-toc') },
 ];
@@ -221,12 +219,11 @@ export class BaselineGridHandler extends Handler {
    * `h` and padding-bottom `pb`. The shift (`position: relative; top`) that puts the baseline on a rule (at the
    * body's height in a line: the rule `ruleAt - base` under it) is the nearest of `(base - b) mod grid` and that
    * minus a line; the margin-bottom that ends the block at the end of its last line's line box, plus its own
-   * trailing blank (`pb`), is `b + shift + (grid - base) + pb - h`; the first rule under the shifted block's
-   * text is `b + (ruleAt - base)` from its (shifted) top (a quote's frame). A kind whose leading is not a whole
-   * number of lines gets none of these (it is checked when complete, like text).
+   * trailing blank (`pb`), is `b + shift + (grid - base) + pb - h`. A kind whose leading is not a whole number
+   * of lines gets neither (it is checked when complete, like text).
    */
   private measureLined(body: HTMLElement): void {
-    const { grid, ruleAt } = this.stats;
+    const { grid } = this.stats;
     const vars: Array<[string, string]> = [];
     const px = (n: number): string => `${Math.round(n * 100) / 100}px`;
     for (const k of LINED) {
@@ -253,7 +250,6 @@ export class BaselineGridHandler extends Handler {
         vars.push(
           [`--orz-sh-${k.id}`, px(shift)],
           [`--orz-mb-${k.id}`, px(b + shift + (grid - this.base) + pb - h)],
-          [`--orz-fr-${k.id}`, px(b + (ruleAt - this.base))],
         );
       } finally {
         el.remove();
@@ -385,7 +381,7 @@ export class BaselineGridHandler extends Handler {
       const p = layoutRect(prev);
       const pcs = getComputedStyle(prev);
       const mb = parseFloat(pcs.marginBottom) || 0;
-      // where the block above ends: its last line (a paragraph's or quote's trailing blank line not counted); the
+      // where the block above ends: its last line (a paragraph's trailing blank line not counted); the
       // sheet starts on a rule with one blank line between (after another sheet: one line between)
       const blank = !prevBox && Math.abs((parseFloat(pcs.paddingBottom) || 0) - grid) <= EPS ? grid : 0;
       const end = p.bottom - a.top + Math.min(0, mb) - blank;
