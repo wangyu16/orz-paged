@@ -1,25 +1,34 @@
-/* light-playful-1 on paper: the exercise book becomes the page itself.
-   The source rules each paragraph and list with a line per body line and
-   draws a pink margin line down the article. On paper (owner decision
-   2026-10-09: the lines follow the text):
-   - the whole content box of every page is ruled, at the body leading in
-     absolute units (--orz-grid = the header's font_size x line_height), from
-     the content box top, out to the paper edges like a real exercise book;
-   - the running text (top-level paragraphs and lists) is set with exactly
-     that leading, so each line of text sits on a rule: the paged runtime's
-     baseline grid (src/paged/baseline-grid.ts) measures where the body
-     font's baseline falls (--orz-rule-at, set on each page) and starts every
-     block on the grid, so after a heading, a table, a callout, code, math or
-     an image the text is back on the lines;
-   - everything else sits on its own paper (an opaque background): the rules
-     run behind it, never through its glyphs; a paragraph that leaves the grid
-     (a tall inline formula) is marked .orz-off-grid and does the same;
-   - the margin line is drawn on the page sheet, top to bottom of every page,
+/* light-playful-1 on paper: a ruled exercise book (owner decisions 2026-10-09,
+   2026-10-11: "contents on a ruled notebook").
+   - The ruling is part of the paper: the whole content box of every page is
+     ruled, out to the paper edges, at the body leading in absolute units
+     (--orz-grid = the header's font_size x line_height), from the content
+     box top, at the height where the body font's baseline falls
+     (--orz-rule-at, measured by the paged runtime's baseline grid,
+     src/paged/baseline-grid.ts). Nothing written on it hides it.
+   - On the lines (transparent): paragraphs and lists (one line box per
+     rule), headings (a whole number of lines; a large one spans two),
+     display formulas (rounded up to whole lines), quotes (framed along two
+     rules), rules (hr), footnotes and the TOC element. The grid measures
+     where each kind's baseline falls and sets --orz-sh-<k> (a shift onto the
+     rule) and --orz-mb-<k> (the margin that ends it at the end of its last
+     line); the text after each is back on the lines.
+   - Attached on top (opaque sheets): tables, code, callouts, figures and
+     pictures, diagrams, columns, spoilers and tabs, and the boxed document
+     elements (title blocks, abstract, letterhead, CV header, exam
+     questions). A sheet starts and ends on a rule; the grid places it one
+     line under the text above and grows it to the next rule.
+   - A block whose lines leave the grid anyway (a tall inline formula) is
+     marked .orz-off-grid and hides the ruling behind it (the fallback).
+   - The margin line is drawn on the page sheet, top to bottom of every page,
      just left of the text block. */
 
 :root {
   --orz-grid: calc(var(--font-size, 10pt) * var(--line-height, 1.5));
   --rule: var(--orz-grid);
+  /* a sheet on the page: a lighter paper, a hard offset shadow (it prints as a line) */
+  --orz-sheet: var(--paper-slip);
+  --orz-sheet-shadow: 1.5px 2.5px 0 rgba(80, 60, 30, 0.12);
 }
 
 /* the ruling: the content box of each page (vertically), out to the paper edges.
@@ -48,6 +57,17 @@
     transparent var(--orz-grid));
   pointer-events: none;
 }
+
+.pagedjs_page {
+  background-image: linear-gradient(to right,
+    transparent calc(var(--margin-l, 20mm) - 1.1rem),
+    var(--margin-ink) calc(var(--margin-l, 20mm) - 1.1rem),
+    var(--margin-ink) calc(var(--margin-l, 20mm) - 1.1rem + 1.5px),
+    transparent calc(var(--margin-l, 20mm) - 1.1rem + 1.5px));
+  background-repeat: no-repeat;
+}
+
+/* ---- on the lines --------------------------------------------------------- */
 
 /* the running text: exactly one rule per line, a blank ruled line after each block */
 .markdown-body > p,
@@ -84,38 +104,318 @@
 }
 
 /* inline marks do not grow a line box (a raised footnote mark included) */
-.markdown-body > :is(p, ul, ol) :is(sup, sub) {
+.markdown-body > :is(p, ul, ol, blockquote) :is(sup, sub) {
   vertical-align: baseline;
   position: relative;
   line-height: 0;
 }
 
-.markdown-body > :is(p, ul, ol) sup { top: -0.45em; }
-.markdown-body > :is(p, ul, ol) sub { top: 0.25em; }
+.markdown-body > :is(p, ul, ol, blockquote) sup { top: -0.45em; }
+.markdown-body > :is(p, ul, ol, blockquote) sub { top: 0.25em; }
 
 .markdown-body > :is(p, ul, ol) :is(img, .task-list-item-checkbox) {
   vertical-align: middle;
 }
 
-/* everything else hides the rules behind it: its own paper */
-.markdown-body > :where(:not(p):not(ul):not(ol)),
-.markdown-body > ul.toc-list,
-.markdown-body > p.katex-block,
-.markdown-body > p:has(.katex-display),
-.markdown-body > p:has(> img:only-child),
-.markdown-body > .orz-off-grid,
-.markdown-body > hr,
-.markdown-body > hr.footnotes-sep {
-  background-color: var(--page-bg);
+/* headings: written on the lines, straight (a tilt would lift one end off its
+   rule); a whole number of lines each (a large one spans two), the baseline
+   of every line on a rule, the text after on the next line (after the two
+   largest, a blank line) */
+.markdown-body > :is(h1, h2, h3, h4, h5, h6) {
+  line-height: round(up, 0.9em, var(--orz-grid));
+  position: relative;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border: 0;
+  transform: none;
 }
 
-.pagedjs_page {
-  background-image: linear-gradient(to right,
-    transparent calc(var(--margin-l, 20mm) - 1.1rem),
-    var(--margin-ink) calc(var(--margin-l, 20mm) - 1.1rem),
-    var(--margin-ink) calc(var(--margin-l, 20mm) - 1.1rem + 1.5px),
-    transparent calc(var(--margin-l, 20mm) - 1.1rem + 1.5px));
-  background-repeat: no-repeat;
+.markdown-body > h1 { top: var(--orz-sh-h1, 0px); margin-bottom: calc(var(--orz-mb-h1, 0px) + var(--orz-grid)); }
+.markdown-body > h2 { top: var(--orz-sh-h2, 0px); margin-bottom: calc(var(--orz-mb-h2, 0px) + var(--orz-grid)); }
+.markdown-body > h3 { top: var(--orz-sh-h3, 0px); margin-bottom: var(--orz-mb-h3, 0px); }
+.markdown-body > h4 { top: var(--orz-sh-h4, 0px); margin-bottom: var(--orz-mb-h4, 0px); }
+.markdown-body > h5 { top: var(--orz-sh-h5, 0px); margin-bottom: var(--orz-mb-h5, 0px); }
+.markdown-body > h6 { top: var(--orz-sh-h6, 0px); margin-bottom: var(--orz-mb-h6, 0px); }
+
+/* the second-level heading's dashed rule becomes a dashed underline (a border
+   would add to its height and take it off the grid) */
+.markdown-body > h2 {
+  text-decoration: underline dashed currentColor;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
+}
+
+/* display formulas: on the lines, transparent; the grid moves the baseline
+   onto a rule and rounds the height up to whole lines, then one blank line */
+.markdown-body > p.katex-block,
+.markdown-body > p:has(.katex-display) {
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-bottom: var(--orz-grid);
+}
+
+.markdown-body > p .katex-display {
+  margin: 0;
+}
+
+/* a quote: written on the lines in the theme's hand and ink, framed along the
+   rule above its first line and the rule under its blank last line (no slip
+   of paper behind it, no tilt); the paper clip holds the frame's edge. First
+   on a page, it starts one line down (its frame's top rule is on the page). */
+.markdown-body > blockquote {
+  top: var(--orz-sh-quote, 0px);
+  margin: 0 0.4rem var(--orz-mb-quote, 0px);
+  padding: 0 1.4rem var(--orz-grid);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+  line-height: var(--orz-grid);
+}
+
+.markdown-body > blockquote::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--orz-fr-quote, var(--orz-grid)) - var(--orz-grid) - 1px);
+  bottom: calc(var(--orz-grid) - var(--orz-fr-quote, var(--orz-grid)));
+  border: 1.5px solid var(--border-color);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.markdown-body > blockquote::before {
+  top: calc(var(--orz-fr-quote, var(--orz-grid)) - var(--orz-grid) - 0.95rem);
+  left: -0.35rem;
+}
+
+.markdown-body > blockquote:first-child {
+  padding-top: var(--orz-grid);
+}
+
+.markdown-body > blockquote:first-child::after {
+  top: calc(var(--orz-fr-quote, var(--orz-grid)) - 1px);
+}
+
+.markdown-body > blockquote:first-child::before {
+  top: calc(var(--orz-fr-quote, var(--orz-grid)) - 0.95rem);
+}
+
+.markdown-body > blockquote :is(p, ul, ol, li) {
+  line-height: var(--orz-grid);
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.markdown-body > blockquote > * + * {
+  margin-top: var(--orz-grid);
+}
+
+/* a rule is one line: the squiggle drawn along the rule, a blank line after */
+.markdown-body > hr:not(.footnotes-sep) {
+  box-sizing: content-box;
+  height: var(--orz-grid);
+  margin: 0 0 var(--orz-grid);
+  background-position: left calc(var(--orz-rule-at, calc(var(--orz-grid) * 0.72)) - 6px);
+}
+
+/* footnotes: a dashed rule drawn over a page rule, then the notes on the lines */
+.markdown-body > hr.footnotes-sep {
+  box-sizing: content-box;
+  height: var(--orz-grid);
+  margin: 0;
+  border: 0;
+  background: linear-gradient(to right, var(--border-color) 50%, transparent 50%) left calc(var(--orz-rule-at, calc(var(--orz-grid) * 0.72)) - 1.5px) / 10px 2px repeat-x;
+}
+
+.markdown-body > section.footnotes {
+  top: var(--orz-sh-fn, 0px);
+  position: relative;
+  margin: 0 0 var(--orz-mb-fn, 0px);
+  padding: 0 0 var(--orz-grid);
+  line-height: var(--orz-grid);
+}
+
+.markdown-body > section.footnotes :is(ol, li, p) {
+  line-height: var(--orz-grid);
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* the TOC element: its heading on the lines like a section heading, one entry per line */
+.markdown-body > .orz-el-toc {
+  margin: 0 0 var(--orz-grid);
+  padding: 0;
+}
+
+.markdown-body > .orz-el-toc .orz-toc-heading {
+  position: relative;
+  top: var(--orz-sh-toc, 0px);
+  line-height: round(up, 0.9em, var(--orz-grid));
+  margin: 0 0 var(--orz-mb-toc, 0px);
+  padding: 0;
+  border: 0;
+  transform: none;
+}
+
+.markdown-body > .orz-el-toc .orz-toc {
+  margin: 0;
+}
+
+/* on its own page, the contents start at the top of the ruled page (centred,
+   they would fall between the rules) */
+.markdown-body > .orz-el-toc.orz-place-page {
+  justify-content: flex-start;
+  min-height: 0;
+}
+
+.markdown-body > .orz-el-toc :is(ul, ol, li, a, .orz-toc-entry) {
+  line-height: var(--orz-grid);
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* short lined elements (a letter's address, a timestamp): body text, one line per rule */
+.markdown-body > :is(.orz-el-letter-inside-address, .orz-el-timestamp) {
+  margin: 0 0 var(--orz-grid);
+  padding: 0;
+  line-height: var(--orz-grid);
+}
+
+.markdown-body > :is(.orz-el-letter-inside-address, .orz-el-timestamp) * {
+  line-height: var(--orz-grid);
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* ---- attached on top: sheets ---------------------------------------------- */
+
+/* any other block is opaque (it hides the ruling: it is on top of the page);
+   the grid sets its spacing, so its own margins go */
+.markdown-body > :where(:not(p):not(ul):not(ol):not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(blockquote):not(hr):not(section.footnotes):not(.orz-el-toc):not(.orz-el-letter-inside-address):not(.orz-el-timestamp)),
+.markdown-body > ul.toc-list {
+  background-color: var(--page-bg);
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.markdown-body > :is(table, pre, .cols, .tabs, details, .toc-list, .mermaid, .smiles-render),
+.markdown-body > :is(.info, .success, .warning, .danger),
+.markdown-body > :is(.orz-el-article-title, .orz-el-report-title, .orz-el-exam-title, .orz-el-abstract, .orz-el-letterhead, .orz-el-cv-header, .orz-el-question-mc, .orz-el-question-open, .orz-el-letter-signature) {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* sheets cast a hard shadow onto the page */
+.markdown-body > :is(table, pre, figure, p.orz-picture, .mermaid, .smiles-render, details, .tabs, .toc-list),
+.markdown-body > .cols > .col {
+  box-shadow: var(--orz-sheet-shadow);
+}
+
+.markdown-body > :is(.info, .success, .warning, .danger) {
+  box-shadow: var(--orz-sheet-shadow);
+}
+
+/* the columns are two sheets side by side: the ruling shows between them */
+.markdown-body > .cols {
+  background-color: transparent;
+}
+
+/* a picture or a figure: a photo pasted in, on a white-ish border, taped at the top */
+.markdown-body > p.orz-picture,
+.markdown-body > figure {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0.5em 0.5em 0.6em;
+  background-color: var(--orz-sheet);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  line-height: 1.4;
+}
+
+.markdown-body > p.orz-picture > img,
+.markdown-body > figure img {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+}
+
+.markdown-body > figure figcaption {
+  margin-top: 0.45em;
+  font-family: var(--heading-font);
+  font-size: 1.1em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.markdown-body > p.orz-picture::after,
+.markdown-body > figure::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 64px;
+  height: 20px;
+  transform: translateX(-50%) rotate(-3deg);
+  background: rgba(240, 230, 205, 0.78);
+  border-left: 1px dashed rgba(150, 130, 90, 0.25);
+  border-right: 1px dashed rgba(150, 130, 90, 0.25);
+}
+
+/* diagrams: drawn on their own sheet */
+.markdown-body > :is(.mermaid, .smiles-render) {
+  background-color: var(--orz-sheet);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.6em;
+}
+
+/* the boxed document elements: a card on the page (title blocks, abstract,
+   letterhead, CV header, exam questions) */
+.markdown-body > :is(.orz-el-article-title, .orz-el-report-title, .orz-el-exam-title, .orz-el-abstract, .orz-el-letterhead, .orz-el-cv-header, .orz-el-question-mc, .orz-el-question-open) {
+  position: relative;
+  background-color: var(--orz-sheet);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  box-shadow: var(--orz-sheet-shadow);
+  padding: 0.9em 1.2em;
+}
+
+.markdown-body > :is(.orz-el-article-title, .orz-el-report-title, .orz-el-exam-title)::after {
+  content: '';
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  width: 70px;
+  height: 22px;
+  transform: translateX(-50%) rotate(-2deg);
+  background: rgba(240, 230, 205, 0.78);
+  border-left: 1px dashed rgba(150, 130, 90, 0.25);
+  border-right: 1px dashed rgba(150, 130, 90, 0.25);
+}
+
+/* a title block on its own page is a label pasted at the top of the notebook's
+   first page (a sheet stretched to the page's height would be a blank card) */
+.markdown-body > .orz-place-page:is(.orz-el-article-title, .orz-el-report-title, .orz-el-exam-title, .orz-el-abstract) {
+  justify-content: flex-start;
+  min-height: 0;
+}
+
+/* the CV name stands at the left of its card, over the job title */
+.markdown-body .orz-el-cv-header .orz-cv-name {
+  text-align: start;
+}
+
+/* the fallback: a ruled block whose lines left the grid hides the ruling */
+.markdown-body > .orz-off-grid {
+  background-color: var(--page-bg);
 }
 
 /* The pink title is display text on cream paper (4.4:1 on screen, where the

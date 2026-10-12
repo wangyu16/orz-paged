@@ -291,6 +291,19 @@ describe('[T.1] letterhead', () => {
   });
 });
 
+describe('[T.1] multi-line fields', () => {
+  it('a field written one part per line (the templates\' address and contacts) splits like a pipe-separated one', () => {
+    const head = renderElement(spec('letterhead', { organization: 'Acme', address: '123 Main Street, Suite 400\nSpringfield, ST 00000' }), ctx);
+    expect((head.html.match(/orz-address-line/g) || []).length).toBe(2);
+    const inside = renderElement(spec('letter-inside-address', { to: 'R', address: '456 Market Avenue\r\nMetropolis, ST 11111 | USA' }), ctx);
+    expect(inside.html).toContain('456 Market Avenue');
+    expect(inside.html).toContain('USA');
+    expect((inside.html.match(/orz-recipient-address/g) || []).length).toBe(3);
+    const cv = renderElement(spec('cv-header', { full_name: 'S', contacts: 'you@example.com\nCity, Country\nlinkedin.com/in/you' }), ctx);
+    expect((cv.html.match(/class="orz-cv-contact"/g) || []).length).toBe(3);
+  });
+});
+
 describe('[T.1] letter-inside-address', () => {
   it('splits pipe fields and uses an <address> element', () => {
     const r = renderElement(

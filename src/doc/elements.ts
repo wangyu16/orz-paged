@@ -45,10 +45,14 @@ function boolField(spec: ElementSpec, key: string, fallback: boolean): boolean {
   return !/^(false|no|off|0)$/i.test(v.trim());
 }
 
-/** Split a pipe-separated multi-line field into trimmed, non-empty parts. */
+/**
+ * Split a pipe-separated multi-line field into trimmed, non-empty parts: a
+ * `|` or a line break separates them (the templates write an address or the
+ * contacts one per line — before, those lines ran together on one line).
+ */
 function pipeLines(value: string): string[] {
   return value
-    .split('|')
+    .split(/\||\r?\n/)
     .map((s) => s.trim())
     .filter((s) => s !== '');
 }

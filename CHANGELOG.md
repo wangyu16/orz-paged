@@ -105,6 +105,29 @@ pinned at 0.4.3; to be released together with `orz-paged-browser` 1.0.0.
   warning `unknown-theme`), the kit's `sha256`, `readLegacyIsland`, the
   `inspect` core and the CLI core.
 
+#### Owner UI revisions before the release (2026-10-11)
+
+- `light-playful-1` is a ruled notebook page: the ruling is part of the paper
+  and is never hidden by text. Paragraphs, lists, headings (every level, a
+  whole number of lines, straight; a large one spans two), display formulas
+  (baseline on a rule, height rounded up to whole lines), quotes (framed
+  along two rules), rules, footnotes and the TOC element are written on the
+  lines with no background; tables, code, callouts, figures and pictures,
+  diagrams, columns and the boxed document elements (title blocks, abstract,
+  letterhead, CV header, exam questions) are sheets attached on top — a
+  lighter paper with a hard shadow (figures taped on), each starting and
+  ending on a rule with one blank line around it. The baseline grid
+  (`src/paged/baseline-grid.ts`) measures each written kind's baseline on a
+  probe (`--orz-sh-*`, `--orz-mb-*`, `--orz-fr-*`), aligns display formulas
+  and grows sheets to the next rule; a title block or TOC on its own page
+  starts at the top of the ruled page. P.9 checks it per line, per sheet edge
+  and by pixels.
+- Element fields of lines (`address`, `contacts`, `title`, `organization`)
+  split on line breaks as well as `|`: the templates' addresses and CV
+  contacts, written one per line, ran together on one line.
+- `theme: none`: callouts are told by a tint, a frame and a coloured label
+  instead of a stripe down their side.
+
 #### Closed loop, round 1 (fixes before the release)
 
 - **Typing on a long document no longer freezes.** The Version setting's

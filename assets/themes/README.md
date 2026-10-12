@@ -106,25 +106,40 @@ Adapted:
 
 Per-theme layers (`layers/<id>.css`):
 
-- `light-playful-1`: the exercise book becomes the page, and the ruled lines
-  follow the text (owner decision 2026-10-09). Each page's content box is
-  ruled from its top, out to the paper edges, at the body leading in absolute
-  units (`--orz-grid` = the header's `font_size` × `line_height`), at the
-  height where the body font's baseline falls (`--orz-rule-at`, measured by
-  the paged runtime's baseline-grid handler, `src/paged/baseline-grid.ts`, so
-  any body font and size sits on the lines). Running text (top-level
-  paragraphs and lists) is set with exactly that leading and one blank ruled
-  line after each block; the handler starts every top-level block on the grid,
-  so after a heading, table, callout, code block, formula or image the text is
-  back on the lines on every page. Everything else sits on its own paper (an
-  opaque background): the rules run behind it, never through its glyphs.
-  Inline marks (footnote numbers, sub/superscripts) do not grow a line; a
-  paragraph whose line still grows (a tall inline formula) is marked
-  `.orz-off-grid` and hides the ruling too. The pink margin line is drawn on
-  the page sheet, top to bottom of every page. The title's pink is a shade
-  deeper (5:1 instead of 4.4:1 on the cream paper). Checked by
-  `tests/ruled-paper.test.ts` (P.9: sampled baselines on three pages against
-  the rules; screenshots `/tmp/paged-themes/light-playful-1-aligned-p<n>.png`).
+- `light-playful-1`: a ruled notebook page (owner decisions 2026-10-09,
+  2026-10-11). Each page's content box is ruled from its top, out to the
+  paper edges, at the body leading in absolute units (`--orz-grid` = the
+  header's `font_size` × `line_height`), at the height where the body font's
+  baseline falls (`--orz-rule-at`, measured by the paged runtime's
+  baseline-grid handler, `src/paged/baseline-grid.ts`). The ruling is part
+  of the paper: nothing written on it hides it.
+  - On the lines (no background): paragraphs and lists (one line per rule, a
+    blank line after), headings (straight, a whole number of lines — a large
+    one spans two, a blank line after the two largest), display formulas
+    (the baseline on a rule, the height rounded up to whole lines), quotes
+    (the theme's hand and ink, framed along two rules, the clip on the
+    frame), rules (`hr`: the squiggle along a rule), footnotes (a dashed
+    rule over a page rule) and the TOC element. The handler measures where
+    each kind's baseline falls on a probe and sets `--orz-sh-<k>` (a shift
+    onto the rule), `--orz-mb-<k>` (the margin that ends it at its last
+    line) and `--orz-fr-<k>` (its first rule: the quote frame).
+  - Attached on top (opaque sheets: `--paper-slip`, a hard offset shadow):
+    tables, code, callouts (taped, tilted as in the source), figures and
+    pictures (taped on, a white border), diagrams, columns (each column a
+    sheet) and the boxed document elements (title blocks, abstract,
+    letterhead, CV header, exam questions). A sheet starts on a rule one
+    blank line under the text above, and is grown to end on a rule; the
+    text after it is back on the lines after one blank line.
+  - A title block or the TOC on its own page starts at the top of the ruled
+    page (centred, it would sit between the rules).
+  - The fallback: a written block whose lines still leave the grid (a tall
+    inline formula grows its line) is marked `.orz-off-grid` and hides the
+    ruling behind it.
+  The pink margin line is drawn on the page sheet, top to bottom of every
+  page. The title's pink is a shade deeper (5:1 instead of 4.4:1 on the
+  cream paper). Checked by `tests/ruled-paper.test.ts` (P.9: every written
+  line against its rule, every sheet's edges, the rule ink behind headings
+  and formulas; screenshots `/tmp/paged-themes/light-playful-1-aligned-p<n>.png`).
 
 ## Decisions
 
@@ -153,12 +168,12 @@ Per-theme layers (`layers/<id>.css`):
 - Playful 1's ruling and Academic 1's callout marks reach into the page
   margin by design; a margin narrower than ~1.5 cm clips them at the sheet
   edge.
-- Playful 1's ruling sits under running text only: headings, tables,
-  callouts, code, display math, images, columns and lists inside other blocks
-  stand on their own paper, so the ruling shows around them, not through them.
-  Snapping a block onto the grid adds up to one line of space below the block
-  before it. Lines inside one paragraph keep the grid only while no inline
-  content grows a line box.
+- Playful 1: snapping a block onto the grid adds up to one line of space
+  above it; the lines of a paragraph keep the grid only while no inline
+  content grows a line box (else the paragraph hides the ruling); a
+  multi-row display formula (`aligned`) has its main baseline on a rule, its
+  other rows between rules; a sheet split across pages, or one that would
+  no longer fit when grown, ends where it ends.
 - Orchard's text face is the system UI font, so its line breaks differ by
   platform (as in orz-markdown).
 

@@ -93,13 +93,18 @@
   margin: 1.2em 0;
   padding: 0.8em 1.1em;
   border: 1px solid var(--border-soft);
-  border-left-width: 4px;
-  border-radius: 3px;
+  border-radius: 4px;
 }
-.markdown-body div.info    { border-left-color: #2b5585; }
-.markdown-body div.success { border-left-color: #2e8540; }
-.markdown-body div.warning { border-left-color: #a37213; }
-.markdown-body div.danger  { border-left-color: #a32a2a; }
+/* a callout is told by its tint, frame and label colour (the badges' palette),
+   not by a stripe down its side */
+.markdown-body div.info    { background: #f3f7fc; border-color: #b9cfe8; }
+.markdown-body div.success { background: #f1f8f3; border-color: #b6dcc0; }
+.markdown-body div.warning { background: #fdf8ec; border-color: #ecd9a6; }
+.markdown-body div.danger  { background: #fdf3f2; border-color: #ecc2bc; }
+.markdown-body div.info    > :first-child strong:first-child { color: #234e84; }
+.markdown-body div.success > :first-child strong:first-child { color: #1e6b2e; }
+.markdown-body div.warning > :first-child strong:first-child { color: #8a5a00; }
+.markdown-body div.danger  > :first-child strong:first-child { color: #9a2820; }
 
 .markdown-body span.red    { color: #c0392b; }
 .markdown-body span.yellow { color: #8a5a00; }

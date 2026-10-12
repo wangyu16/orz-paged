@@ -142,8 +142,8 @@ variants.
 Ten **print themes** (`orz-paged themes`): one derived from each light
 orz-markdown theme — `light-neat-3` (Orchard), `light-neat-1`, `light-neat-2`,
 `light-academic-1` (the default), `light-academic-2`, `beige-decent-1`,
-`beige-decent-2`, `light-playful-1` (an exercise book: ruled lines that follow
-the text), `light-playful-2` — plus `none` (plain). Each keeps its source
+`beige-decent-2`, `light-playful-1` (a ruled notebook: text, headings and formulas
+written on the lines, tables, code and callouts pasted on as sheets), `light-playful-2` — plus `none` (plain). Each keeps its source
 theme's typefaces and decoration wherever they suit paper and drops what is
 screen-only; the header's `font_preset`, `decoration_color` and
 `page_background` restyle a theme. The themes ship inside the engine, so a
