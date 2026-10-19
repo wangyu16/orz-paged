@@ -82,7 +82,7 @@ Esc leaves the text for the toolbar.
 undoable edit, FC-18 §9 rules) · `undo()` / `redo()` · `isDirty()` /
 `markSaved()` · `save()` → `{ ok, via, error?, conflict? }` (`via`: `hook`, `host`,
 `file`, `download`), never rejects · `setMode(m)` / `getMode()` · `focus()` ·
-`on('change' | 'dirty' | 'selection' | 'save' | 'error', fn)` → unsubscribe ·
+`on('change' | 'dirty' | 'selection' | 'save' | 'error' | 'print', fn)` → unsubscribe ·
 `proposeAi(op, { selection? })` / `applyAi(proposal, { proposed? })` (the
 review flow, below) · `requestAi(op, { selection? })` (propose and apply at
 once) · `uploadAssets(files)` · `ensureUid()` · `setReadOnly(flag)` /
@@ -210,18 +210,30 @@ CodeMirror's `<script>` and `<style>` and on every script and style of the
 preview frame — the bridge, the paged runtime, the libraries the runtime loads
 and the `<style>` elements Paged.js inserts (the runtime stamps them). Without it, a nonce or hash policy blocks the preview frame's
 inline scripts and the editor reports it (`error` event, source `render`).
-The example's policy:
+The example's policy (one header value; replace `RANDOM` with a fresh nonce
+per response):
 
 ```
-default-src 'none';
-script-src 'nonce-RANDOM' 'strict-dynamic';
-style-src 'self' 'nonce-RANDOM' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com;
-style-src-attr 'unsafe-inline';          (Paged.js, KaTeX and the diagram libraries write style attributes)
-font-src https://cdn.jsdelivr.net https://fonts.gstatic.com data:;   (the print themes' webfonts: Google Fonts; KaTeX's)
-img-src 'self' data: blob: https:;       (wherever resolveAsset points)
-connect-src 'self' https://cdn.jsdelivr.net;
-frame-src https://www.youtube.com;      (only if your documents embed YouTube videos, `{{youtube …}}`: the player is a youtube.com/embed frame; on paper it prints as the video's address)
+default-src 'none'; script-src 'nonce-RANDOM' 'strict-dynamic'; style-src 'self' 'nonce-RANDOM' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://cdn.jsdelivr.net https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://cdn.jsdelivr.net; frame-src https://www.youtube.com
 ```
+
+Why each part:
+
+- `script-src` with `'strict-dynamic'`: the nonce also covers the scripts the
+  component loads (CodeMirror, the preview libraries).
+- `style-src-attr 'unsafe-inline'`: Paged.js, KaTeX and the diagram
+  libraries write style attributes.
+- `font-src`: the print themes' webfonts (Google Fonts), a font preset's
+  (jsDelivr) and KaTeX's.
+- `img-src`: must cover wherever `hooks.resolveAsset` points.
+- `frame-src https://www.youtube.com`: only if your documents embed YouTube
+  videos (`{{youtube …}}`: the player is a youtube.com/embed frame; on paper
+  it prints as the video's address); drop it otherwise.
+
+The same value works in a `<meta http-equiv="Content-Security-Policy">` tag.
+Tested in Chrome: the editor (CodeMirror 6) and the Paged.js preview with
+math, code highlighting, Mermaid, Chart.js and SMILES render with no
+violation but one — Mermaid's run-time `<style>` (below).
 
 What loads from where: CodeMirror 6 from
 `cdn.jsdelivr.net/npm/orz-markdown@<version>/vendor/codemirror6.js` (pinned,
@@ -231,8 +243,16 @@ bundle (no theme fetch), their webfonts from Google Fonts
 preset's from jsDelivr (`@fontsource`); KaTeX CSS from
 jsDelivr, highlight.js from cdnjs, Mermaid / Chart.js from jsDelivr, SMILES
 from unpkg (the preview libraries; with `'strict-dynamic'` the nonce covers
-them). Mermaid inserts `<style>` elements at run time that nobody stamps: allow them
-with `style-src-elem 'unsafe-inline'` if your documents use diagrams.
+them). Mermaid inserts `<style>` elements at run time that nobody stamps
+(the diagram is drawn, unstyled). If your documents use diagrams, add a
+`style-src-elem` directive that repeats the style sources **without a nonce**
+(with a nonce present, `'unsafe-inline'` is ignored; and `style-src-elem`
+replaces `style-src` for `<style>` and stylesheet links, so it must list them
+all):
+
+```
+style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+```
 
 ## Without an editor
 

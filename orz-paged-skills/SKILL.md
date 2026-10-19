@@ -18,6 +18,38 @@ A document has two forms:
 HTML** — everything but the island is regenerated, and a save in the browser
 rewrites the whole file from the text. Never serialize the laid-out pages.
 
+> **Common mistakes** (check these before you assemble):
+>
+> - **Diagrams, charts, chemistry and QR codes are directives, not code
+>   fences.** Write `{{mermaid` … `}}`, `{{chart` … `}}`, `{{smiles C1=CC=CC=C1}}`,
+>   `{{qr https://…}}`. A ```` ```mermaid ```` (or ```` ```chart ````,
+>   ```` ```smiles ````) fence is printed as a code block, with no warning:
+>
+>   ````markdown
+>   Wrong:              Right:
+>   ```mermaid          {{mermaid
+>   graph TD            graph TD
+>     A --> B             A --> B
+>   ```                 }}
+>   ````
+> - **There is no layout checker for paged.** `orz-paged inspect` reads the
+>   text and the file, never the laid-out pages: it cannot tell you the page
+>   count or what overflows (`inspect --layout` is an orz-slides option;
+>   orz-paged refuses it). Count pages yourself (see "Check the layout").
+> - **Settings in the header, not as CLI options.** `assemble --title`,
+>   `--theme`, `--template` are refused; page size, margins, fonts, running
+>   headers and versions are header keys. The header must be the very first
+>   block; a second `kind: document` block further down is ignored
+>   (`stray-document-block`).
+> - **`template:` in the header is layout defaults only.** It never adds a
+>   title page, a TOC or `front_matter: clean`: those come from the starter
+>   text `new --template` writes (or from you).
+> - **Nested containers need more colons outside.** Inside `:::: cols` /
+>   `::: col`, a `::: info` … `:::` closes the column early (the rest of the
+>   column spills out as text). For a container inside a column, give every
+>   outer level more colons: `::::: cols`, `:::: col`, `::: info` … `:::`,
+>   `::::`, `:::::`.
+
 The CLI is `orz-paged` (Node ≥ 20.16; `npx orz-paged@1 …` needs no install;
 this skill is for 1.x). Use `--json` on any command for one machine-readable
 object on stdout. Exit codes: 0 done, 1 refused or failed, 2 usage error.
@@ -49,8 +81,9 @@ theme the pages use); keep the `uid`
 (it keys the reader's preferences and the save handle). `new --html` writes
 both files at once; without a file name the text goes to stdout. A paged text
 twin's name ends in `.paged.md`; a plain `x.md` also assembles (to
-`x.paged.html`). `orz-paged x.paged.md` is short for `assemble`. Theme ids:
-`orz-paged themes`.
+`x.paged.html`; a plain `x.md` whose header says `carrier: md` or `slides`
+is refused, `other-kind`). `orz-paged x.paged.md` is short for `assemble`.
+Theme ids: `orz-paged themes`.
 
 0.x forms are gone: `orz-paged --new <t>` is `orz-paged new x.paged.md
 --template <t>`; `orz-paged --template <t>` is `orz-paged new <t>.paged.md
@@ -64,7 +97,9 @@ changed from the pencil's list), so it may hold work the text twin lacks —
 even when `x.paged.md` is the newer file. Always compare first.
 
 1. **Compare before you edit.** `npx orz-paged@1 inspect x.paged.md --json`
-   (works with only `x.paged.html` too) and read `sha256` and `twin`:
+   and read `sha256` and `twin` (inspect the file that exists: with only
+   `x.paged.html`, `inspect x.paged.md` fails with `no-such-file` — run
+   `inspect x.paged.html --json`, whose `twin` is then `null`):
    - no `x.paged.md` yet → `npx orz-paged@1 extract x.paged.html` (exact, byte
      for byte);
    - `twin.holds: "same"` → go on;
@@ -103,11 +138,21 @@ even when `x.paged.md` is the newer file. Always compare first.
    `x.paged.html~`, or `~1`, `~2`… — a backup is never overwritten).
 
 Delivery: `assemble` keeps the existing file's delivery unless you pass
-`--cdn` or `--inline`; a new file is inline. Includes: `assemble` keeps the
-includes the old file recorded; `--resolve-includes` reads `{{md part.md}}`
-files from the text's folder (never outside it); each include left unresolved
-is a warning (`--json` `unresolved`), and the file shows an "Included file not
-available" note there.
+`--cdn` or `--inline`; a new file is inline. **Inline is not offline**: the
+file carries the engine, Paged.js and the print themes, but the webfonts,
+KaTeX's and highlight.js's styles, Mermaid / SMILES / Chart.js and the
+editor (CodeMirror) load from CDNs — without a network the pages are laid
+out after about 2 s with fallback fonts (so page breaks can differ),
+formulas unstyled and drawings missing. Print where the network works.
+
+Includes: `assemble` keeps the includes the old file recorded;
+`--resolve-includes` reads `{{md part.md}}` files from the text's folder
+(never outside it); `--no-includes` stores none. Each include left unresolved
+is a warning (`--json` `unresolved: [{ target, kind, reason }]` — reasons
+`not-recorded`, `url`, `no-such-file`, `outside-folder`, `unreadable`,
+`not-utf8`, `folder-unreadable`), and the file shows an "Included file not
+available" note there; a recorded include whose file has changed since is a
+warning too (`--json` `stale`: run `assemble --resolve-includes` again).
 
 ## The document header (FC-18, kind `paged`)
 
@@ -149,11 +194,14 @@ front_matter: clean
 | `font_preset`, `font_heading_preset`, `font_margin_box_preset`, `font_family` | a preset id (`system-serif`, `source-serif-4`, `lora`, `crimson-pro`, `noto-serif`, `inter`, `ibm-plex-sans`, `roboto`, `raleway`, `noto-sans`, `courier-prime`) or a family | the theme's own fonts otherwise |
 | `font_size` (pt), `line_height` | numbers | default 12 / 1.5 |
 | `header_left` / `header_center` / `header_right`, `footer_left` / `footer_center` / `footer_right` | text | running header/footer in the page margins |
-| `header_rule`, `footer_rule`, `*_rule_color`, `*_font_size` | | |
+| `header_rule`, `footer_rule` | `true` / `false` | default `true`: a thin rule under the header / over the footer |
+| `header_rule_color`, `footer_rule_color` | CSS colours | default the theme's accent (`decoration_color`) |
+| `header_font_size`, `footer_font_size` | pt | default 9 |
 | `first_page_hide_header`, `first_page_hide_footer` | `true` / `false` | |
 | `page_number_position` | `header-left\|center\|right`, `footer-left\|center\|right`, `none` | |
 | `page_number_style` | `simple`, `page-n`, `page-n-of-N`, `n-of-N`, `n-slash-N`, `dash-n-dash`, `brackets`, `parentheses` | |
-| `page_number_start_page`, `first_page_skip_number` | | |
+| `first_page_skip_number` | `true` / `false` | `true` blanks page 1's whole footer row (as `first_page_hide_footer`); a number in the header still shows |
+| `page_number_start_page` | a number | accepted, but has no effect in 1.0 — use `front_matter: clean` to number the body from 1 |
 | `front_matter` | `clean` / `normal` (`yes`, `true`, `on`, `1` and `plain` mean `clean`; `no`, `false`, `off`, `0` mean `normal`) | `clean`: title/abstract/contents pages with `placement: page` get no furniture; the body is numbered from 1 |
 | `dynamic_choices` | a `key: value` map (`\|` block) | versions, below |
 | `limit_image_to_page`, `keep_image_together`, `repeat_table_header`, `avoid_table_row_breaks` | `true` / `false` | all on by default; `repeat_table_header`: a table that runs onto the next page repeats its header row there |
@@ -184,15 +232,15 @@ in the body where you want it to appear. Curated elements:
 
 | `kind:` | What | Key fields |
 |---|---|---|
-| `article-title` | article title block | `title`, `subtitle`, `authors` (or `author`), `affiliations`, `notes`, `date`, `placement` |
-| `report-title` | report title block | `title`, `subtitle`, `authors` (or `author`), `affiliations`, `notes`, `date`, `placement` |
-| `exam-title` | exam title / cover | `title`, `subtitle`, `author`, `course`, `duration`, `total_points`, `student_fields`, `instructions`, `date`, `placement` |
-| `abstract` | abstract block | `text`, `keywords` |
+| `article-title` | article title block | `title`, `subtitle`, `authors` (or `author`), `affiliations`, `notes`, `date`, `doi`, `placement` |
+| `report-title` | report title block | `title`, `subtitle`, `authors` (or `author`), `affiliations`, `notes`, `date`, `doi`, `placement` |
+| `exam-title` | exam title / cover | `title`, `subtitle`, `author`, `instructor`, `course`, `duration`, `total_points`, `student_fields`, `instructions`, `date`, `placement` |
+| `abstract` | abstract block | `text`, `keywords`, `placement` |
 | `toc` | table of contents | `title`, `max_level`, `placement` |
-| `letterhead` | letter letterhead bar | `organization`, `address`, `email`, `phone` |
-| `letter-inside-address` | recipient address block | `to`, `organization`, `address` |
-| `letter-signature` | closing + signature | `from`, `closing`, `title` |
-| `cv-header` | CV name/contact header | `full_name`, `title`, `contacts` |
+| `letterhead` | letter letterhead bar | `organization`, `tagline`, `address`, `email`, `phone`, `website`, `border` (`false`: no rule) |
+| `letter-inside-address` | recipient address block | `to`, `title`, `organization`, `address`, `align` (`right`) |
+| `letter-signature` | closing + signature | `closing`, `from`, `title`, `organization`, `signature_space` (the gap for a signature, default `1in`) |
+| `cv-header` | CV name/contact header | `full_name`, `title`, `photo` (an image, Markdown), `contacts`, `summary` (Markdown), `border` (`false`: no rule) |
 | `question-mc` | multiple-choice question | `n`, `pts`, `body`, `options`, `answer` (one letter, or several for select-all: `B, D`) |
 | `question-open` | open-ended question | `n`, `pts`, `body`, `space`, `answer` |
 | `timestamp` | "last updated" line | `label`, `date` |
@@ -255,8 +303,11 @@ When the title, abstract, and/or toc are each on their own page (`placement:
 page`), set `front_matter: clean` in the header to give those front-matter
 pages **no running header, footer, or page number**, and **renumber the body**
 so it runs 1…N over the main content only — front-matter pages are excluded from
-both the current page number and the `… of N` total. The `article-page` and
-`report-page` templates set it by default.
+both the current page number and the `… of N` total. `new --template
+article-page` and `new --template report-page` write `front_matter: clean`
+into the header of the text they start; the header's `template:` key alone
+does **not** turn it on (an existing text with `template: report-page` and no
+`front_matter` line numbers every page).
 
 ```
 {{nyml
@@ -271,7 +322,8 @@ front_matter: clean
 `toc` builds a table of contents (with live page numbers) from your headings.
 `max_level` is the deepest heading included (1–6, default 3). `placement: page`
 puts it on its own page. **With `placement: page`, also set `front_matter: clean`
-in the header** (`article-page` and `report-page` do): then the contents page
+in the header** (the texts `new --template article-page` / `report-page`
+write do): then the contents page
 (and a title or abstract page) is left out of the numbering, the body is
 numbered 1…N, and the TOC's page numbers are those body numbers — the numbers
 printed in the footers. Without it every page counts, the cover included, and
@@ -431,6 +483,47 @@ your own keys (`audience: student`) and tag HTML in the body
   footnotes all print. Tabs, `::: spoil` and video are discouraged (they hide
   content or do not print) — not forbidden. Light paper only.
 
+## Check the layout — count pages, fit to N pages
+
+There is **no layout check in the CLI for paged** (no `inspect --layout`;
+`inspect` never lays pages out). Count the pages of the assembled file
+yourself:
+
+- **Headless Chrome → PDF, then count** (no browser window; give the layout
+  time with a virtual-time budget):
+
+  ```bash
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+    --virtual-time-budget=20000 --no-pdf-header-footer \
+    --print-to-pdf="$PWD/x.pdf" "file://$PWD/x.paged.html"
+  pdfinfo x.pdf | grep Pages        # or: python3 -c "import re;print(len(re.findall(rb'/Type\s*/Page[^s]',open('x.pdf','rb').read())))"
+  ```
+
+  (On Linux the binary is `google-chrome` / `chromium`.) The PDF is what
+  *Print* produces; check its pages for overflow too (a block taller than a
+  page is clipped at the bottom; a table wider than its column overflows).
+- **In a browser**: open the file, wait until "Laying out pages…" is gone,
+  and in the console run `document.querySelectorAll('.pagedjs_page').length`.
+
+**Fit to N pages.** Change one header key at a time, re-assemble, recount:
+
+1. `font_size` (pt, default 12): 11 or 10.5 saves most;
+2. `line_height` (default 1.5): 1.35–1.4;
+3. margins (`margin_top` / `_bottom` / `_left` / `_right`, mm, default
+   20): 15;
+4. `page_size` (`Letter` is shorter than `A4`);
+5. two columns (`:::: cols` / `::: col`) for lists and short paragraphs —
+   but mind **the third-of-a-page rule**: near a page break, a short column
+   block moves whole to the next page when that leaves less than about a
+   third of the page empty, so a block just past that point can push a
+   whole chunk over; shorten it, move it, or let a long block split;
+6. structure: `placement: section` instead of `page` for a title, abstract
+   or TOC (each `page` costs a page); remove a `::: page-break`; size images
+   (`![x](a.png =400x)`).
+
+To grow a document to N pages, go the other way (larger `font_size`,
+`line_height`, margins, `placement: page`).
+
 Content syntax is orz-markdown's: read its skill,
 `node_modules/orz-markdown/orz-markdown-skills/SKILL.md` or
 `https://cdn.jsdelivr.net/npm/orz-markdown/orz-markdown-skills/SKILL.md`.
@@ -476,7 +569,8 @@ merge), `legacy-file` (`upgrade`, then `assemble --replaces` with the
 `newer-format` (`npx orz-paged@latest`), `unclosed-island`, `not-orz`,
 `exists`, `assembled-input`, `other-kind`, `invalid-text`, `no-such-file`,
 `unreadable`, `not-utf8`, `write-failed`, `engine-unavailable`, `bad-usage`
-(exit 2; also a 0.x form, with the 1.0 command as `next`), `failed`.
+(exit 2; also a 0.x form, with the 1.0 command as `next`), `failed`. A
+failure is `{ "ok": false, "command", "error", "reason", "next"?, "exitCode" }`.
 
 ## Upgrade old files
 
@@ -493,7 +587,8 @@ inside `custom_css` becomes `} }`, reported). The delivery is kept unless
 `--cdn` / `--inline`. A format-1 file of an older shell is re-assembled with
 its text and includes unchanged. A newer shell and a cut-off file are refused
 (`--force` overrides and keeps `x.paged.html~`). Upgrading twice changes
-nothing more.
+nothing more. `upgrade old.paged.html --no-text` writes the file only (no
+text twin).
 
 ## Recover the text from any version by hand
 
@@ -524,14 +619,19 @@ the host protocols (orz-markdown `spec/host-protocols.md`).
 ## What the file does for its reader
 
 The pages in the page, and ONE control: a pencil at the bottom-left (click:
-Edit; hover or tap: Edit, Print, Save, Download a copy, New document, Save as
+Edit; hover, tap, or Tab to it and press ArrowUp: Edit, Print, Save, Download a copy, New document, Save as
 new copy, Theme, Page size, Template, Page numbers, Number style, Version, New
 document from template…, Page zoom). Settings write the header (undoable,
 unsaved until Save); *Page zoom* is the reader's and never saved, and never
 changes the pages (they are laid out at 100 %, then scaled). **Edit**
-(Cmd/Ctrl+E): editor + live page preview. **Save** (Cmd/Ctrl+S) writes
-`assemble(text)` in place in Chromium, downloads elsewhere; a save over a file
-changed on disk asks first. A quiet, once-a-day update offer on local files.
+(Cmd/Ctrl+E): editor + live page preview (`Cmd/Ctrl+\` cycles split /
+editor / preview). **Save** (Cmd/Ctrl+S) writes `assemble(text)` in place in
+Chromium (the first Save asks for the file with a picker; later saves write
+directly), downloads elsewhere; a save over a file changed on disk asks
+first. Cmd/Ctrl+P prints the pages once laid out (from the editor too: it
+leaves the editor first). A quiet, once-a-day update offer on local files.
+Copying from the pages does not give clean Markdown — take Markdown from
+the text twin.
 
 ## Gotchas
 

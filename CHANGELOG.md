@@ -5,6 +5,30 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Documentation
+
+- The skill: a "Common mistakes" box (`{{mermaid}}` and friends are
+  directives, not fences; no layout checker for paged; nested containers), a
+  "Check the layout — count pages, fit to N pages" recipe (headless Chrome
+  PDF page count; `font_size`, `line_height`, margins, columns and the
+  third-of-a-page rule), every element field (`doi`, `instructor`,
+  `tagline`, `website`, `align`, `organization`, `signature_space`, `photo`,
+  `summary`, `border`, `placement` on `abstract`), values of the header and
+  footer rule and font-size keys, inline is not offline, `--no-includes`,
+  `--no-text`, the include reasons and `stale`; corrected: the
+  `article-page` / `report-page` texts `new` writes set `front_matter:
+  clean`, the `template:` key alone does not; `page_number_start_page` has no
+  effect in 1.0.
+- README: nine print themes plus `none`; `[--cdn | --inline]` in the
+  `assemble` synopsis; checking the layout; inline is not offline; what
+  `other-kind` means; links to files the package does not ship point to
+  GitHub; the release-prep clause removed.
+- `orz-paged-browser` README: the bundled kit version (2.3.0),
+  `printDocument` in both export lists, `editHeader` explained, a "Browsers,
+  delivery and limits" section. `docs/embedding.md`: the CSP recipe is one
+  copy-pasteable policy (tested in Chrome) with its notes outside it, the
+  Mermaid `style-src-elem` line spelled out, the `print` event listed.
+
 <a id="100"></a>
 
 ## [1.0.0] — 2026-10-12

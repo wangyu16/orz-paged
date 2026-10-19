@@ -120,12 +120,12 @@ dynamic_choices: |
 }}
 ```
 
-Examples (each text twin with its file): [`examples/exam.paged.md`](examples/exam.paged.md)
-→ [`exam.paged.html`](examples/exam.paged.html) (an exam with an answer-key
-version, inline), [`examples/notebook.paged.md`](examples/notebook.paged.md) →
-[`notebook.paged.html`](examples/notebook.paged.html) (the Playful theme's ruled
-paper, inline), [`examples/letter.paged.md`](examples/letter.paged.md) →
-[`letter.paged.html`](examples/letter.paged.html) (a letter, a small cdn file for
+Examples (each text twin with its file): [`examples/exam.paged.md`](https://github.com/wangyu16/orz-paged/blob/main/examples/exam.paged.md)
+→ [`exam.paged.html`](https://github.com/wangyu16/orz-paged/blob/main/examples/exam.paged.html) (an exam with an answer-key
+version, inline), [`examples/notebook.paged.md`](https://github.com/wangyu16/orz-paged/blob/main/examples/notebook.paged.md) →
+[`notebook.paged.html`](https://github.com/wangyu16/orz-paged/blob/main/examples/notebook.paged.html) (the Playful theme's ruled
+paper, inline), [`examples/letter.paged.md`](https://github.com/wangyu16/orz-paged/blob/main/examples/letter.paged.md) →
+[`letter.paged.html`](https://github.com/wangyu16/orz-paged/blob/main/examples/letter.paged.html) (a letter, a small cdn file for
 the web).
 
 ## Templates and themes
@@ -133,13 +133,15 @@ the web).
 Twelve **templates** (`orz-paged templates`): `article-page`,
 `article-section`, `report-page`, `report-section`, `exam-page`,
 `exam-section`, `letter`, `cover-letter`, `cv`, `cv-modern`, `cv-elegant`,
-`note` (the default). A template is a starter text (its header and a
-skeleton) plus layout defaults (page size, furniture, front matter); `-page`
-variants give the title its own page, `-section` variants an inline title
-block. The 0.x names `article`, `report`, `exam` resolve to the `-section`
+`note` (the default). A template is a starter text (its header and a skeleton, which `new --template` writes)
+plus layout defaults (page size, furniture). The `-page` starters put the
+title on its own page and write `front_matter: clean` into the header; the
+`-section` starters use an inline title block. The header's `template:` key
+alone sets only the layout defaults — it adds no title page and does not
+turn on clean front matter. The 0.x names `article`, `report`, `exam` resolve to the `-section`
 variants.
 
-Ten **print themes** (`orz-paged themes`): one derived from each light
+Nine **print themes** (`orz-paged themes`): one derived from each light
 orz-markdown theme — `light-neat-3` (Orchard), `light-neat-1`, `light-neat-2`,
 `light-academic-1` (the default), `light-academic-2`, `beige-decent-1`,
 `beige-decent-2`, `light-playful-1` (a ruled notebook: text, headings and formulas
@@ -148,7 +150,7 @@ theme's typefaces and decoration wherever they suit paper and drops what is
 screen-only; the header's `font_preset`, `decoration_color` and
 `page_background` restyle a theme. The themes ship inside the engine, so a
 `--cdn` file styles exactly like an inline one. Details:
-[assets/themes/README.md](assets/themes/README.md).
+[assets/themes/README.md](https://github.com/wangyu16/orz-paged/blob/main/assets/themes/README.md).
 
 ## Two columns
 
@@ -188,7 +190,7 @@ For a web app, the browser engine and editor component:
 
 ```
 orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn]
-orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn] [--resolve-includes | --no-includes] [--replaces sha256]   (also: orz-paged <file.paged.md>)
+orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn | --inline] [--resolve-includes | --no-includes] [--replaces sha256]   (also: orz-paged <file.paged.md>)
 orz-paged extract <file.paged.html> [-o out.paged.md] [--replaces sha256]
 orz-paged upgrade <old.paged.html> [-o out.paged.html] [--text out.paged.md | --no-text] [--cdn | --inline]
 orz-paged inspect <file> [--json]
@@ -219,7 +221,17 @@ network connection the first time. A slow or unreachable CDN never holds the
 page blank: the pages are laid out after at most 2 s of waiting for fonts,
 stylesheets and libraries — with fallback fonts and unenhanced content if
 they have not arrived — and laid out once more when they do (the scroll
-position kept; Print waits for that final layout).
+position kept; Print waits for that final layout). **Inline is not
+offline**: with no network the pages are laid out in fallback fonts (page
+breaks can differ from a networked print), formulas unstyled and diagrams,
+molecules and charts missing.
+
+**Checking the layout.** The CLI does not lay pages out: `inspect` reads
+the text and the file, and has no `--layout` (that is orz-slides). Count
+pages by printing to PDF with headless Chrome (`--headless=new
+--virtual-time-budget=20000 --print-to-pdf=x.pdf file:///…/x.paged.html`)
+or, in an open file, `document.querySelectorAll('.pagedjs_page').length` in
+the console; the skill has a "fit to N pages" recipe.
 
 **0.x commands.** `orz-paged --template <t>`, `--new <t>` and
 `--list-templates` are refused with the 1.0 command that does the same
@@ -307,16 +319,21 @@ refusal suggests is built from your own arguments and names a copy
 | `newer-shell` | the file was made by a newer orz-paged (use `npx orz-paged@latest`) | — |
 | `newer-format` | the text's format is newer than this tool writes | — |
 | `unclosed-island` | `upgrade`: the file was cut off inside its text | `extract x.paged.html -o x.recovered.paged.md` |
-| `other-kind` | an orz md/slides document (by name or by its header's `carrier`): use its own tool | — |
+| `other-kind` | an orz md/slides document: by its file name (`x.slides.md`, `x.md.html`, …), or a plain `x.md` whose header says `carrier: md` / `slides` (an `x.paged.md` with another `carrier` is assembled as paged, with the lint warning `carrier-mismatch`): use its own tool | — |
 | `assembled-input` | `assemble` was given a `.paged.html` | `extract x.paged.html` |
 | `invalid-text` | the text cannot be assembled (NUL, a lone surrogate…) | — |
 | `engine-unavailable` | the inline engine is missing or stale (source checkout: `npm run bundle`) | — |
 | `write-failed`, `failed` | an output (or its `~` copy) could not be written; anything else | — |
 
 `assemble --json` lists the includes left unresolved as `unresolved: [{
-target, kind: "file" | "url", reason }]` and the recorded file includes whose
-file has changed since as `stale`. `inspect --json`'s `twin` is `{ name,
-holds: "same" | "different" | "none", newer, sha256, earlier? }`.
+target, kind: "file" | "url", reason }]` (`not-recorded` — pass
+`--resolve-includes`; `url` — the CLI fetches no URLs; `no-such-file`,
+`outside-folder`, `unreadable`, `not-utf8`, `folder-unreadable`) and the
+recorded file includes whose file has changed since as `stale`.
+`inspect --json`'s `twin` is `{ name, holds: "same" | "different" | "none",
+newer, sha256, earlier? }`, or `null` when the sibling does not exist
+(inspect the file that exists: `inspect x.paged.md` with only
+`x.paged.html` fails with `no-such-file`).
 
 **Editing an existing document (the safe loop).** Before you edit
 `x.paged.md`, run `orz-paged inspect x.paged.md`: if it says `x.paged.html`
@@ -354,14 +371,14 @@ pass them resolved as `assemble(text, { includes })`.
 ## In web apps
 
 The editor every `.paged.html` carries is also a component for web apps:
-[`orz-paged-browser`](browser/README.md) (`npm i orz-paged-browser@1`; ES
+[`orz-paged-browser`](https://github.com/wangyu16/orz-paged/blob/main/browser/README.md) (`npm i orz-paged-browser@1`; ES
 module or a plain `<script>` that sets `globalThis.OrzCarrier`). An app
 mounts any number of editors — each with a Paged.js preview in a sandboxed
 frame — keeps the text wherever it likes through its own hooks (save, AI with
 a review step, includes, assets, links, ids), works under a nonce
 Content-Security-Policy, and assembles `.paged.html` files only when it needs
 one. See [docs/embedding.md](docs/embedding.md) (shipped in both packages) and
-the working example in [`examples/webapp/`](examples/webapp/).
+the working example in [`examples/webapp/`](https://github.com/wangyu16/orz-paged/tree/main/examples/webapp).
 
 A platform that shows assembled files in an iframe speaks the host protocols
 (`orz-host-save@1`, `orz-host-ai@1`, `orz-host-include@1`; canonical spec:
@@ -390,7 +407,7 @@ orz-markdown `spec/host-protocols.md`, see [PROTOCOL.md](PROTOCOL.md)).
 | Read the pages, themes, page zoom, copy as Markdown | yes | yes |
 | Print (and Save as PDF from the print dialog) | yes | yes |
 | Edit (editor, live page preview, settings) | yes | yes |
-| Save in place (File System Access API) | yes | — Save downloads the file instead |
+| Save in place (File System Access API) | yes — the first Save asks for the file (a picker), later saves write it directly | — Save downloads the file instead |
 | Download a copy | download | download |
 | New document, from template, Save as new copy | file picker | download |
 | Quiet update | saved in place | downloaded |
@@ -433,9 +450,8 @@ edit it there and assemble again.
 ## Versions
 
 > **Release status.** 1.0.0 is the first release of the rebuild (text
-> format 1); it depends on `orz-markdown ^2.3.0`, which must be published first
-> (it is: 2.3.0). The 0.x line (up to 0.7.3) is described in
-> [Migrating from 0.x](#migrating-from-0x).
+> format 1); it depends on `orz-markdown ^2.3.0`. The 0.x line (up to 0.7.3)
+> is described in [Migrating from 0.x](#migrating-from-0x).
 
 Two packages, released together with the same version: `orz-paged` (the CLI
 and the Node library) and `orz-paged-browser` (the browser engine and editor
@@ -458,8 +474,8 @@ the reader clicks *Update now*.
 
 ## Development
 
-See [CLAUDE.md](CLAUDE.md) for the architecture, commands and conventions,
-[CHANGELOG.md](CHANGELOG.md) for releases, [notes/CLAIMS.md](notes/CLAIMS.md)
+See [CLAUDE.md](https://github.com/wangyu16/orz-paged/blob/main/CLAUDE.md) for the architecture, commands and conventions,
+[CHANGELOG.md](https://github.com/wangyu16/orz-paged/blob/main/CHANGELOG.md) for releases, [notes/CLAIMS.md](https://github.com/wangyu16/orz-paged/blob/main/notes/CLAIMS.md)
 for what the tests prove.
 
 ## License
