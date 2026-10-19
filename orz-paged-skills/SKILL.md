@@ -41,7 +41,8 @@ rewrites the whole file from the text. Never serialize the laid-out pages.
 >   headers and versions are header keys. The header must be the very first
 >   block; a second `kind: document` block further down is ignored
 >   (`stray-document-block`).
-> - **`template:` in the header is layout defaults only.** It never adds a
+> - **`template:` in the header is layout defaults only** — in 1.0 just the
+>   page size (Letter; A4 for `note`; a `page_size` key wins). It never adds a
 >   title page, a TOC or `front_matter: clean`: those come from the starter
 >   text `new --template` writes (or from you).
 > - **Nested containers need more colons outside.** Inside `:::: cols` /
@@ -186,7 +187,7 @@ front_matter: clean
 
 | Key | Values | Notes |
 |---|---|---|
-| `template` | a template id (below) | layout defaults only |
+| `template` | a template id (below) | layout defaults only: the page size (Letter; A4 for `note`) |
 | `theme` | `light-neat-3`, `light-neat-1`, `light-neat-2`, `light-academic-1` (default), `light-academic-2`, `beige-decent-1`, `beige-decent-2`, `light-playful-1`, `light-playful-2`, `none` | light only, by design |
 | `page_size` | `A3` `A4` `A5` `Letter` `Legal`, or `210mm 297mm` | |
 | `margin_top` / `margin_bottom` / `margin_left` / `margin_right` | mm | default 20 |
@@ -202,7 +203,7 @@ front_matter: clean
 | `page_number_style` | `simple`, `page-n`, `page-n-of-N`, `n-of-N`, `n-slash-N`, `dash-n-dash`, `brackets`, `parentheses` | |
 | `first_page_skip_number` | `true` / `false` | `true` blanks page 1's whole footer row (as `first_page_hide_footer`); a number in the header still shows |
 | `page_number_start_page` | a number | accepted, but has no effect in 1.0 — use `front_matter: clean` to number the body from 1 |
-| `front_matter` | `clean` / `normal` (`yes`, `true`, `on`, `1` and `plain` mean `clean`; `no`, `false`, `off`, `0` mean `normal`) | `clean`: title/abstract/contents pages with `placement: page` get no furniture; the body is numbered from 1 |
+| `front_matter` (older name: `front_matter_clean`) | `clean` / `normal` (`yes`, `true`, `on`, `1` and `plain` mean `clean`; `no`, `false`, `off`, `0` mean `normal`) | `clean`: title/abstract/contents pages with `placement: page` get no furniture; the body is numbered from 1 |
 | `dynamic_choices` | a `key: value` map (`\|` block) | versions, below |
 | `limit_image_to_page`, `keep_image_together`, `repeat_table_header`, `avoid_table_row_breaks` | `true` / `false` | all on by default; `repeat_table_header`: a table that runs onto the next page repeats its header row there |
 | `custom_css` | CSS (`\|` block) | must not contain `}}` |
@@ -221,7 +222,9 @@ front_matter: clean
 is a starter text plus layout defaults; `-page` gives the title its own page,
 `-section` an inline title block (0.x `article`/`report`/`exam` →
 `-section`). Start from one with `new --template`; the header's `template:`
-key changes layout defaults only (it never rewrites the text). In the file:
+key changes layout defaults only (it never rewrites the text). In the file,
+the pencil's *Template* item changes only that key: its labels name the
+starters ("Report — title page"), but switching adds no title page;
 *New document from template…* saves a fresh document; the current one is
 never replaced.
 
@@ -630,8 +633,10 @@ Chromium (the first Save asks for the file with a picker; later saves write
 directly), downloads elsewhere; a save over a file changed on disk asks
 first. Cmd/Ctrl+P prints the pages once laid out (from the editor too: it
 leaves the editor first). A quiet, once-a-day update offer on local files.
-Copying from the pages does not give clean Markdown — take Markdown from
-the text twin.
+Copying from the pages gives Markdown, as in every orz file (`Some *emph*
+text and $x^2$.`); a code block broken across pages comes out as
+backtick-wrapped pieces instead of one fence — take a whole document's
+Markdown from the text twin.
 
 ## Gotchas
 

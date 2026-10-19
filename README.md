@@ -65,7 +65,9 @@ workflow; what paged adds is pages.
   saves a fresh file of the chosen one (its starter text, a new `uid`, named
   `<template>.paged.html` in the save dialog); the
   current document is never replaced. A header's `template:` key sets layout
-  defaults only.
+  defaults only (the page size); the pencil's *Template* item changes only
+  that key — its labels name the starters ("Report — title page"), but
+  switching adds no title page or content.
 - **Edit.** The pencil (or Cmd/Ctrl+E) opens the editor: CodeMirror beside a
   live preview of the pages (split, editor or preview mode; the preview scales
   the pages to its pane), the paged settings and
@@ -134,11 +136,13 @@ Twelve **templates** (`orz-paged templates`): `article-page`,
 `article-section`, `report-page`, `report-section`, `exam-page`,
 `exam-section`, `letter`, `cover-letter`, `cv`, `cv-modern`, `cv-elegant`,
 `note` (the default). A template is a starter text (its header and a skeleton, which `new --template` writes)
-plus layout defaults (page size, furniture). The `-page` starters put the
-title on its own page and write `front_matter: clean` into the header; the
+plus a layout default (the page size: Letter, A4 for `note`). The `-page` starters put the
+title on its own page; `article-page` and `report-page` also write
+`front_matter: clean` into the header (`exam-page` does not); the
 `-section` starters use an inline title block. The header's `template:` key
-alone sets only the layout defaults — it adds no title page and does not
-turn on clean front matter. The 0.x names `article`, `report`, `exam` resolve to the `-section`
+alone sets only that page size (a `page_size` key wins) — it adds no title
+page, furniture or content and does not turn on clean front matter
+(`front_matter_clean: yes` is an older spelling of `front_matter: clean`). The 0.x names `article`, `report`, `exam` resolve to the `-section`
 variants.
 
 Nine **print themes** (`orz-paged themes`): one derived from each light
@@ -252,8 +256,10 @@ file made by a newer orz-paged; another document (`upgrade -o`); or (for
 `<file>~` — or, when that name is taken by something else, `<file>~1`,
 `<file>~2`, … (a backup is never overwritten, and a symbolic link at a backup
 name is never followed). Files are replaced through a temporary file and a
-rename, keeping their mode; a symbolic link stays a link. Every command prints
-the `sha256` of the text it wrote or read (`--json`: `sha256`).
+rename, keeping their mode; a symbolic link stays a link. `assemble`,
+`extract` (to a file), `inspect` and `upgrade` print the `sha256` of the text
+they wrote or read, and every `--json` result that wrote a text carries it
+(`new` prints it only with `--json`; `themes` and `templates` never).
 
 **Known states.** `orz-paged assemble x.paged.md` replaces `x.paged.html` (or
 the `-o` output) without `--force` when the file holds the same text, or **an

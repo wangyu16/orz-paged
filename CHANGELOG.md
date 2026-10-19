@@ -28,6 +28,15 @@ All notable changes to **orz-paged** are recorded here. Versions follow
   delivery and limits" section. `docs/embedding.md`: the CSP recipe is one
   copy-pasteable policy (tested in Chrome) with its notes outside it, the
   Mermaid `style-src-elem` line spelled out, the `print` event listed.
+- Surface round 2: copying from the pages gives Markdown (round 1 said the
+  opposite; checked in Chrome), a code block broken across pages copies as
+  pieces; only `article-page` / `report-page` write `front_matter: clean`
+  (not `exam-page`); the `template:` key's one layout default is the page
+  size; the pencil's *Template* item changes only that key; which commands
+  print the `sha256`; `front_matter_clean` named; the embedding guide's
+  policy vs the example's, `preview.nonce`, the bridge hash per kit version,
+  Mermaid unreadable (not unstyled) without `style-src-elem`. `homepage` in
+  both package.json files is markdown.orz.how/paged.html.
 
 <a id="100"></a>
 
