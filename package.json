@@ -53,7 +53,7 @@
     "type": "git",
     "url": "git+https://github.com/wangyu16/orz-paged.git"
   },
-  "homepage": "https://markdown.orz.how/family.html#paged",
+  "homepage": "https://markdown.orz.how/paged.html",
   "bugs": "https://github.com/wangyu16/orz-paged/issues",
   "dependencies": {
     "orz-markdown": "^2.3.0",

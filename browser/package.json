@@ -51,7 +51,7 @@
     "type": "git",
     "url": "git+https://github.com/wangyu16/orz-paged.git"
   },
-  "homepage": "https://markdown.orz.how/family.html#paged",
+  "homepage": "https://markdown.orz.how/paged.html",
   "bugs": "https://github.com/wangyu16/orz-paged/issues",
   "publishConfig": {
     "access": "public"
