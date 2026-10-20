@@ -6,7 +6,12 @@
  * off-page column, blank pages, grid breaks). tests/integrity.test.ts runs a
  * representative part of it; this runs all (minutes).
  *
- *   npx tsx scripts/columns-matrix.ts [--docs a_long,f_exam] [--themes light-playful-1] [--sizes A5]
+ *   npx tsx scripts/columns-matrix.ts [--docs a_long,f_exam] [--themes light-playful-1] [--sizes A5] [--sample N]
+ *
+ * `--sample N`: a fixed sample of N cases, evenly spaced over the matrix in its order (docs × themes × sizes), so
+ * every fixture, theme and size appears and the same N run every time. `npm run test:release`
+ * (scripts/test-release.ts, release.config.json `extra`) runs the full matrix only when column code changed since the
+ * last green run, otherwise `--sample 40`.
  *
  * Exit 1 when any case fails.
  */
@@ -25,6 +30,13 @@ const arg = (name: string): string[] | null => {
 const docs = arg('docs') ?? readdirSync(FIX).filter((f) => f.endsWith('.md')).sort().map((f) => f.slice(0, -3));
 const themes = arg('themes') ?? [...THEMES];
 const sizes = arg('sizes') ?? ['A5', 'A4', 'Letter'];
+const all: [string, string, string][] = [];
+for (const d of docs) for (const th of themes) for (const sz of sizes) all.push([d, th, sz]);
+const sampleArg = arg('sample');
+const sample = sampleArg ? Number(sampleArg[0]) : 0;
+if (sampleArg && !(Number.isInteger(sample) && sample > 0)) { console.error(`--sample takes a positive whole number, not ${sampleArg[0]}`); process.exit(2); }
+const cases = sample && sample < all.length ? Array.from({ length: sample }, (_, i) => all[Math.floor((i * all.length) / sample)]!) : all;
+console.log(`${cases.length === all.length ? 'the full matrix' : `a fixed sample of the matrix (every ${(all.length / cases.length).toFixed(1)}th case)`}: ${cases.length} of ${all.length} cases`);
 
 const browser = await launch();
 if (!browser) { console.error('Chrome is not installed'); process.exit(2); }
@@ -40,7 +52,7 @@ const b = await bundle();
 let failed = 0;
 let n = 0;
 const t0 = Date.now();
-for (const d of docs) for (const th of themes) for (const sz of sizes) {
+for (const [d, th, sz] of cases) {
   const text = withLayout(readFileSync(join(FIX, `${d}.md`), 'utf8'), th, sz);
   files.write('x.paged.html', assemble(text, { engineSource: b.iife }));
   await page.goto(`${site.url}/x.paged.html`);

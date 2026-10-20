@@ -48,6 +48,9 @@ npm run bundle           # build/bundle.ts: the paged runtime, browser/orz-paged
                          #   and the same IIFE + release.json into dist/ (the Node library's engine)
 npm run themes           # scripts/build-themes.ts: the print themes from the installed orz-markdown (also in prebuild/pretest)
 npm test                 # vitest: project "main" (unit, corpus, CLI), then "chrome" (real-Chrome files, one at a time), then "conformance"
+npm run test:fast        # project main only (no Chrome); test:changed adds the Chrome files that import what changed
+npm run test:release     # the green-run stamp (.release/green.json) that prepublishOnly checks — "Releasing"
+npm run release:check    # the family release gate alone (kit range/install/bundle, lockstep, dated entry, clean tree, manifest)
 npm run typecheck        # tsc --noEmit over src, tests, scripts, build
 npm run gen -- new x.paged.md --template note   # the CLI from source (tsx src/cli.ts …)
 npm run examples         # regenerate examples/*.paged.html from examples/*.paged.md (after a build; D.1 fails when stale)
@@ -217,19 +220,60 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
 
 ## Releasing (two packages, same version)
 
-1. Bump **both** `package.json` and `browser/package.json` to the same
-   version; date the CHANGELOG entry.
-2. `npm run build`, `npm run examples`, `npm test` (twice green, conformance
-   included).
-3. `cd browser && npm publish` (orz-paged-browser; its `prepublishOnly` runs
-   `scripts/check-release.mjs`) **first**, then `npm publish` in the root.
-4. Token: granular with bypass-2FA in a temp `.npmrc`, deleted after; never
-   commit.
-5. **Network note**: IPv6 is unreliable on this machine — prefix npm/git
+The family release pipeline (Phase 4): `scripts/release-check.ts` (the gate)
+and `scripts/test-release.ts` (the green-run stamp and the test tiers) are
+the family's shared tooling — **identical in every orz package**, canonical
+in the family root's `scripts/release-tooling/` (change it there, then
+`node --experimental-strip-types scripts/tooling-sync.ts --write` in the
+family root; never edit the copy here alone). This package's facts are in
+`release.config.json` (kit floor `kit.required`, bundles, manifest check,
+fast lane, the column matrix as an `extra` step).
+
+1. orz-markdown is installed from the registry (`^2.3.0`; never a link). For a later kit, `npx npm@11 install orz-markdown@^X.Y.Z` (the gate refuses a range below `kit.required`, a link, a non-registry lockfile entry, an older install, or a bundle that embeds another kit).
+2. Bump **both** `package.json` and `browser/package.json` to the same
+   version; date the CHANGELOG entry (`## [x.y.z] — YYYY-MM-DD`, no
+   "unreleased"). `npm run build`, `npm run examples`, commit, push `main`.
+3. **`npm run test:release`** on that commit (clean tree; about 45–55 min for the suite, plus the column matrix): it
+   builds (the build must leave the tree clean), runs the full suite once,
+   re-runs a failing file alone (up to 2 tries, each recorded — a timing
+   file that fails under the full load and passes alone is fine), and when
+   all is green writes `.release/green.json` (git-ignored: commit, tree,
+   Node and Chrome versions, per-file counts, re-runs, kit version, bundle
+   hashes). A file red in every try is a real failure: no stamp. After the
+   suite it runs the column matrix (`scripts/columns-matrix.ts`, C.4): in
+   full (420 cases) when column code changed since the last green run
+   (`src/paged/`, `assets/themes/`, `assets/templates/`, `tests/integrity.ts`,
+   `tests/fixtures/columns/`, the script, the lockfile; else since
+   `origin/main`), otherwise a fixed 40-case sample (`--sample 40`);
+   `npm run test:release -- --full-extra` forces the full matrix. The stamp
+   records which ran and why.
+4. Publish: `cd browser && npm publish` **first** (so `--cdn` URLs
+   resolve), then `npm publish` in the root. Both `prepublishOnly`s take
+   seconds: the browser's is `check-release.mjs` + the gate + the stamp
+   check; the root's is `npm run build` + the gate (`--after-build`: a dirty
+   tree then means the build is not deterministic) + the stamp check
+   (commit = HEAD, clean tree, the built bundles = the stamped hashes). They
+   never re-run the suite; any new commit needs a new `npm run test:release`.
+   Check both first with `npm run prepublishOnly` (root) and
+   `cd browser && npm run prepublishOnly`.
+5. Token: a granular token with **bypass-2FA** in a file **outside the
+   repo** — `~/.orz-npmrc` (`chmod 600`), then `export
+   NPM_CONFIG_USERCONFIG="$HOME/.orz-npmrc"` in that terminal; delete it
+   right after publishing; never commit a token. A `.npmrc` inside the repo
+   makes the tree dirty, so the gate refuses. The owner's runbook: family
+   `docs/publish.html`.
+6. **Network note**: IPv6 is unreliable on this machine — prefix npm/git
    network commands with
    `NODE_OPTIONS="--dns-result-order=ipv4first --no-network-family-autoselection"`.
-6. Regenerate the website starter (orz-markdown `docs/starters/`) and sync the
-   plugin skill mirror with the release.
+7. Then regenerate the website starter (orz-markdown `docs/starters/`), sync
+   the plugin skill mirror with the release, and update the family docs.
+
+Test tiers while working: `npm run test:fast` (project `main`, no Chrome),
+`npm run test:changed [-- --base <ref>]` (the fast lane plus the Chrome and
+conformance files whose imports reach a file changed against `origin/main`;
+`-- --list` shows the selection; changes under `src/browser/`, `src/paged/`, `assets/`, `build/` or the
+package/test config select them all), `npm test` (everything, no stamp),
+`npm run test:release` (the stamp).
 
 ## After each major revision
 

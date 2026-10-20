@@ -70,4 +70,25 @@ describe('base', () => {
     expect(existsSync('tests/claims.test.ts')).toBe(true);
     expect(readFileSync('tsconfig.json', 'utf8')).toMatch(/"tests"/);
   });
+
+  it('[B.6] both prepublishOnlys run the family release gate and the stamp check, never the suite; the tiers are scripts; the tooling is not shipped; the installed kit passes the gate (family Phase 4)', async () => {
+    const p = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string>; files: string[] };
+    expect(p.scripts['prepublishOnly']).toBe('npm run build && tsx scripts/release-check.ts --after-build && tsx scripts/test-release.ts --check');
+    expect(p.scripts['release:check']).toBe('tsx scripts/release-check.ts');
+    expect(p.scripts['test:release']).toBe('tsx scripts/test-release.ts');
+    expect(p.scripts['test:fast']).toBe('tsx scripts/test-release.ts --fast');
+    expect(p.scripts['test:changed']).toBe('tsx scripts/test-release.ts --changed');
+    const browser = JSON.parse(readFileSync('browser/package.json', 'utf8')) as { scripts: Record<string, string> };
+    expect(browser.scripts['prepublishOnly']).toBe('node scripts/check-release.mjs && cd .. && npx tsx scripts/release-check.ts && npx tsx scripts/test-release.ts --check');
+    expect(readFileSync('.gitignore', 'utf8').split('\n')).toContain('.release/');
+    for (const f of p.files) expect(f, 'the release tooling is never shipped').not.toMatch(/^(scripts|\.release|release\.config\.json)/);
+    const { loadConfig, releaseProblems, releaseState } = await import('../scripts/release-check.js');
+    const config = loadConfig(process.cwd());
+    expect(config.kit).toEqual({ name: 'orz-markdown', required: '2.3.0' });
+    expect(config.checks).toEqual([['node', 'browser/scripts/check-release.mjs']]);
+    expect(releaseProblems(releaseState(process.cwd(), config), config).filter((x) => /orz-markdown/.test(x))).toEqual([]);
+    // the column matrix: full when column code changed since the last green run, else a fixed 40-case sample
+    expect(config['extra']).toEqual([{ name: 'columns-matrix', full: ['npx', 'tsx', 'scripts/columns-matrix.ts'], sample: ['npx', 'tsx', 'scripts/columns-matrix.ts', '--sample', '40'], fullWhen: ['src/paged/', 'tests/integrity.ts', 'tests/fixtures/columns/', 'scripts/columns-matrix.ts', 'assets/themes/', 'assets/templates/', 'package-lock.json'] }]);
+    expect(readFileSync('scripts/columns-matrix.ts', 'utf8')).toMatch(/Math\.floor\(\(i \* all\.length\) \/ sample\)/);
+  });
 });

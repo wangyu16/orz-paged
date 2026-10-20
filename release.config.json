@@ -1,0 +1,73 @@
+{
+  "$comment": "Release facts of this package, read by scripts/release-check.ts and scripts/test-release.ts (the family tooling, identical in every orz package; family root notes/PHASE4-CLAIMS.md).",
+  "browser": "browser",
+  "kit": {
+    "name": "orz-markdown",
+    "required": "2.3.0"
+  },
+  "manifest": "browser/release.json",
+  "bundles": [
+    "browser/orz-paged.browser.js",
+    "browser/esm/orz-paged.browser.mjs",
+    "browser/release.json",
+    "dist"
+  ],
+  "checks": [
+    [
+      "node",
+      "browser/scripts/check-release.mjs"
+    ]
+  ],
+  "build": [
+    "npm",
+    "run",
+    "build"
+  ],
+  "changelog": "CHANGELOG.md",
+  "test": {
+    "fast": [
+      "--project",
+      "main"
+    ],
+    "changedAll": [
+      "package.json",
+      "package-lock.json",
+      "vitest.config.ts",
+      "release.config.json",
+      "tests/global-setup.ts",
+      "build/",
+      "src/browser/",
+      "src/paged/",
+      "assets/"
+    ],
+    "chrome": true,
+    "retries": 2,
+    "base": "origin/main"
+  },
+  "extra": [
+    {
+      "name": "columns-matrix",
+      "full": [
+        "npx",
+        "tsx",
+        "scripts/columns-matrix.ts"
+      ],
+      "sample": [
+        "npx",
+        "tsx",
+        "scripts/columns-matrix.ts",
+        "--sample",
+        "40"
+      ],
+      "fullWhen": [
+        "src/paged/",
+        "tests/integrity.ts",
+        "tests/fixtures/columns/",
+        "scripts/columns-matrix.ts",
+        "assets/themes/",
+        "assets/templates/",
+        "package-lock.json"
+      ]
+    }
+  ]
+}

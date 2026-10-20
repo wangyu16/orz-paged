@@ -5,6 +5,18 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Release tooling
+
+- Publishing no longer re-runs the 45–55 min suite: `npm run test:release`
+  runs it once on the release commit (plus the column matrix — in full only
+  when column code changed, else a fixed 40-case sample, `columns-matrix.ts
+  --sample N`) and writes a green-run stamp (`.release/green.json`,
+  git-ignored); both `prepublishOnly`s run the family release gate
+  (`scripts/release-check.ts`, shared by every orz package, facts in
+  `release.config.json`) and the stamp check, in seconds. New scripts
+  `release:check`, `test:fast`, `test:changed`, `test:release`. Development
+  tooling only; nothing shipped changes.
+
 ### Documentation
 
 - The skill: a "Common mistakes" box (`{{mermaid}}` and friends are
