@@ -23,7 +23,9 @@ rewrites the whole file from the text. Never serialize the laid-out pages.
 > - **Diagrams, charts, chemistry and QR codes are directives, not code
 >   fences.** Write `{{mermaid` … `}}`, `{{chart` … `}}`, `{{smiles C1=CC=CC=C1}}`,
 >   `{{qr https://…}}`. A ```` ```mermaid ```` (or ```` ```chart ````,
->   ```` ```smiles ````) fence is printed as a code block, with no warning:
+>   ```` ```smiles ````) fence is printed as a code block, with no warning. That is right only
+>   when you mean to *show* the source as code (e.g. teaching Mermaid syntax); to draw it,
+>   use the directive:
 >
 >   ````markdown
 >   Wrong:              Right:
