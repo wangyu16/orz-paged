@@ -26,7 +26,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 
 | ID | Claim | Oracle |
 |---|---|---|
-| B.1 | The package depends on orz-markdown `^2.3.0` and pagedjs `0.4.3` (pinned exactly: the two-column handler is tested against it) and builds without shims or aliases: no `build/shims`, no `path-browserify`, no injected `process`, no version `define`; the orz-markdown version comes from `orz-markdown/version` and orz-paged's from `src/version.ts`, never from a `package.json` walk; the engine bundles for the browser as it is. | conformance |
+| B.1 | The package depends on orz-markdown `^X.Y.Z` at least the kit the code needs (`release.config.json` `kit.required`, 2.3.0 since 1.0; the test reads the range and the floor, it never pins them: D-117) and pagedjs `0.4.3` (pinned exactly: the two-column handler is tested against it) and builds without shims or aliases: no `build/shims`, no `path-browserify`, no injected `process`, no version `define`; the orz-markdown version comes from `orz-markdown/version` and orz-paged's from `src/version.ts`, never from a `package.json` walk; the engine bundles for the browser as it is. | conformance |
 | B.2 | There is one paged theme list (`src/themes.ts`): the stylesheets in `assets/themes` plus `none`, the same ids as the theme fonts, and the default theme is one of them. | conformance |
 | B.3 | `VERSION` (src/version.ts, the shell version every file records) equals the package version. | conformance |
 | B.4 | No escape helper is copied into the TypeScript sources: they use the kit's `escapeHtml` / `escapeAttr` (`orz-markdown/carrier/read`). | conformance |
