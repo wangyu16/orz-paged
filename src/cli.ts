@@ -107,7 +107,7 @@ Exit status: 0 done, 1 refused or failed, 2 usage error.`;
 const HELP: Record<string, string> = {
   new: `orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn | --inline] [--force] [--json]
 
-Writes a new format-1 text twin from a template's starter text: its header (kind:
+Writes a new text twin from a template's starter text: its header (kind:
 document, carrier: paged, a fresh uid, the template's title and settings, the given
 title/theme), then the template's starter body. Without a file the text is printed to
 stdout. --html also writes its assembled file (file.paged.html; --cdn for a small web
@@ -120,7 +120,7 @@ Themes (default ${DEFAULT_THEME}): ${THEME_INFO.map((t) => t.id).join(', ')}.
   assemble: `orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn | --inline] [--resolve-includes | --no-includes] [--replaces <sha256>] [--force] [--json]
 orz-paged <file.paged.md> [-o out.paged.html] [--cdn | --inline] [--force] [--json]
 
-Writes the self-editing file of a text twin: x.paged.md -> x.paged.html (FC-18 §3), the text
+Writes the self-editing file of a text twin: x.paged.md -> x.paged.html, the text
 stored exactly (line endings, BOM); -o writes it elsewhere (missing folders are created).
 Delivery: --inline (this release's engine inside the file) or --cdn (loads it from
 jsDelivr); without either, an existing output keeps its delivery, a new one is inline.
@@ -168,8 +168,8 @@ everything, --force replaces it and keeps the old file as x.paged.html~ (or ~1, 
   extract: `orz-paged extract <file.paged.html> [-o out.paged.md] [--replaces <sha256>] [--force] [--json]
 
 Writes the exact text twin of an assembled file: x.paged.html -> x.paged.md, byte for byte the
-text that was assembled (CR LF and BOM kept). A 0.x file (before text format 1) is
-refused: use \`orz-paged upgrade <file>\`, which writes its format-1 text twin. Warns
+text that was assembled (CR LF and BOM kept). A 0.x file (made before 1.0) is
+refused: use \`orz-paged upgrade <file>\`, which writes its text twin. Warns
 when the file was cut off (the text may be incomplete).
 
 Replaces an existing x.paged.md (or -o output) that holds a different text (no --force
@@ -194,8 +194,8 @@ file is reported as empty (damaged), not extracted.`,
 
 Turns an orz-paged file into a file of this version. A 0.x file: its source is kept
 exactly; its settings block ({{nyml kind: document}}, wherever it was) and a kind: meta
-block become one format-1 header at the top (with carrier: paged and a uid), and the
-0.x file's metadata (#orz-meta) and title move into it. A format-1 file: re-assembled with this shell, text and includes unchanged.
+block become one header at the top (with carrier: paged and a uid), and the
+0.x file's metadata (#orz-meta) and title move into it. A 1.x file: re-assembled with this version, text and includes unchanged.
 Writes the file in place (or to -o) and its text twin (twin of the output, or --text;
 --no-text skips it). Keeps the old file's delivery (--cdn / --inline to choose). Also
 repairs a damaged shell or engine (the text must be intact).
@@ -268,7 +268,7 @@ function legacyForm(argv: string[]): CliError | null {
   if (at('--new') >= 0) {
     if (newT === undefined || newT.startsWith('-')) return new CliError('--new needs a template id; since 1.0 the command is `orz-paged new <file.paged.md> --template <id>` (`orz-paged templates` lists them)', EXIT_USAGE);
     const file = pagedTextName(out ?? newT);
-    return new CliError(`--new is gone since 1.0: \`orz-paged new ${sh(file)} --template ${sh(newT)}\` writes the starter text of a template (a format-1 text twin with a fresh uid); edit it, then \`orz-paged assemble ${sh(file)}\``, EXIT_USAGE, { command: 'new', args: [file, '--template', newT] });
+    return new CliError(`--new is gone since 1.0: \`orz-paged new ${sh(file)} --template ${sh(newT)}\` writes the starter text of a template (with a fresh document id); edit it, then \`orz-paged assemble ${sh(file)}\``, EXIT_USAGE, { command: 'new', args: [file, '--template', newT] });
   }
   const tpl = valueOf('--template');
   if (at('--template') >= 0) {
@@ -425,7 +425,7 @@ function cmdAssemble(p: Parsed, o: Io): void {
   // the kind: a .paged.md name says paged; any other name: the header's carrier, else paged
   const info = readDocument(text, kind === 'paged' ? { kind: 'paged' } : {});
   if (info.kind !== 'paged') throw new CliError(`${file}: the header says carrier: ${info.kind}; use ${info.kind === 'md' ? 'orz-mdhtml' : `orz-${info.kind}`}`, 'other-kind');
-  if (info.format > 1) throw new CliError(`${file}: text format ${info.format} is newer than this tool writes (format 1); use a newer orz-paged (\`npx ${commandLine({ command: 'assemble', args: assembleArgs(callOf(p), file) }).replace(/^orz-paged /, 'orz-paged@latest ')}\`)`, 'newer-format');
+  if (info.format > 1) throw new CliError(`${file} was written for a newer orz-paged (its header says format: ${info.format}; this version reads format 1); use a newer orz-paged (\`npx ${commandLine({ command: 'assemble', args: assembleArgs(callOf(p), file) }).replace(/^orz-paged /, 'orz-paged@latest ')}\`)`, 'newer-format');
   const force = p.flags.has('--force');
 
   // the existing output: may it be replaced, and which includes and delivery does it hold?
@@ -475,7 +475,7 @@ function cmdAssemble(p: Parsed, o: Io): void {
   const n = Object.keys(includes).length;
   o.say(`Wrote ${out} (${d}${!p.flags.has('--cdn') && !p.flags.has('--inline') && prior !== null ? ' as before' : ''}, orz-paged ${VERSION}${n ? `, ${n} include${n === 1 ? '' : 's'}` : ''})`);
   if (check.earlier !== null) o.say(`  (it held ${check.earlier === 'token' ? 'the text whose SHA-256 --replaces gave' : `an earlier text of ${basename(input)}: ${NODE.earlierSource[check.earlier]}`})`);
-  o.say(`  sha256 ${hash} (the text it holds; --replaces takes it)`);
+  o.say(`  sha256 ${hash} (pass it as --replaces to update this file later without --force)`);
   emit(o, { command: 'assemble', input, output: out, kind: 'paged', format: info.format, shell: VERSION, delivery: d, uid: info.meta.uid ?? null, title: info.title, theme: info.theme ?? null, themeEffective: presentationOf(text).theme, template: info.header?.fields['template'] ?? null, includes: n, resolved, unresolved, stale, backup: backedUp, replaced: check.earlier, sha256: hash, bytes: Buffer.byteLength(html, 'utf8') });
 }
 
@@ -493,7 +493,7 @@ function cmdExtract(p: Parsed, o: Io): void {
     const taken = textTarget !== undefined && existsSync(resolve(textTarget));
     const textArgs = textTarget === undefined ? [] : taken ? ['--text', NODE.otherName(textTarget)] : outArg !== undefined && outArg !== '-' ? ['--text', outArg] : [];
     const next: Next = { command: 'upgrade', args: [file, ...textArgs] };
-    throw new CliError(`${file} is an orz-paged ${legacy.version ?? '0.x'} file (before text format 1): run \`${commandLine(next)}\` — it writes the format-1 text${taken ? ` to ${textArgs[1]} (${textTarget} exists: compare and merge the two)` : ' twin'} (the source exactly, metadata moved into the header) and a file of this version`, 'legacy-file', next);
+    throw new CliError(`${file} was made by orz-paged ${legacy.version ?? '0.x'}, before 1.0: run \`${commandLine(next)}\` — it writes the document's text${taken ? ` to ${textArgs[1]} (${textTarget} exists: compare and merge the two)` : ' twin'} (the source exactly, its settings and metadata moved into the header at the top) and makes the file one of this version`, 'legacy-file', next);
   }
   if (!ex) {
     if (html.trim() === '') throw new CliError(`${file} is empty (${statSync(input).size} bytes): a damaged or unfinished file, it holds no text to extract — look for its text twin or a backup (${file}~)`, 'not-orz');
@@ -524,7 +524,7 @@ function cmdExtract(p: Parsed, o: Io): void {
   const info = readDocument(ex.text, { kind: ex.kind });
   o.say(`Wrote ${out} (${ex.kind}, text format ${ex.format}, from orz-${ex.kind === 'md' ? 'mdhtml' : ex.kind} ${ex.shell || 'unknown'})`);
   if (check.earlier !== null) o.say(`  (${names.out} held ${check.earlier === 'token' ? 'the text whose SHA-256 --replaces gave' : `a known state: ${NODE.earlierSource[check.earlier]}`})`);
-  o.say(`  sha256 ${hash} (of the text; --replaces takes it)`);
+  o.say(`  sha256 ${hash} (pass it as --replaces to overwrite this text later without --force)`);
   emit(o, { command: 'extract', input, output: out, kind: ex.kind, format: ex.format, shell: ex.shell || null, delivery: ex.delivery || null, uid: info.meta.uid ?? null, title: info.title, includes: ex.includes ? Object.keys(ex.includes).length : 0, backup: backedUp, replaced: check.earlier, sha256: hash, bytes: Buffer.byteLength(ex.text, 'utf8') });
 }
 
@@ -596,13 +596,13 @@ function cmdUpgrade(p: Parsed, o: Io): void {
   const moved = Object.keys(r.moved);
   if (moved.length > 0) o.say(`Moved into the header: ${moved.join(', ')}`);
   for (const n of r.notes) if (!r.warnings.includes(n)) o.say(`  note: ${n}`);
-  o.say(`  sha256 ${sha256(held)} (the text the file holds; --replaces takes it)`);
+  o.say(`  sha256 ${sha256(held)} (pass it as --replaces to update this file later without --force)`);
   emit(o, { command: 'upgrade', input, output: out, text: textOut, from: r.from, previous: r.from === 'legacy' ? legacy?.version ?? null : ex?.shell ?? null, shell: VERSION, delivery: d, uid: info.meta.uid ?? null, title: info.title, moved: r.moved, notes: r.notes, backups, sha256: sha256(held) });
 }
 
 function humanInspect(file: string, r: InspectReport): string {
   const rows: Array<[string, string]> = [['file', file]];
-  const inputs: Record<InspectReport['input'], string> = { text: 'a text (twin or plain Markdown)', assembled: 'an assembled file (text format 1)', legacy: 'an orz-paged 0.x file (before text format 1)', html: 'HTML that is not an orz document' };
+  const inputs: Record<InspectReport['input'], string> = { text: 'a text (twin or plain Markdown)', assembled: 'an assembled file (orz-paged 1.0 or later)', legacy: 'an orz-paged 0.x file (made before 1.0)', html: 'HTML that is not an orz document' };
   rows.push(['input', inputs[r.input]]);
   if (r.kind) rows.push(['kind', `${r.kind}${r.format !== null ? `, text format ${r.format}` : ''}`]);
   if (r.shell) rows.push(['shell', `orz-paged ${r.shell.version} (${r.shell.relation === 'same' ? 'this version' : r.shell.relation === 'older' ? `older than this tool, ${VERSION}` : r.shell.relation === 'newer' ? `newer than this tool, ${VERSION}` : 'unknown'}), ${r.shell.delivery} delivery`]);
@@ -624,7 +624,7 @@ function humanInspect(file: string, r: InspectReport): string {
       const whole = r.checks.island === 'closed' && r.checks.end === 'closed';
       rows.push(['structure', `${whole ? 'complete' : r.checks.island === 'unclosed' ? 'cut off inside the text (#orz-src not closed)' : 'cut off after the text (no </html>)'}, ${engine}`]);
     }
-    if (r.sha256) rows.push(['sha256', `${r.sha256} (of the text it holds; --replaces takes it)`]);
+    if (r.sha256) rows.push(['sha256', `${r.sha256} (pass it as --replaces to replace this text without --force)`]);
     if (r.twin) {
       const when = { input: 'this one is newer', twin: 'the twin is newer', 'same-time': 'same modification time', unknown: '' }[r.twin.newer];
       const earlier = r.twin.earlier ? `, an earlier text of the text twin (${NODE.earlierSource[r.twin.earlier]})` : '';

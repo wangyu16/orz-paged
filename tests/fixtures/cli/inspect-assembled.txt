@@ -1,5 +1,5 @@
 file       assembled.paged.html
-input      an assembled file (text format 1)
+input      an assembled file (orz-paged 1.0 or later)
 kind       paged, text format 1
 shell      orz-paged {{VERSION}} (this version), cdn delivery
 uid        doc-hazard0crlf01
@@ -9,6 +9,6 @@ template   note
 header     carrier, title, uid, template
 includes   1
 structure  complete, engine from jsDelivr
-sha256     246d3ae5d987b07ae13bca674438b88c921880c40e62316573a5b82c402418f7 (of the text it holds; --replaces takes it)
+sha256     246d3ae5d987b07ae13bca674438b88c921880c40e62316573a5b82c402418f7 (pass it as --replaces to replace this text without --force)
 writable   yes
 lint       clean

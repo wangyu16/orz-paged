@@ -149,14 +149,14 @@ export function inspect(input: string, options: InspectOptions = {}): InspectRep
       };
       report.notes.push(...legacy.notes, ...arranged.notes.filter((n) => !/^moved /.test(n)));
       const twinText = options.twin && !looksHtml(options.twin.content) ? options.twin : null;
-      const what = 'its settings block and metadata become one FC-18 header at the top; the text is kept';
+      const what = 'its settings block and metadata move into one header at the top; the text is kept';
       if (twinText) {
         const other = sh(browserName(twinText.name));
         report.advice.push(
-          `legacy orz-paged ${legacy.version ?? '0.x'} file (experimental, before text format 1; no compatibility shim) next to the text ${twinText.name}: run \`orz-paged upgrade ${self} --text ${other}\` — it writes this file's format-1 text (${what}) to ${browserName(twinText.name)} and re-assembles this file from it; then compare it with ${twinText.name}, merge what you keep into ${twinText.name} (keep the new header), and \`orz-paged assemble ${sh(twinText.name)} --replaces <sha256>\` with the sha256 upgrade printed (the text this file then holds)`,
+          `made by orz-paged ${legacy.version ?? '0.x'}, before 1.0 (this version opens it only to upgrade it), next to the text ${twinText.name}: run \`orz-paged upgrade ${self} --text ${other}\` — it writes this file's text (${what}) to ${browserName(twinText.name)} and re-assembles this file from it; then compare it with ${twinText.name}, merge what you keep into ${twinText.name} (keep the new header), and \`orz-paged assemble ${sh(twinText.name)} --replaces <sha256>\` with the sha256 upgrade printed (the text this file then holds)`,
         );
       } else {
-        report.advice.push(`legacy orz-paged ${legacy.version ?? '0.x'} file (experimental, before text format 1; no compatibility shim): run \`orz-paged upgrade ${self}\` for its format-1 text twin and a new file; ${what}. The file's own update banner cannot update it; \`orz-paged upgrade\` is the way`);
+        report.advice.push(`made by orz-paged ${legacy.version ?? '0.x'}, before 1.0 (this version opens it only to upgrade it): run \`orz-paged upgrade ${self}\` for its text twin and a file of this version; ${what}. The file's own update banner cannot update it; \`orz-paged upgrade\` is the way`);
       }
       legacyText = legacy.text;
       text = arranged.text;
@@ -216,7 +216,7 @@ export function inspect(input: string, options: InspectOptions = {}): InspectRep
   report.writable = doc.kind === 'paged' && !newer && report.input !== 'legacy' && report.shell?.relation !== 'newer' && report.checks?.island !== 'unclosed';
 
   if (doc.kind !== 'paged') report.advice.push(`an orz ${doc.kind} document: use ${CARRIER[doc.kind]} (\`npx ${CARRIER[doc.kind]}\`)`);
-  if (newer) report.advice.push(`text format ${doc.format} is newer than this tool reads and writes (format ${FORMATS.join(', ')}): read-only here; use a newer orz-paged (\`npx orz-paged@latest\`)`);
+  if (newer) report.advice.push(`written for a newer orz-paged (its header says format: ${doc.format}; this version reads format ${FORMATS.join(', ')}): read-only here; use a newer orz-paged (\`npx orz-paged@latest\`)`);
   const errors = doc.lint.filter((l) => l.level === 'error');
   if (errors.length > 0) report.advice.push(`fix the header lint errors in the text (${[...new Set(errors.map((l) => l.code))].join(', ')}), then assemble again`);
   if (report.input !== 'legacy' && doc.header?.legacy) report.advice.push('the header is a legacy `kind: meta` block (or a meta + settings pair): the first header edit (any tool) merges it into one `kind: document` header; nothing to do by hand');
@@ -227,7 +227,7 @@ export function inspect(input: string, options: InspectOptions = {}): InspectRep
     const tn = sh(t.name);
     const twinLegacy = report.input === 'text' && looksHtml(options.twin.content) && readLegacy(options.twin.content) !== null;
     if (t.holds === 'different' && twinLegacy) {
-      report.advice.push(`${t.name} is a legacy orz-paged 0.x file holding a different text than this text twin: \`orz-paged upgrade ${tn} --text ${sh(browserName(options.filename ?? 'file.paged.md'))}\` gives its format-1 text; compare and merge that into ${options.filename ?? 'this text'}, then \`orz-paged assemble ${self} --replaces <sha256>\` with the sha256 upgrade printed (the text ${t.name} then holds)`);
+      report.advice.push(`${t.name} is a legacy orz-paged 0.x file holding a different text than this text twin: \`orz-paged upgrade ${tn} --text ${sh(browserName(options.filename ?? 'file.paged.md'))}\` gives its text; compare and merge that into ${options.filename ?? 'this text'}, then \`orz-paged assemble ${self} --replaces <sha256>\` with the sha256 upgrade printed (the text ${t.name} then holds)`);
     } else if (t.holds === 'different' && options.twin.earlier) {
       const source = { 'git-head': 'its last commit', 'git-index': 'its staged version', 'git-log': 'one of its recent commits', cache: 'what orz-paged last wrote there' }[options.twin.earlier];
       t.earlier = options.twin.earlier;

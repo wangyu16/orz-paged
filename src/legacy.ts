@@ -364,9 +364,9 @@ export function upgrade(html: string, options: UpgradeOptions = {}): UpgradeResu
   const legacy = readLegacy(html);
   if (!legacy) {
     const ex = extract(html);
-    if (!ex || ex.shell === '') throw new Error('orz-paged upgrade: not an orz-paged file (no 0.x markers and no format-1 #orz-src/#orz-shell)');
+    if (!ex || ex.shell === '') throw new Error('orz-paged upgrade: not an orz-paged file (neither a 0.x file nor one made by orz-paged 1.0 or later)');
     if (ex.kind !== 'paged') throw new Error(`orz-paged upgrade: an orz-${ex.kind === 'md' ? 'mdhtml' : ex.kind} file; use orz-${ex.kind === 'md' ? 'mdhtml' : ex.kind}`);
-    if (ex.format > 1) throw new Error(`orz-paged upgrade: text format ${ex.format} is newer than this tool writes (format 1)`);
+    if (ex.format > 1) throw new Error(`orz-paged upgrade: written for a newer orz-paged (its header says format: ${ex.format}; this version reads format 1)`);
     if (!downgrade && compareSemver(ex.shell, VERSION) === 1) {
       throw new Error(`orz-paged upgrade: the file's shell (orz-paged ${ex.shell}) is newer than this tool (${VERSION}); upgrading would downgrade it. Use \`npx orz-paged@latest upgrade\`, or pass --force (library: { downgrade: true }) to re-assemble it with this older shell anyway`);
     }

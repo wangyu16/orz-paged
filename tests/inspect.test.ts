@@ -62,7 +62,7 @@ describe('inspect', () => {
       expect(r.shell).toBeNull();
       expect(r.legacy).toMatchObject({ version: '0.7.3', generator: 'orz-paged 0.7.3', delivery: 'cdn', settings: 'header' });
       expect(r.sha256).toBe(sha256(legacySourceOf(html)));
-      expect(r.advice[0]).toMatch(/legacy orz-paged 0\.7\.3 file.*`orz-paged upgrade file\.paged\.html`/);
+      expect(r.advice[0]).toMatch(/made by orz-paged 0\.7\.3, before 1\.0.*`orz-paged upgrade file\.paged\.html`/);
     }
     expect(inspect(read(LEGACY_FILES['lib-metadata']!)).legacy).toMatchObject({ title: 'Lib Metadata', metaKeys: ['title', 'author', 'date', 'keywords', 'license', 'source'], meta: 'none' });
     expect(inspect(read(LEGACY_FILES['metadata']!)).legacy!.meta).toBe('header');
@@ -100,7 +100,7 @@ describe('inspect', () => {
     expect(asMd.advice.join('\n')).toMatch(/use orz-mdhtml/);
     const future = inspect('{{nyml\nkind: document\nformat: 2\n}}\n\nx\n');
     expect(future.writable).toBe(false);
-    expect(future.advice.join('\n')).toMatch(/format 2 is newer/);
+    expect(future.advice.join('\n')).toMatch(/written for a newer orz-paged \(its header says format: 2;/);
     const bad = inspect('{{nyml\nkind: document\nuid: nope\n}}\n\nx\n');
     expect(bad.advice.join('\n')).toMatch(/lint errors.*bad-uid/);
     const stray = inspect('# Title\n\n{{nyml\nkind: document\npage_size: A5\n}}\n');

@@ -68,7 +68,7 @@ describe.concurrent('the CLI', () => {
     const g = await cli(['assemble', 'golden.paged.md', '--cdn', '-o', 'golden.cdn.paged.html'], d);
     expect(g.code, g.stderr).toBe(0);
     expect(golden(text(join(d, 'golden.cdn.paged.html')))).toBe(read(`${GOLDEN}/golden.cdn.paged.html`));
-    expect(g.stdout).toBe(`Wrote ${join(d, 'golden.cdn.paged.html')} (cdn, orz-paged ${VERSION})\n  sha256 ${sha256(storedText(source))} (the text it holds; --replaces takes it)\n`);
+    expect(g.stdout).toBe(`Wrote ${join(d, 'golden.cdn.paged.html')} (cdn, orz-paged ${VERSION})\n  sha256 ${sha256(storedText(source))} (pass it as --replaces to update this file later without --force)\n`);
 
     const samples: Array<[string, string]> = [
       ['crlf-bom', `\uFEFF${source.replace(/\n/g, '\r\n')}`],
@@ -232,7 +232,7 @@ describe.concurrent('the CLI', () => {
       write(file, read(path));
       const r = await cli(['extract', file], d);
       expect(r.code, name).toBe(1);
-      expect(r.stderr).toMatch(/before text format 1.*orz-paged upgrade/);
+      expect(r.stderr).toMatch(/made by orz-paged 0\.7\.3, before 1\.0: run `orz-paged upgrade/);
       expect(existsSync(file.replace(/\.html$/, ''))).toBe(false);
     }
     // an island without #orz-shell (an unknown writer): extracted with a warning
@@ -1277,6 +1277,39 @@ describe.concurrent('the CLI', () => {
       expect(json(fin), via).toMatchObject({ replaced: 'token' });
       expect(extract(text(join(l, 'old.paged.html')))!.text).toMatch(/merged\n$/);
     }
+  }, 240_000);
+
+  it('[T.6] messages in user words (D-91): no help text, refusal, advice or upgrade report of orz-paged\'s own names a contract (FC-nn, §), "format-1", a "shim" or "--replaces takes it"; reason codes stay in `reason`. A 0.x document id replaced by a new uid is a note of the upgrade, not a warning (D-108)', async () => {
+    const d = folder();
+    const JARGON = /FC-\d|§|shim|format-1|takes it|before text format/;
+    const said: string[] = [];
+    for (const c of ['', 'new', 'assemble', 'extract', 'upgrade', 'inspect', 'themes', 'templates']) said.push((await cli(c ? [c, '--help'] : ['--help'], d)).stdout);
+    write(join(d, 'old.paged.html'), read(LEGACY_FILES['sample']!));
+    write(join(d, 'old.paged.md'), '# my edited text\n');
+    const ex = await cli(['extract', 'old.paged.html', '--json'], d);
+    expect(json(ex).reason).toBe('legacy-file');
+    said.push(String(json(ex).error), (await cli(['extract', 'old.paged.html'], d)).stderr);
+    said.push((await cli(['inspect', 'old.paged.html'], d)).stdout, (await cli(['inspect', 'old.paged.md'], d)).stdout, (await cli(['upgrade', 'old.paged.html'], d)).stderr);
+    write(join(d, 'new.paged.md'), '{{nyml\nkind: document\nformat: 2\n}}\n\nx\n');
+    const nf = await cli(['assemble', 'new.paged.md', '--json'], d);
+    expect(json(nf).reason).toBe('newer-format');
+    said.push(String(json(nf).error));
+    const up = await cli(['upgrade', 'old.paged.html', '--text', 'old.browser.paged.md'], d);
+    expect(up.code, up.stderr).toBe(0);
+    said.push(up.stdout, up.stderr);
+    for (const s of said) expect(s).not.toMatch(JARGON);
+    // D-108: a 0.x id (a UUID) replaced by a new uid — a note on stdout, never a warning
+    const u = folder();
+    const withUuid = read(LEGACY_FILES['lib-metadata']!).replace('"title": "Legacy Report With Metadata",', '"title": "Legacy Report With Metadata",\n  "uid": "0b9c6a8e-1f7e-4c55-9a3e-2f5d1c7b8a90",');
+    write(join(u, 'm.paged.html'), withUuid);
+    write(join(u, 'n.paged.html'), withUuid);
+    const r = await cli(['upgrade', 'm.paged.html'], u);
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stderr).not.toMatch(/0b9c6a8e/);
+    expect(r.stdout).toMatch(/^ {2}note: the 0\.x document id "0b9c6a8e-[^"]+" is not the doc-… form 1\.x ids take: the document got a new id/m);
+    const rj = json(await cli(['upgrade', 'n.paged.html', '--no-text', '--json'], u));
+    expect((rj.warnings as string[] | undefined) ?? []).not.toEqual(expect.arrayContaining([expect.stringMatching(/0b9c6a8e/)]));
+    expect(rj.notes).toEqual(expect.arrayContaining([expect.stringMatching(/0b9c6a8e/)]));
   }, 240_000);
 
   it('[T.19] an empty .paged.html is reported as empty (damaged); a line-ending change in x.paged.md is a change extract does not replace silently', async () => {

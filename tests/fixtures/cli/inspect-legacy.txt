@@ -1,5 +1,5 @@
 file      legacy-sample.paged.html
-input     an orz-paged 0.x file (before text format 1)
+input     an orz-paged 0.x file (made before 1.0)
 kind      paged
 legacy    orz-paged 0.7.3, cdn delivery; settings block at the top, kind: meta block none
 uid       (none)
@@ -8,9 +8,9 @@ theme     (default: light-academic-1)
 template  article
 settings  page_size: A4; header_center: orz-paged demo; footer_left: Yu Wang; page_number_position: footer-center; page_number_style: page-n-of-N
 header    template, page_size, header_center, footer_left, page_number_position, page_number_style
-sha256    91e3dd8598190bc5d6ff9019eb87ddd0f89565a48226d4cc21925864c7ba9c4d (of the text it holds; --replaces takes it)
+sha256    91e3dd8598190bc5d6ff9019eb87ddd0f89565a48226d4cc21925864c7ba9c4d (pass it as --replaces to replace this text without --force)
 writable  no
 lint      clean
 
 advice:
-  - legacy orz-paged 0.7.3 file (experimental, before text format 1; no compatibility shim): run `orz-paged upgrade legacy-sample.paged.html` for its format-1 text twin and a new file; its settings block and metadata become one FC-18 header at the top; the text is kept. The file's own update banner cannot update it; `orz-paged upgrade` is the way
+  - made by orz-paged 0.7.3, before 1.0 (this version opens it only to upgrade it): run `orz-paged upgrade legacy-sample.paged.html` for its text twin and a file of this version; its settings block and metadata move into one header at the top; the text is kept. The file's own update banner cannot update it; `orz-paged upgrade` is the way
