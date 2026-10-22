@@ -17,7 +17,7 @@
  * page settings, metadata) now comes only from the text's header, and a new
  * text comes from `newDocument({ template })`.
  */
-import { VERSION as ORZ_MARKDOWN_VERSION } from 'orz-markdown/version';
+import { ORZ_MARKDOWN_VERSION } from './version.js';
 import { assemble as assembleText, type AssembleOptions } from './assemble.js';
 import { upgrade as upgradeFile, type UpgradeOptions, type UpgradeResult } from './legacy.js';
 import { inspect as inspectInput, type InspectOptions, type InspectReport } from './inspect.js';
@@ -34,7 +34,11 @@ export { sha256 } from 'orz-markdown/carrier';
 export { engineSource, engineFiles, type EngineFiles } from './engine.js';
 export type { DocSettings, TemplateName, ThemeName } from './types.js';
 
-/** The orz-markdown version this release renders with (its parser, themes, KaTeX and CodeMirror pins). */
+/**
+ * The orz-markdown version this release's engine embeds (fixed at build time):
+ * the parser, themes, KaTeX and CodeMirror pins of every file it writes — not
+ * the kit an installation happens to resolve under the `^` range (D-69).
+ */
 export { ORZ_MARKDOWN_VERSION };
 
 /** One document template (`newDocument({ template })`; `orz-paged templates`). */

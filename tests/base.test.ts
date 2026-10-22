@@ -9,7 +9,9 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { THEMES, DEFAULT_THEME, isThemeId } from '../src/themes.js';
 import { THEME_FONTS } from '../src/doc/theme-fonts.js';
-import { VERSION } from '../src/version.js';
+import { ORZ_MARKDOWN_VERSION, VERSION } from '../src/version.js';
+import { ORZ_MARKDOWN_VERSION as LIB_KIT } from '../src/lib.js';
+import { VERSION as INSTALLED_KIT } from 'orz-markdown/version';
 import { buildBrowser } from '../build/bundle.js';
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string; dependencies: Record<string, string>; devDependencies: Record<string, string> };
@@ -39,7 +41,9 @@ describe('base', () => {
       expect(src, file).not.toMatch(/path-browserify|build\/shims|shims\/|inject\s*:|alias\s*:|__ORZPAGED_VERSION__/);
       expect(src, file).not.toMatch(/require\.resolve\(['"]orz-markdown|orzPackageJson|walking up|join\(ROOT, 'package\.json'\)/);
     }
-    expect(readFileSync('src/lib.ts', 'utf8')).toMatch(/from 'orz-markdown\/version'/);
+    // the kit version is read once, at build time (scripts/sync-version.ts → src/version.ts; D-69), never at run time
+    expect(readFileSync('src/lib.ts', 'utf8')).not.toMatch(/from 'orz-markdown\/version'/);
+    expect(readFileSync('scripts/sync-version.ts', 'utf8')).toMatch(/from 'orz-markdown\/version'/);
     expect(readFileSync('build/bundle.ts', 'utf8')).toMatch(/from 'orz-markdown\/version'/);
     // the engine bundles for the browser as it is, and needs no Node module at run time
     const code = (await buildBrowser()).iife;
@@ -58,6 +62,10 @@ describe('base', () => {
   it('[B.3] VERSION is the package version', () => {
     expect(VERSION).toBe(pkg.version);
     expect(readFileSync('src/version.ts', 'utf8')).toContain(`export const VERSION = ${JSON.stringify(pkg.version)};`);
+    // D-69: ORZ_MARKDOWN_VERSION (--version, the library) is the kit the engine embeds, baked at build time
+    expect(ORZ_MARKDOWN_VERSION).toBe(INSTALLED_KIT);
+    expect(LIB_KIT).toBe(ORZ_MARKDOWN_VERSION);
+    expect(readFileSync('src/version.ts', 'utf8')).toContain(`export const ORZ_MARKDOWN_VERSION = ${JSON.stringify(INSTALLED_KIT)};`);
   });
 
   it('[B.4] no copied escape helpers: TypeScript sources use the kit\'s (orz-markdown/carrier/read)', () => {

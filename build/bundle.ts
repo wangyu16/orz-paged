@@ -49,7 +49,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { isScriptSafe } from 'orz-markdown/carrier/shell';
 import { VERSION as ORZ_MARKDOWN_VERSION } from 'orz-markdown/version';
-import { VERSION } from '../src/version.js';
+import { ORZ_MARKDOWN_VERSION as BAKED_KIT_VERSION, VERSION } from '../src/version.js';
 import { BASE_STYLESHEET, THEME_INFO, themeStylesheet } from '../src/themes.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -102,7 +102,7 @@ const versionAs = (version: string | undefined): Plugin => ({
   name: 'version-as',
   setup(b) {
     if (version === undefined) return;
-    b.onLoad({ filter: /[\\/]src[\\/]version\.ts$/ }, () => ({ contents: `export const VERSION = ${JSON.stringify(version)};\n`, loader: 'ts' }));
+    b.onLoad({ filter: /[\\/]src[\\/]version\.ts$/ }, () => ({ contents: `export const VERSION = ${JSON.stringify(version)};\nexport const ORZ_MARKDOWN_VERSION = ${JSON.stringify(ORZ_MARKDOWN_VERSION)};\n`, loader: 'ts' }));
   },
 });
 
@@ -170,6 +170,8 @@ export async function buildRuntime(o: { version?: string } = {}): Promise<string
 /** Build the runtime, the IIFE, the ESM build and release.json in memory. */
 export async function buildBrowser(o: { version?: string } = {}): Promise<BrowserBuild> {
   const version = o.version ?? VERSION;
+  // --version and the library name src/version.ts's kit version: it must be the kit this build bundles (D-69)
+  if (BAKED_KIT_VERSION !== ORZ_MARKDOWN_VERSION) throw new Error(`src/version.ts names orz-markdown ${BAKED_KIT_VERSION} but the build bundles ${ORZ_MARKDOWN_VERSION}: run \`npm run build\` (its prebuild syncs src/version.ts)`);
   const runtime = await buildRuntime(o);
   const define = { __ORZ_PAGED_RUNTIME__: JSON.stringify(runtime) };
   const [iifeOut, esmOut] = await Promise.all([
