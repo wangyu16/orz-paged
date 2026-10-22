@@ -23,6 +23,22 @@
   /* the page furniture (running headers/footers, page numbers): body font, muted colour */
   --orz-furniture-font: var(--font-body);
   --orz-furniture-color: var(--text-muted);
+  /* charts and diagrams: the tokens Chart.js and Mermaid read from orz-markdown 2.4.0 on (the derived themes take
+     theirs from orz-markdown's; inert with an older kit) — dark ink and print-safe hues on white (D-109) */
+  --chart-text: #333333;
+  --chart-grid: rgba(0, 0, 0, 0.12);
+  --chart-1: #1a4f8b;
+  --chart-2: #9b2f22;
+  --chart-3: #2f6b3a;
+  --chart-4: #a86a00;
+  --chart-5: #5e4b85;
+  --chart-6: #3f7686;
+  --mm-text: #1a1a1a;
+  --mm-line: #333333;
+  --mm-node: #f4f4f2;
+  --mm-border: #333333;
+  --mm-accent: #1a4f8b;
+  --mm-note: #f7f1df;
 }
 
 .markdown-body { color: var(--text-main); }

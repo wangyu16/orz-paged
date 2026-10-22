@@ -227,3 +227,24 @@ describe('page furniture takes the theme', () => {
     }
   });
 });
+
+describe('[P.13] print themes: charts, diagrams and table captions (D-109)', () => {
+  const TOKENS = ['--chart-text', '--chart-grid', '--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5', '--chart-6', '--mm-text', '--mm-line', '--mm-node', '--mm-border', '--mm-accent', '--mm-note'];
+  it('[P.13] a table caption (a paragraph opening with bold right before a table) is marked; light-academic-1, which centres its tables, centres it; other paragraphs are not marked', async () => {
+    const { renderDocument, TABLE_CAPTION_CLASS } = await import('../src/render-paged.js');
+    const html = renderDocument('Intro with **bold** in it.\n\n| a |\n|---|\n| 1 |\n\n**Table 1.** Yield by catalyst.\n\n| a |\n|---|\n| 1 |\n\n**Bold** but no table after.\n\nEnd.\n').bodyHtml;
+    expect(html.match(new RegExp(`<p[^>]*class="${TABLE_CAPTION_CLASS}"[^>]*><strong>Table 1\\.</strong> Yield by catalyst\\.</p>\\s*<table`, 'g'))).toHaveLength(1);
+    expect(html.split(TABLE_CAPTION_CLASS).length - 1).toBe(1);
+    expect(readFileSync('node_modules/orz-markdown/themes/light-academic-1.css', 'utf8')).toMatch(/\.markdown-body table \{\s*margin: 2em auto;/);
+    expect(readFileSync('assets/themes/light-academic-1.css', 'utf8')).toMatch(/\.markdown-body p\.orz-table-caption \{\s*text-align: center;\s*\}/);
+  });
+  it('[P.13] the chart and diagram tokens: `none` (hand-written) sets every one; a derived theme carries them whenever the installed orz-markdown theme does (2.4.0 on), so the move to that kit colours charts and Mermaid in the print theme', () => {
+    const none = readFileSync('assets/themes/plain/none.css', 'utf8');
+    for (const t of TOKENS) expect(none, t).toMatch(new RegExp(`${t}:\\s*[^;]+;`));
+    for (const th of THEME_INFO.filter((x) => x.id !== 'none')) {
+      const source = readFileSync(`node_modules/orz-markdown/themes/${th.id}.css`, 'utf8');
+      const derived = readFileSync(`assets/themes/${th.id}.css`, 'utf8');
+      for (const t of TOKENS) if (new RegExp(`${t}:`).test(source)) expect(derived, `${th.id} ${t}`).toMatch(new RegExp(`${t}:`));
+    }
+  });
+});

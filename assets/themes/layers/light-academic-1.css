@@ -1,0 +1,7 @@
+/* light-academic-1 on paper: the print layer (appended to the derived theme by
+   scripts/build-themes.ts). This theme centres its tables (booktabs, `margin: 2em auto`);
+   a table caption — the paragraph before a table that opens with **Table N.**, marked
+   `orz-table-caption` by the renderer — is centred over it, not left at the margin (D-109). */
+.markdown-body p.orz-table-caption {
+  text-align: center;
+}

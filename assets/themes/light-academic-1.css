@@ -704,3 +704,9 @@
   color: var(--text-soft);
   text-decoration: none;
 }
+
+/* ---- print layer: assets/themes/layers/light-academic-1.css ---- */
+
+.markdown-body p.orz-table-caption {
+  text-align: center;
+}

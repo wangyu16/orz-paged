@@ -156,6 +156,10 @@ function finishDocument(p: Prepared, contentHtml: string): PagedAssembly {
     contentHtml = contentHtml.replace(`<!--ORZEL-${index}-->`, () => html ?? '');
   });
 
+  // A table caption — the family's convention: a paragraph that opens with bold (`**Table 1.** …`) right before a
+  // table — is marked, so a theme that centres its tables centres the caption with them (D-109).
+  contentHtml = markTableCaptions(contentHtml);
+
   // 5. CSS: page CSS + deduped element CSS + custom CSS.
   const css =
     buildPageCss(settings) +
@@ -227,4 +231,19 @@ export async function renderDocumentAsync(source: string, options: RenderDocumen
     ...(options.cache ? { cache: options.cache } : {}),
   });
   return finishDocument(p, html);
+}
+
+/** The class of a table caption paragraph ({@link markTableCaptions}). */
+export const TABLE_CAPTION_CLASS = 'orz-table-caption';
+
+/**
+ * Mark each paragraph that opens with `<strong>` and is directly followed by a
+ * `<table>` (the caption convention: `**Table N.** …` on the line before a
+ * table) with {@link TABLE_CAPTION_CLASS}.
+ */
+export function markTableCaptions(html: string): string {
+  return html.replace(/<p((?:\s[^>]*)?)>(?=<strong>)((?:(?!<\/p>)[\s\S])*)<\/p>(\s*)(?=<table[\s>])/g, (_m, attrs: string, inner: string, ws: string) => {
+    const withClass = /\sclass="/.test(attrs) ? attrs.replace(/\sclass="/, ` class="${TABLE_CAPTION_CLASS} `) : `${attrs} class="${TABLE_CAPTION_CLASS}"`;
+    return `<p${withClass}>${inner}</p>${ws}`;
+  });
 }

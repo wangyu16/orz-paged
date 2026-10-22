@@ -106,6 +106,11 @@ Adapted:
 
 Per-theme layers (`layers/<id>.css`):
 
+- `light-academic-1`: its tables are centred (the source's booktabs,
+  `margin: 2em auto`), so a table caption — the paragraph before a table that
+  opens with **Table N.**, which the renderer marks `orz-table-caption` — is
+  centred over it (D-109).
+
 - `light-playful-1`: a ruled notebook page (owner decisions 2026-10-09,
   2026-10-11). Each page's content box is ruled from its top, out to the
   paper edges, at the body leading in absolute units (`--orz-grid` = the
@@ -189,3 +194,8 @@ list (P.2); paged.js-safe selectors and lossless parsing in Chrome; tokens and
 header overrides; a rich sample paginated in real Chrome through paged.js per
 theme, fonts loaded, contrast in colour and greyscale; screenshots of each
 first page in `/tmp/paged-themes/<id>.png`.
+
+Charts and diagrams: from orz-markdown 2.4.0 on, Chart.js and Mermaid take
+their colours from the theme's `--chart-*` / `--mm-*` tokens. The derived
+themes carry orz-markdown's own (the derivation keeps them); `plain/none.css`
+sets its own. With kit 2.3.0 the tokens are inert (the libraries' defaults).
