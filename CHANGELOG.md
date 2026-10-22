@@ -5,6 +5,57 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- **Copy as Markdown across pages** (D-110): a selection that crosses a page
+  break copies as one document — a code fence broken over pages is one fence
+  with its language (it came out as backtick-wrapped pieces), a split table
+  one table with its header once; running headers and page numbers are left
+  out. A selection on one page copies as before.
+- **`--version` and `ORZ_MARKDOWN_VERSION`** name the orz-markdown version
+  the engine embeds (fixed at build time), not the one an installation
+  resolves under `^2.3.0` (D-69).
+- **A 0.x file next to an edited text**: the advice of `inspect` and of
+  `upgrade`'s refusal ends with `orz-paged assemble x.paged.md --replaces
+  <sha256>` (the sha256 upgrade printed); a plain `assemble` is refused
+  there (D-64).
+- `assemble … -o - | head -c 10` exits quietly instead of printing a Node
+  stack (EPIPE; D-77).
+- `npx orz-paged` no longer prints npm deprecation warnings: Paged.js is a
+  build-time dependency (it is bundled into the engine), so its tree
+  (`@babel/polyfill`, `core-js@2`) is not installed (D-96).
+- `new --template letter` (and `cover-letter`, and the editor's *New
+  document from template…*) writes today's date, not the starter's sample
+  date; `newDocument({ date })` and `letterDate(d)` in the library (D-97).
+- The pencil's and the editor's **Template** item is *Template (page size)*,
+  each choice the template id and the page size it sets (`report-page —
+  Letter`): it never promised a title page it does not add (D-103).
+- light-academic-1 centres a table caption (a paragraph opening with
+  `**Table N.**` right before a table) over its centred tables; `theme:
+  none` sets the chart and diagram colour tokens (`--chart-*`, `--mm-*`)
+  that orz-markdown 2.4.0 introduces — the derived themes take orz-markdown's
+  own, so charts and Mermaid follow the print theme once the kit moves to
+  `^2.4.0` (D-109).
+
+### Changed
+
+- `themes --json`: each theme's picker name is `name`, as in orz-mdhtml and
+  orz-slides; `label` stays as an alias for this release (D-106).
+- Help synopses read `[--cdn | --inline]` (D-107).
+- `upgrade` of a 0.x file: the normal conversion steps (a block moved to the
+  top, a 0.x document id replaced by a new uid, the 0.x `<\/script` escape
+  restored) are printed as `note:` lines, not warnings; `UpgradeResult` has
+  `warnings`, the notes that need a look (D-108).
+- `orz-paged-browser`'s `extract` of a 0.x file returns the text the Node
+  `upgrade` writes — title, `#orz-meta` metadata and settings in one header,
+  `carrier: paged`, a uid — with `legacy: { version, moved, notes,
+  warnings }`, so a host app needs no server for old files (D-111). The Node
+  library's `extract` is unchanged; `legacyText` is the conversion alone.
+- CLI messages in user words (D-91): no contract numbers, "format-1",
+  "compatibility shim" or "--replaces takes it"; the sha256 lines say what
+  to do with it (`pass it as --replaces to update this file later without
+  --force`). Reason codes are unchanged.
+
 ### Release tooling
 
 - Publishing no longer re-runs the 45–55 min suite: `npm run test:release`
