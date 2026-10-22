@@ -637,9 +637,9 @@ directly), downloads elsewhere; a save over a file changed on disk asks
 first. Cmd/Ctrl+P prints the pages once laid out (from the editor too: it
 leaves the editor first). A quiet, once-a-day update offer on local files.
 Copying from the pages gives Markdown, as in every orz file (`Some *emph*
-text and $x^2$.`); a code block broken across pages comes out as
-backtick-wrapped pieces instead of one fence — take a whole document's
-Markdown from the text twin.
+text and $x^2$.`), also across pages (a code block broken over pages copies
+as one fence; a split table as one table). A whole document's Markdown is its
+text twin.
 
 ## Gotchas
 

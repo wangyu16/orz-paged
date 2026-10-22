@@ -320,3 +320,67 @@ chrome('the column integrity matrix (real Chrome)', () => {
     expect(errors).toEqual([]);
   }, 600_000);
 });
+
+chrome('copy as Markdown across pages (real Chrome)', () => {
+  it('[R.18] a selection across pages copies as the Markdown of one document (D-110): a highlighted fence over several pages is ONE fence with its language, every line once, in order; a table split over pages is one table with its header once; the text around them once; inside one fence across pages, its text exactly; a selection on one page is the kit\'s copy, as before', async () => {
+    const b = await bundle();
+    const ctx: BrowserContext = await browser!.newContext({ viewport: { width: 1100, height: 1200 } });
+    await routeCdn(ctx, { highlight: true });
+    const page = await ctx.newPage();
+    const lines = Array.from({ length: 90 }, (_, i) => `x${i + 1} = foo(${i + 1})  # line ${i + 1}`);
+    const fence = `\`\`\`python\n${lines.join('\n\n')}\n\`\`\``;
+    const rows = Array.from({ length: 70 }, (_, i) => `| r${i + 1} | ${i + 1} |`);
+    const text = `{{nyml\nkind: document\ncarrier: paged\ntitle: Copy\npage_size: A5\n}}\n\n# Copy\n\nText before.\n\n${fence}\n\nText after.\n\n| Name | N |\n|---|---|\n${rows.join('\n')}\n\nThe end.\n`;
+    files.write('copy.paged.html', assemble(text, { engineSource: b.iife }));
+    await page.goto(`${site.url}/copy.paged.html`);
+    await page.waitForFunction(() => !!(globalThis as { OrzCarrier?: { standalone?: unknown } }).OrzCarrier?.standalone);
+    const pages = await pagesIdle(page);
+    /** Select from the start of the first match of `a` (or a text offset in it) to the end of the last match of `z`, copy, return the text. */
+    const copy = (a: string, z: string, inside = false): Promise<{ text: string; pagesA: number; pagesZ: number }> => page.evaluate(({ a, z, inside }) => {
+      const first = document.querySelector(`#orz-pages ${a}`)!;
+      const all = document.querySelectorAll(`#orz-pages ${z}`);
+      const last = all[all.length - 1]!;
+      const range = document.createRange();
+      if (inside) {
+        const walker = (el: Element): Text[] => { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); const out: Text[] = []; for (let t = w.nextNode(); t; t = w.nextNode()) out.push(t as Text); return out; };
+        const ta = walker(first).find((t) => t.data.includes('x3 '))!;
+        const tz = walker(last).reverse().find((t) => t.data.includes('x88 '))!;
+        range.setStart(ta, ta.data.indexOf('x3 '));
+        range.setEnd(tz, tz.data.indexOf('x88 ') + 3);
+      } else {
+        range.setStartBefore(first);
+        range.setEndAfter(last);
+      }
+      const sel = getSelection()!;
+      sel.removeAllRanges();
+      sel.addRange(range);
+      const dt = new DataTransfer();
+      document.querySelector('#orz-pages')!.dispatchEvent(new ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true }));
+      const pageIndex = (el: Element): number => Array.from(document.querySelectorAll('#orz-pages .pagedjs_page')).indexOf(el.closest('.pagedjs_page')!);
+      return { text: dt.getData('text/plain'), pagesA: pageIndex(first), pagesZ: pageIndex(last) };
+    }, { a, z, inside });
+    expect(pages).toBeGreaterThan(3);
+    // the fence's fragments (over several pages)
+    const f = await copy('pre', 'pre');
+    expect(f.pagesZ - f.pagesA).toBeGreaterThanOrEqual(2);
+    expect(f.text).toBe(fence);
+    // inside the fence, across pages: its text exactly, as on one page
+    const inner = await copy('pre', 'pre', true);
+    expect(inner.text).toBe(lines.slice(2, 88).join('\n\n').slice(0, -(lines[87]!.length - 3)));
+    // the whole document: each block once, the table's repeated header once
+    const whole = await copy('h1', 'p:last-child');
+    expect(whole.pagesZ).toBe(pages - 1);
+    expect(whole.text.split(fence).length - 1).toBe(1);
+    for (const s of ['# Copy', 'Text before.', 'Text after.', 'The end.']) expect(whole.text.split(s).length - 1, s).toBe(1);
+    expect(whole.text.match(/^\|\s*Name\s*\|\s*N\s*\|$/gm)).toHaveLength(1);
+    const copiedRows = whole.text.match(/^\|\s*r\d+\s*\|.*$/gm)!.map((l) => /r(\d+)/.exec(l)![1]);
+    expect(copiedRows).toEqual(rows.map((_, i) => String(i + 1)));
+    expect(whole.text.indexOf('Text before.')).toBeLessThan(whole.text.indexOf(fence));
+    expect(whole.text.indexOf(fence)).toBeLessThan(whole.text.indexOf('Text after.'));
+    expect(whole.text).not.toMatch(/data-orz-ws|pagedjs/);
+    // one page: the kit's copy (unchanged)
+    const one = await copy('h1', 'h1');
+    expect(one.text).toBe('# Copy');
+    await ctx.close();
+  }, 120_000);
+});

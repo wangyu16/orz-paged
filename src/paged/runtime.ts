@@ -46,6 +46,7 @@ import { ColsFlowHandler, type ColsStats } from './cols-flow.js';
 import { INPUT_ATTRIBUTE, type PagedInput } from './input.js';
 import { TableHeadHandler } from './table-head.js';
 import { CodeBreakHandler, disambiguateTextNodes, keepCodeWhitespace } from './code-break.js';
+import { installCrossPageCopy } from './copy-pages.js';
 import { FINAL_WAIT_MS, FIRST_WAIT_MS, LAYING_OUT_ATTRIBUTE, LATE_WAIT_MS, markUpdating, PREVIEW_ACK_MS, PREVIEW_RETRY_MS, UPDATING_ATTRIBUTE } from './constants.js';
 
 export { FINAL_WAIT_MS, FIRST_WAIT_MS, LATE_WAIT_MS, PREVIEW_ACK_MS, UPDATING_ATTRIBUTE };
@@ -127,7 +128,7 @@ const W = window as unknown as Window & {
   __orzPreviewApply?: (html: string, msg: unknown) => Promise<unknown>;
   __orzPreviewMessage?: (msg: unknown) => void;
   __orzPreview?: { report?(): void };
-  OrzMarkdownRuntime?: { init?(root: unknown): void };
+  OrzMarkdownRuntime?: { init?(root: unknown): void; elementToMarkdown?(root: Element): string };
 };
 
 /** The nonce this script was given (the preview frame under an app's nonce policy), stamped on what it adds. */
@@ -797,6 +798,8 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     fillTocNumbers(target);
     target.setAttribute('data-orz-copy', '');
     try { W.OrzMarkdownRuntime?.init?.(target); } catch { /* the runtime's own error */ }
+    // a selection across pages: one stitched tree for the kit's walker (a fence over pages copies as one fence; D-110)
+    installCrossPageCopy(target.ownerDocument, () => W.OrzMarkdownRuntime?.elementToMarkdown);
     if (o.fit) fitTo(target);
     showFirst();
     const total = incremental ? from + newPages.length : chunker.total;
