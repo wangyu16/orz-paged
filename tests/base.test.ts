@@ -33,7 +33,15 @@ describe('base', () => {
     expect(KIT.required).toMatch(/^\d+\.\d+\.\d+$/);
     expect(pkg.dependencies['orz-markdown'], `^X.Y.Z at least ${KIT.required}`).toMatch(/^\^\d+\.\d+\.\d+$/);
     expect(meetsFloor(pkg.dependencies['orz-markdown'] as string, KIT.required), `${pkg.dependencies['orz-markdown']} meets ${KIT.required}`).toBe(true);
-    expect(pkg.dependencies['pagedjs']).toBe('0.4.3'); // pinned exactly: the two-column handler is tested against it
+    // pinned exactly: the two-column handler is tested against it. A build-time dependency only (D-96): Paged.js is
+    // bundled into the runtime the engine carries, so `npx orz-paged` installs none of its tree (@babel/polyfill,
+    // core-js@2: npm deprecation warnings on first run)
+    expect(pkg.devDependencies['pagedjs']).toBe('0.4.3');
+    expect(pkg.dependencies).not.toHaveProperty('pagedjs');
+    const lock = JSON.parse(readFileSync('package-lock.json', 'utf8')) as { packages: Record<string, { dev?: boolean; deprecated?: string }> };
+    const installed = Object.entries(lock.packages).filter(([path, p]) => path !== '' && !p.dev);
+    expect(installed.filter(([, p]) => p.deprecated).map(([path]) => path)).toEqual([]);
+    for (const file of sources('src').filter((f) => !f.startsWith('src/paged/'))) expect(readFileSync(file, 'utf8'), file).not.toMatch(/from 'pagedjs'/);
     expect(existsSync('build/shims')).toBe(false);
     expect({ ...pkg.dependencies, ...pkg.devDependencies }).not.toHaveProperty('path-browserify');
     for (const file of [...sources('src'), ...sources('build')]) {

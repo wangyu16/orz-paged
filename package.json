@@ -60,12 +60,12 @@
   "homepage": "https://markdown.orz.how/paged.html",
   "bugs": "https://github.com/wangyu16/orz-paged/issues",
   "dependencies": {
-    "orz-markdown": "^2.3.0",
-    "pagedjs": "0.4.3"
+    "orz-markdown": "^2.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
     "esbuild": "^0.28.1",
+    "pagedjs": "0.4.3",
     "playwright-core": "^1.63.0",
     "tsx": "^4.22.4",
     "typescript": "^5.9.3",
