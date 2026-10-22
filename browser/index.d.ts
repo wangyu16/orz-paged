@@ -184,7 +184,25 @@ export declare const kind: 'paged';
 export declare const version: string;
 export declare const formats: number[];
 export declare function assemble(text: string, options?: AssembleOptions): Promise<string>;
-export declare function extract(html: string): Extracted | null;
+/** What `extract` says about a 0.x file it read. */
+export interface LegacyExtracted {
+  /** The 0.x version the file names (`0.7.3`), or null. */
+  version: string | null;
+  /** Header keys taken from outside the 0.x source (`carrier`, `uid`, `#orz-meta`, `<title>`), with their values. */
+  moved: Record<string, string>;
+  /** Every note of the conversion, as the Node `upgrade` reports them. */
+  notes: string[];
+  /** The notes that need a look. */
+  warnings: string[];
+}
+/**
+ * The text of an assembled file, or null for HTML that is not one. A 0.x
+ * orz-paged file gives the format-1 text the Node `upgrade` writes for it (its
+ * settings, metadata and title in one header, `carrier: paged`, a uid — the
+ * file's own when valid, else a new one on each call), with `legacy` set;
+ * save it with `assemble(text)`.
+ */
+export declare function extract(html: string): (Extracted & { legacy?: LegacyExtracted }) | null;
 export declare function readDocument(text: string): DocumentInfo;
 export declare function renderPreview(text: string, options?: RenderPreviewOptions): Promise<string>;
 export declare function mountEditor(element: HTMLElement, options: EditorOptions): Editor;

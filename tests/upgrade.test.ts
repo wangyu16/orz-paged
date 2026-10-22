@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { lintHeader, readHeader, withoutHeader, UID_PATTERN } from 'orz-markdown/carrier';
-import { upgrade, readLegacy, headerFromLegacySource, assertKeepsLegacySource } from '../src/legacy.js';
+import { upgrade, readLegacy, headerFromLegacySource, assertKeepsLegacySource, legacyText, upgradeWarnings } from '../src/legacy.js';
 import { inspect } from '../src/inspect.js';
 import { assemble, extract, readDocument, newDocument } from '../src/assemble.js';
 import { resolveSettings } from '../src/doc/settings.js';
@@ -86,11 +86,37 @@ describe('upgrade on the real 0.7.3 files', () => {
         expect(extract(u.html)!.text === u.text, name).toBe(true);
         expect(inspect(u.html)).toMatchObject({ input: 'assembled', kind: 'paged', format: 1, uid: UID, writable: true });
         const again = upgrade(u.html, o);
-        expect(again).toEqual({ text: u.text, html: u.html, from: 'format-1', moved: {}, notes: [] });
+        expect(again).toEqual({ text: u.text, html: u.html, from: 'format-1', moved: {}, notes: [], warnings: [] });
       }
     }
     const withIncludes = assemble(newDocument({ uid: UID }), { delivery: 'cdn', includes: { './x.md': 'X\r\n' } });
     expect(upgrade(withIncludes, { delivery: 'cdn' }).html).toBe(withIncludes);
+  });
+});
+
+describe('the conversion alone (D-108, D-111)', () => {
+  it('[U.4] legacyText is the text upgrade writes (the browser extract of a 0.x file returns it): title, metadata and settings in the one header', () => {
+    for (const [name, path] of Object.entries(LEGACY_FILES)) {
+      const html = read(path);
+      const legacy = readLegacy(html);
+      if (!legacy) continue;
+      const u = upgrade(html, { delivery: 'cdn', uid: UID });
+      const t = legacyText(legacy, UID);
+      expect(t, name).toEqual({ text: u.text, moved: u.moved, notes: u.notes, warnings: u.warnings });
+    }
+    const lib = legacyText(readLegacy(LIB_HTML)!, UID);
+    expect(readHeader(lib.text)!.fields).toMatchObject({ carrier: 'paged', uid: UID, title: 'Legacy Report With Metadata', author: 'Host Author', template: 'report-section' });
+  });
+
+  it('[U.6] the normal steps of a conversion (a block moved to the top, a 0.x id replaced, the 0.x `<\\/script` escape restored) are notes, not warnings; what needs a look is a warning (D-108)', () => {
+    const badUid = LIB_HTML.replace('"title": "Legacy Report With Metadata",', '"title": "Legacy Report With Metadata",\n  "uid": "0b9c6a8e-1f7e-4c55-9a3e-2f5d1c7b8a90",');
+    const b = upgrade(badUid, { delivery: 'cdn', uid: UID });
+    const idNote = b.notes.find((n) => /0b9c6a8e/.test(n))!;
+    expect(idNote).toMatch(/^the 0\.x document id "0b9c6a8e-[^"]+" is not the doc-… form 1\.x ids take: the document got a new id/);
+    expect(b.warnings).not.toContain(idNote);
+    expect(upgradeWarnings(['moved the `kind: document` block to the top as the document\'s one header', 'the source held 1 `<\\/script` (…): restored'])).toEqual([]);
+    expect(upgradeWarnings(['author not moved into the header: the value cannot be a single header line'])).toHaveLength(1);
+    for (const n of b.notes) expect(n).not.toMatch(/FC-18|§|\[0-9a-z\]\{10,32\}/);
   });
 });
 
@@ -225,7 +251,7 @@ describe('upgrade on synthetic 0.x files', () => {
     const badUid = LIB_HTML.replace('"title": "Legacy Report With Metadata",', '"title": "Legacy Report With Metadata",\n  "uid": "not-a-uid",');
     const b = upgrade(badUid, { delivery: 'cdn', uid: UID });
     expect(readHeader(b.text)!.fields['uid']).toBe(UID);
-    expect(b.notes.join('\n')).toMatch(/not-a-uid.*not a valid uid/);
+    expect(b.notes.join('\n')).toMatch(/"not-a-uid" is not the doc-… form 1\.x ids take: the document got a new id/);
     const goodUid = LIB_HTML.replace('"title": "Legacy Report With Metadata",', '"title": "Legacy Report With Metadata",\n  "uid": "doc-fromthemeta0001",');
     expect(readHeader(upgrade(goodUid, { delivery: 'cdn', uid: UID }).text)!.fields['uid']).toBe('doc-fromthemeta0001');
     // a settings block that cannot move exactly (inside a blockquote): stays, noted

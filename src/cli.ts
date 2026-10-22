@@ -588,12 +588,14 @@ function cmdUpgrade(p: Parsed, o: Io): void {
   writeOut(out, r.html);
   const held = extract(r.html)?.text ?? r.text;
   if (textOut) { writeOut(textOut, r.text); NODE.rememberPair(textOut, out, held, r.text, o, { command: 'assemble', sha: sha256(held) }); }
-  for (const n of r.notes) o.warn(n);
+  // what needs a look is a warning; the normal steps of a 0.x conversion are notes (D-108)
+  for (const n of r.warnings) o.warn(n);
   const info = readDocument(r.text);
   o.say(`Upgraded ${input}${out !== input ? ` -> ${out}` : ''} (from ${r.from === 'legacy' ? `orz-paged ${legacy?.version ?? '0.x'}` : `orz-paged ${ex?.shell ?? '?'}`} to ${VERSION}, ${d})`);
   if (textOut) o.say(`Wrote ${textOut} (the text twin)`);
   const moved = Object.keys(r.moved);
   if (moved.length > 0) o.say(`Moved into the header: ${moved.join(', ')}`);
+  for (const n of r.notes) if (!r.warnings.includes(n)) o.say(`  note: ${n}`);
   o.say(`  sha256 ${sha256(held)} (the text the file holds; --replaces takes it)`);
   emit(o, { command: 'upgrade', input, output: out, text: textOut, from: r.from, previous: r.from === 'legacy' ? legacy?.version ?? null : ex?.shell ?? null, shell: VERSION, delivery: d, uid: info.meta.uid ?? null, title: info.title, moved: r.moved, notes: r.notes, backups, sha256: sha256(held) });
 }

@@ -254,7 +254,7 @@ export function headerFromLegacySource(source: string): LegacySourceResult {
     for (const [k, v] of Object.entries(meta.fields)) {
       if (k === 'kind' || !(k in doc.fields)) continue;
       dropped.push(`${k}: ${v}`);
-      if (doc.fields[k] !== v) notes.push(`\`kind: meta\` ${k} ${JSON.stringify(v)} was not kept: the settings block's ${k} ${JSON.stringify(doc.fields[k])} wins (FC-18 §5)`);
+      if (doc.fields[k] !== v) notes.push(`\`kind: meta\` ${k} ${JSON.stringify(v)} was not kept: the settings block's ${k} ${JSON.stringify(doc.fields[k])} wins`);
     }
   }
 
@@ -296,7 +296,7 @@ export function headerFromLegacySource(source: string): LegacySourceResult {
     notes.push('the settings block could not be moved to the top exactly (is it inside a blockquote, list or container?): it stays where it is and does not apply in format 1 — move it to the top of the text by hand');
     return { text: src, notes, moved: false, dropped, found };
   }
-  notes.push(`moved ${wanted.map((b) => `the \`kind: ${b.kind}\` block`).join(' and ')} to the top as the one FC-18 header`);
+  notes.push(`moved ${wanted.map((b) => `the \`kind: ${b.kind}\` block`).join(' and ')} to the top as the document's one header`);
   return { text: merged, notes, moved: true, dropped, found };
 }
 
@@ -312,9 +312,22 @@ export interface UpgradeResult {
   from: 'legacy' | 'format-1';
   /** Header keys this upgrade wrote from outside the source (`carrier`, `uid`, `#orz-meta`, `<title>`), with their values. */
   moved: Record<string, string>;
-  /** What was found, changed or not moved, and why. */
+  /** What was found, changed or not moved, and why: every note, the normal conversion steps included. */
   notes: string[];
+  /**
+   * The notes that need a look (something not moved, not kept, or left where
+   * 0.x read it); the rest of {@link notes} are the normal steps of a
+   * conversion (a block moved to the top, a 0.x id replaced by a new uid, the
+   * 0.x `<\/script` escape restored), which the CLI prints as notes, not
+   * warnings (D-108).
+   */
+  warnings: string[];
 }
+
+/** The notes of a normal conversion — every 0.x file gets them — as opposed to those that need a look (D-108). */
+const CONVERSION_NOTE = /^(moved the `kind: |the source held \d+ `<\\\/script`|the 0\.x document id )/;
+/** The notes of an upgrade that need a look (see {@link UpgradeResult.warnings}). */
+export const upgradeWarnings = (notes: readonly string[]): string[] => notes.filter((n) => !CONVERSION_NOTE.test(n));
 
 /** Options of {@link upgrade}: the assembly's, and a uid to use instead of minting one (tests). */
 export interface UpgradeOptions extends AssembleOptions {
@@ -358,9 +371,31 @@ export function upgrade(html: string, options: UpgradeOptions = {}): UpgradeResu
       throw new Error(`orz-paged upgrade: the file's shell (orz-paged ${ex.shell}) is newer than this tool (${VERSION}); upgrading would downgrade it. Use \`npx orz-paged@latest upgrade\`, or pass --force (library: { downgrade: true }) to re-assemble it with this older shell anyway`);
     }
     const includes = assembleOptions.includes ?? ex.includes;
-    return { text: ex.text, html: assemble(ex.text, { ...assembleOptions, ...(includes ? { includes } : {}) }), from: 'format-1', moved: {}, notes: [] };
+    return { text: ex.text, html: assemble(ex.text, { ...assembleOptions, ...(includes ? { includes } : {}) }), from: 'format-1', moved: {}, notes: [], warnings: [] };
   }
 
+  const t = legacyText(legacy, injected);
+  return { text: t.text, html: assemble(t.text, assembleOptions), from: 'legacy', moved: t.moved, notes: t.notes, warnings: t.warnings };
+}
+
+/** What {@link legacyText} returns: the format-1 text of a 0.x file, what moved into its header, and the notes. */
+export interface LegacyText {
+  text: string;
+  moved: Record<string, string>;
+  notes: string[];
+  warnings: string[];
+}
+
+/**
+ * The format-1 text {@link upgrade} writes for a 0.x file (read by
+ * {@link readLegacy}), without assembling it: the source, its settings block
+ * and `kind: meta` block moved to the top as one header naming `carrier:
+ * paged` and a `uid` (`#orz-meta`'s when valid, else `uid`, else a minted
+ * one), with the DocMeta and title the 0.x file kept outside the source. The
+ * browser `extract` of a 0.x file returns it (D-111). Throws when the text
+ * would not keep the source.
+ */
+export function legacyText(legacy: LegacyFile, injected?: string): LegacyText {
   const source = legacy.text;
   const arranged = headerFromLegacySource(source);
   const notes = [...legacy.notes, ...arranged.notes];
@@ -381,7 +416,7 @@ export function upgrade(html: string, options: UpgradeOptions = {}): UpgradeResu
   if (!has('uid')) {
     const own = legacy.meta?.uid;
     const valid = typeof own === 'string' && UID_PATTERN.test(own.trim());
-    if (own && !valid) notes.push(`the #orz-meta uid ${JSON.stringify(own)} is not a valid uid (doc-[0-9a-z]{10,32}); a new uid was minted`);
+    if (own && !valid) notes.push(`the 0.x document id ${JSON.stringify(own)} is not the doc-… form 1.x ids take: the document got a new id (the header's uid)`);
     add('uid', valid ? own!.trim() : (injected ?? mintUid()), 'uid');
   }
   const meta = legacy.meta ?? {};
@@ -419,7 +454,7 @@ export function upgrade(html: string, options: UpgradeOptions = {}): UpgradeResu
   // settings block overrides is counted as kept — it is noted), and the body
   // after the header is the arranged body exactly.
   assertKeepsLegacySource(source, base, text, arranged.dropped);
-  return { text, html: assemble(text, assembleOptions), from: 'legacy', moved, notes };
+  return { text, moved, notes, warnings: upgradeWarnings(notes) };
 }
 
 /**

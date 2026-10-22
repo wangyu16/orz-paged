@@ -21,6 +21,7 @@ import { escapeAttr, escapeHtml } from 'orz-markdown/carrier/read';
 import { PREVIEW_CDN } from 'orz-markdown/preview-frame';
 import { assemble as assembleSync, cdnBundleUrl, FORMATS, readDocument as pagedReadDocument, type AssembleOptions } from '../assemble.js';
 import { applyDynamicChoices } from '../doc/dynamic.js';
+import { legacyText, readLegacy } from '../legacy.js';
 import { VERSION } from '../version.js';
 import { PREVIEW_ACK_MS, PREVIEW_DEBOUNCE_MS } from '../paged/constants.js';
 import { pagedFrameDocument, pagedPreviewPresentation } from './paged/preview.js';
@@ -72,9 +73,32 @@ export function assemble(text: string, options: AssembleOptions = {}): Promise<s
   }
 }
 
-/** The text of an assembled file (the kit's `extract`), or null for HTML that is not one. */
-export function extract(html: string): Extracted | null {
-  return kitExtract(html);
+/** What {@link extract} says about a 0.x file it read (D-111). */
+export interface LegacyExtracted {
+  /** The 0.x version the file names (`0.7.3`), or null. */
+  version: string | null;
+  /** Header keys taken from outside the 0.x source (`carrier`, `uid`, `#orz-meta`, `<title>`), with their values. */
+  moved: Record<string, string>;
+  /** Every note of the conversion, as the Node `upgrade` reports them. */
+  notes: string[];
+  /** The notes that need a look. */
+  warnings: string[];
+}
+
+/**
+ * The text of an assembled file (the kit's `extract`), or null for HTML that
+ * is not one. A 0.x orz-paged file (before text format 1) gives the format-1
+ * text the Node `upgrade` writes for it — its settings, `#orz-meta` metadata
+ * and title moved into one header at the top, with `carrier: paged` and a uid
+ * (the file's own when valid, else a new one on each call) — and `legacy`
+ * says so; save it with `assemble(text)` (D-111: a host needs no server for
+ * old files).
+ */
+export function extract(html: string): (Extracted & { legacy?: LegacyExtracted }) | null {
+  const legacy = readLegacy(html);
+  if (legacy === null) return kitExtract(html);
+  const t = legacyText(legacy);
+  return { text: t.text, kind: 'paged', format: 1, shell: '', delivery: legacy.delivery ?? '', legacy: { version: legacy.version, moved: t.moved, notes: t.notes, warnings: t.warnings } };
 }
 
 /** The header and derived facts of a paged text, without rendering (the kit's `readDocument`, kind `paged`, linted against the print themes and the paged keys' values — the Node library's `readDocument`). */

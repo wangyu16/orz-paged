@@ -17,7 +17,9 @@ import { VERSION } from '../src/version.js';
 import { engineFiles, engineSource } from '../src/engine.js';
 import { BUNDLE_FILE, ESM_FILE, asciiOnly, buildBrowser, checkBundleRule, scriptSafe, writeBrowser } from '../build/bundle.js';
 import { bundle, launch, routeCdn, serve, tempDir, type Browser, type Page } from './browser-env.js';
-import { corpus, HAZARDS, TEMPLATE_TEXTS } from './helpers.js';
+import { corpus, HAZARDS, LEGACY_FILES, TEMPLATE_TEXTS } from './helpers.js';
+import { upgrade } from '../src/legacy.js';
+import { readHeader } from 'orz-markdown/carrier';
 
 const b = await bundle();
 const CORPUS = corpus('paged');
@@ -223,6 +225,13 @@ chrome('real Chrome (playwright-core, channel chrome)', () => {
     expect(refused[1]).toMatch(/format 2/);
     expect(refused[2]).toMatch(/unknown delivery/);
     expect(refused[3]).toMatch(/script-safe/);
+    // D-111: a 0.x file extracts as the Node upgrade's text (title, metadata, settings in one header), with `legacy` set
+    const old = readFileSync(LEGACY_FILES['lib-metadata']!, 'utf8');
+    const lx = await page.evaluate((h) => (globalThis as unknown as { OrzCarrier: Carrier }).OrzCarrier.extract(h), old) as { text: string; kind: string; format: number; legacy: { version: string; warnings: string[] } };
+    const uid = readHeader(lx.text)!.fields['uid']!;
+    expect(lx).toMatchObject({ kind: 'paged', format: 1, shell: '', legacy: { version: '0.7.3' } });
+    expect(lx.text).toBe(upgrade(old, { delivery: 'cdn', uid }).text);
+    expect(readHeader(lx.text)!.fields).toMatchObject({ carrier: 'paged', title: 'Legacy Report With Metadata', author: 'Host Author', template: 'report-section' });
     await page.context().close();
   }, 120_000);
 
