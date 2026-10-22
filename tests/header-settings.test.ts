@@ -79,6 +79,22 @@ describe('the header is the settings source', () => {
     expect(src).not.toMatch(/function parseDocSettings|function parseNymlBody|function findClosing/);
   });
 
+  it('[S.1] the Template setting says what it does (D-103): "Template (page size)", each choice the template id and the page size it sets — no starter title page promised; choosing one writes only `template`', async () => {
+    const { PAGED_SETTINGS, TEMPLATE_SETTING_LABEL } = await import('../src/browser/paged/settings.js');
+    const setting = PAGED_SETTINGS.find((c) => c.key === 'template')!;
+    expect(setting.label).toBe(TEMPLATE_SETTING_LABEL);
+    expect(setting.label).toBe('Template (page size)');
+    expect(setting.choices.length).toBe(12);
+    for (const c of setting.choices) {
+      const size = String(resolveTemplate(c.value).pageSize);
+      expect(c.label).toBe(`${c.value} — ${size}`);
+      expect(['Letter', 'A4']).toContain(size);
+      // the template layer holds nothing but the page size (and its own id): the label is the whole effect
+      expect(Object.keys(resolveTemplate(c.value)).sort()).toEqual(['pageSize', 'template']);
+    }
+    expect(setting.apply).toBeUndefined();
+  });
+
   it('[S.1] layering: DEFAULTS ← the template\'s layout layer ← the header', () => {
     const tpl = '{{nyml\nkind: document\ntemplate: report-page\n}}\n\nbody\n';
     expect(resolveSettings(tpl).pageSize).toBe(resolveTemplate('report-page').pageSize);

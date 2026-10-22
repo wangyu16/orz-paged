@@ -225,8 +225,9 @@ is a starter text plus layout defaults; `-page` gives the title its own page,
 `-section` an inline title block (0.x `article`/`report`/`exam` →
 `-section`). Start from one with `new --template`; the header's `template:`
 key changes layout defaults only (it never rewrites the text). In the file,
-the pencil's *Template* item changes only that key: its labels name the
-starters ("Report — title page"), but switching adds no title page;
+the pencil's *Template (page size)* item changes only that key: its choices
+name the template and the page size it sets (`report-page — Letter`);
+switching adds no title page;
 *New document from template…* saves a fresh document; the current one is
 never replaced.
 

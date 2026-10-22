@@ -226,7 +226,7 @@ chrome('the handle and its paged items (real Chrome)', () => {
     const exam = await openFile(ctx, 'handle-exam.paged.html', await assembleReal(TEMPLATE_TEXTS['exam-section']!));
     const shown = await exam.evaluate(`Array.from(${APP}.root.querySelectorAll('button, a')).filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute('aria-label'))`);
     expect(shown).toEqual(['Edit and more']);
-    expect(await handleItems(exam)).toEqual(['Edit', 'Print', 'Save', 'Download a copy', 'New document', 'Save as new copy', 'Theme', 'Page size', 'Template', 'Page numbers', 'Number style', 'Version', 'New document from template…', 'Page zoom']);
+    expect(await handleItems(exam)).toEqual(['Edit', 'Print', 'Save', 'Download a copy', 'New document', 'Save as new copy', 'Theme', 'Page size', 'Template (page size)', 'Page numbers', 'Number style', 'Version', 'New document from template…', 'Page zoom']);
     // every item has its icon (round 4: Template, Page numbers, Number style, Version and Page zoom had none)
     await exam.evaluate(`${APP}.menu.open()`);
     const bare = await exam.evaluate(`Array.from(${APP}.root.querySelectorAll('[role=menuitem]')).filter((b) => !b.querySelector('svg path')).map((b) => b.getAttribute('aria-label') || b.textContent.trim())`);
@@ -256,8 +256,8 @@ chrome('the handle and its paged items (real Chrome)', () => {
     await page.getByRole('menuitemradio', { name: 'Top right', exact: true }).click();
     await chooseInHandle(page, 'Number style');
     await page.getByRole('menuitemradio', { name: 'Page 1 of N', exact: true }).click();
-    await chooseInHandle(page, 'Template');
-    await page.getByRole('menuitemradio', { name: 'Article — title section', exact: true }).click();
+    await chooseInHandle(page, 'Template (page size)');
+    await page.getByRole('menuitemradio', { name: 'article-section — Letter', exact: true }).click();
     await chooseInHandle(page, 'Theme');
     await page.getByRole('menuitemradio', { name: 'Neat 2', exact: false }).first().click();
     const t = await page.evaluate(`${APP}.getText()`) as string;
@@ -406,7 +406,7 @@ chrome('the editor with a Paged.js preview (real Chrome)', () => {
     const sandbox = await page.evaluate(`Array.from(${APP}.root.querySelectorAll('.orz-editor-host')).map((h) => h.shadowRoot.querySelector('iframe').getAttribute('sandbox'))[0]`);
     expect(sandbox).toBe('allow-scripts allow-same-origin'); // a standalone file: page (FC-19 §8.4)
     const tools = await page.evaluate(`Array.from(${APP}.root.querySelector('.orz-editor-host').shadowRoot.querySelectorAll('button')).map((b) => b.getAttribute('aria-label') || b.textContent)`) as string[];
-    expect(tools).toEqual(expect.arrayContaining(['Theme', 'Page size', 'Template', 'Page numbers', 'Number style', 'Version']));
+    expect(tools).toEqual(expect.arrayContaining(['Theme', 'Page size', 'Template (page size)', 'Page numbers', 'Number style', 'Version']));
     expect(await page.evaluate(`Array.from(${APP}.root.querySelectorAll('a')).map((a) => a.getAttribute('href'))`)).toContain('https://github.com/wangyu16/orz-paged');
     // typing re-paginates the preview
     await page.evaluate(`${APP}.editor().setText(${APP}.editor().getText() + '\\n\\nFRESHLY TYPED PARAGRAPH\\n')`);

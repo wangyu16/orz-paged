@@ -3,7 +3,8 @@
  * decision 2) — in the read view as submenus of the pencil's list, in the
  * editor as toolbar pickers (`attachSettings`); choosing writes the header
  * (document data, one undoable edit). Theme (the print themes), Page size
- * (the named sizes), Template (layout defaults only), Page numbers (where)
+ * (the named sizes), Template (page size) (the header's `template`: layout
+ * defaults only, the page size — never the starter's title page), Page numbers (where)
  * and Number style (how), and Version (the dynamic choices the document
  * defines: offered only while it defines some, its choices read at each
  * opening, writing the header's multi-line `dynamic_choices` map — the kit's
@@ -13,7 +14,7 @@
 import type { SettingChoice, SettingControl } from 'orz-markdown/carrier/app';
 import type { KindIcon } from 'orz-markdown/carrier/shell';
 import { resolveSettings } from '../../doc/settings.js';
-import { canonicalTemplate, templateList } from '../../doc/templates.js';
+import { canonicalTemplate, resolveTemplate, templateList } from '../../doc/templates.js';
 import { presentationOf } from '../../presentation.js';
 import { themeChoices } from './themes.js';
 import { versionChange, versionChoices, versionsHiddenAsker } from './versions.js';
@@ -67,6 +68,14 @@ export const PAGE_NUMBER_STYLES: ReadonlyArray<{ value: string; label: string }>
   { value: 'brackets', label: '[1]' },
   { value: 'parentheses', label: '(1)' },
 ]);
+
+/** The Template setting's name: it sets the template's layout defaults (the page size), not its starter text (D-103). */
+export const TEMPLATE_SETTING_LABEL = 'Template (page size)';
+
+/** The Template setting's choices: each template id with the page size it sets (`report-page — Letter`). */
+export function templateChoices(): Array<{ value: string; label: string }> {
+  return templateList().map((t) => ({ value: t.id, label: `${t.id} — ${String(resolveTemplate(t.id).pageSize ?? '')}` }));
+}
 
 /** The Version choice that removes a key (no choice made: the document as written). */
 export const VERSION_DEFAULT_LABEL = 'default';
@@ -122,11 +131,14 @@ export const PAGED_SETTINGS: readonly SettingControl[] = Object.freeze([
     choices: PAGE_SIZES,
     current: (text: string) => String(resolveSettings(text).pageSize),
   },
+  // The header's `template` key sets layout defaults only — the page size — and never adds the starter's title page or
+  // content: the item says so ("Template (page size)", "report-page — Letter"); the starters are New document from
+  // template… (D-103; the honest, smaller change)
   {
     key: 'template',
-    label: 'Template',
+    label: TEMPLATE_SETTING_LABEL,
     icon: PAGED_ICONS.template,
-    choices: templateList().map((t) => ({ value: t.id, label: t.label })),
+    choices: templateChoices(),
     current: (text: string) => canonicalTemplate(String(resolveSettings(text).template ?? '')) ?? '',
   },
   {

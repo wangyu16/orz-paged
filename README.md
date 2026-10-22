@@ -65,9 +65,9 @@ workflow; what paged adds is pages.
   saves a fresh file of the chosen one (its starter text, a new `uid`, named
   `<template>.paged.html` in the save dialog); the
   current document is never replaced. A header's `template:` key sets layout
-  defaults only (the page size); the pencil's *Template* item changes only
-  that key — its labels name the starters ("Report — title page"), but
-  switching adds no title page or content.
+  defaults only (the page size); the pencil's *Template (page size)* item
+  changes only that key — its choices name the template and the page size it
+  sets (`report-page — Letter`); switching adds no title page or content.
 - **Edit.** The pencil (or Cmd/Ctrl+E) opens the editor: CodeMirror beside a
   live preview of the pages (split, editor or preview mode; the preview scales
   the pages to its pane), the paged settings and

@@ -62,8 +62,8 @@ chrome('the example web app (real Chrome)', () => {
     await page.evaluate(() => { (window as unknown as { __csp: string[] }).__csp.length = 0; });
 
     // two instances: chrome full has the paged tools, chrome none has no toolbar
-    const tools = await page.evaluate(() => Array.from(document.querySelectorAll('.orz-editor-host')).map((h) => Array.from(h.shadowRoot!.querySelectorAll('button')).map((x) => x.getAttribute('aria-label') ?? x.textContent).filter((n) => n && /^(Theme|Page size|Template|Page numbers|Number style|AI|Save)$/.test(n))));
-    expect(tools[0]).toEqual(expect.arrayContaining(['Theme', 'Page size', 'Template', 'Page numbers', 'Number style', 'AI', 'Save']));
+    const tools = await page.evaluate(() => Array.from(document.querySelectorAll('.orz-editor-host')).map((h) => Array.from(h.shadowRoot!.querySelectorAll('button')).map((x) => x.getAttribute('aria-label') ?? x.textContent).filter((n) => n && /^(Theme|Page size|Template \(page size\)|Page numbers|Number style|AI|Save)$/.test(n))));
+    expect(tools[0]).toEqual(expect.arrayContaining(['Theme', 'Page size', 'Template (page size)', 'Page numbers', 'Number style', 'AI', 'Save']));
     expect(tools[1]).toEqual([]);
 
     // save → hooks.save with the exact text; undo stays per instance

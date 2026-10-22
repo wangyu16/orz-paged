@@ -67,7 +67,7 @@ in a sandboxed `srcdoc` frame (`sandbox="allow-scripts"`, an opaque origin:
 document scripts cannot reach your page, storage or cookies).
 
 The toolbar has the view modes, the paged settings — Theme, Page size,
-Template, Page numbers, Number style (they edit the header: `theme`,
+Template (page size), Page numbers, Number style (they edit the header: `theme`,
 `page_size`, `template`, `page_number_position`, `page_number_style`; one
 undoable edit each) and, while the document offers versions (its content or
 header uses `dynamic_choices`), **Version** (it writes the header's
