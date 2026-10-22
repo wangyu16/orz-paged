@@ -203,7 +203,8 @@ export declare const DEFAULT_THEME: string;
 export declare const TEMPLATE_IDS: readonly string[];
 export declare const DEFAULT_TEMPLATE: string;
 /** A new format-1 paged text from a template's skeleton (`carrier: paged`, a fresh `uid` unless given). Throws for an unknown template or theme. */
-export declare function newDocument(options?: { template?: string; title?: string; theme?: string; uid?: string }): string;
+/** `date`: the date line of a letter's starter (`letter`, `cover-letter`); default: the starter's sample date. */
+export declare function newDocument(options?: { template?: string; title?: string; theme?: string; uid?: string; date?: string }): string;
 
 /** How a save from an assembled file's page went. */
 export interface StandaloneSaveOutcome { ok: boolean; via?: string; error?: string; cancelled?: boolean }

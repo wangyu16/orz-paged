@@ -256,7 +256,21 @@ export interface NewDocumentOptions {
   theme?: string;
   /** The document id; minted with the kit's `mintUid` when absent (tests inject one). */
   uid?: string;
+  /**
+   * The date line of a letter's starter text (`letter`, `cover-letter`), e.g.
+   * {@link letterDate}`(new Date())` — the CLI's `new` and the editor's New
+   * document from template… pass today's (D-97). Default: the starter's
+   * sample date (this module reads no clock). One line; other templates
+   * ignore it.
+   */
+  date?: string;
 }
+
+/** The sample date line of the letter starters (assets/templates/letter.md, cover-letter.md), which `date` replaces. */
+export const STARTER_DATE = 'June 29, 2026';
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** A letter's date line for a day, as the starters write it (`October 22, 2026`; English, the reader's local day). */
+export const letterDate = (d: Date): string => `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 
 /**
  * A new format-1 `paged` text (FC-18 §3, §7.3, §10): the template's skeleton
@@ -286,6 +300,10 @@ export function newDocument(options: NewDocumentOptions = {}): string {
     if (!/[\r\n\u0000]/.test(title) && !title.includes('}}')) text = replacePlaceholderTitle(text, title, changes);
   }
   if (theme !== undefined) changes['theme'] = theme;
+  if (options.date !== undefined) {
+    if (/[\r\n\u0000]/.test(options.date) || options.date.trim() === '') throw new Error(`orz-paged: a letter date is one non-empty line, not ${JSON.stringify(options.date)}`);
+    text = text.replace(new RegExp(`^${STARTER_DATE}$`, 'm'), () => options.date!.trim());
+  }
   text = editHeader(text, changes);
   const errors = lintHeader(text, { kind: 'paged', themes: THEMES }).filter((l) => l.level === 'error');
   if (errors.length > 0) throw new Error(`orz-paged: the new header is not valid: ${errors.map((l) => `${l.code} (${l.message})`).join('; ')}`);

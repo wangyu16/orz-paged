@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { lintHeader, readHeader, UID_PATTERN } from 'orz-markdown/carrier';
 import { assemble, extract, inspect, readDocument, readLegacy, upgrade, DEFAULT_TEMPLATE, DEFAULT_THEME, ORZ_MARKDOWN_VERSION, TEMPLATES, THEME_INFO, VERSION } from '../src/lib.js';
-import { storedText } from '../src/assemble.js';
+import { letterDate, storedText } from '../src/assemble.js';
 import { presentationOf } from '../src/presentation.js';
 import { sha256 } from 'orz-markdown/carrier';
 import { createHash } from 'node:crypto';
@@ -113,6 +113,15 @@ describe.concurrent('the CLI', () => {
       expect(r.out.length, args).toBe(10);
       expect(r.err, args).toBe('status=0\n');
     }
+  }, 60_000);
+
+  it('[T.2] new --template letter writes today\'s date, not the starter\'s sample date (D-97)', async () => {
+    const d = folder();
+    const before = letterDate(new Date());
+    const r = await cli(['new', 'l.paged.md', '--template', 'letter'], d);
+    expect(r.code, r.stderr).toBe(0);
+    const t = text(join(d, 'l.paged.md')).split('\n');
+    expect([before, letterDate(new Date())]).toContain(t.find((l) => /^[A-Z][a-z]+ \d{1,2}, \d{4}$/.test(l)));
   }, 60_000);
 
   it('[T.2] new writes a lint-clean text twin from a template (carrier paged, a fresh uid, the given keys) and with --html its file; stdout without a file; refusals', async () => {

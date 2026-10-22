@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { lintHeader, readHeader, UID_PATTERN } from 'orz-markdown/carrier';
-import { newDocument, readDocument, assemble, extract, markdownLiteral, replacePlaceholderTitle, DEFAULT_TEMPLATE, TEMPLATE_IDS } from '../src/assemble.js';
+import { newDocument, readDocument, assemble, extract, letterDate, markdownLiteral, replacePlaceholderTitle, DEFAULT_TEMPLATE, STARTER_DATE, TEMPLATE_IDS } from '../src/assemble.js';
 import type { HeaderChange } from 'orz-markdown/carrier';
 import { TEMPLATES, templateList } from '../src/doc/templates.js';
 import { resolveSettings } from '../src/doc/settings.js';
@@ -72,6 +72,23 @@ describe('newDocument', () => {
     expect(uids.size).toBe(20);
     for (const u of uids) expect(u).toMatch(UID_PATTERN);
     expect(newDocument({ template: 'letter', title: 'x', uid: UID })).toBe(newDocument({ template: 'letter', title: 'x', uid: UID }));
+  });
+
+  it('[N.3] a letter starts on the given date (D-97): `date` replaces the starters\' sample date line (letter, cover-letter), nothing else; other templates ignore it; one line only', () => {
+    expect(letterDate(new Date(2026, 9, 22))).toBe('October 22, 2026');
+    expect(letterDate(new Date(2027, 0, 1))).toBe('January 1, 2027');
+    for (const template of ['letter', 'cover-letter']) {
+      const plain = newDocument({ template, uid: 'doc-letterdate0001' });
+      expect(plain.split('\n')).toContain(STARTER_DATE);
+      const dated = newDocument({ template, uid: 'doc-letterdate0001', date: 'October 22, 2026' });
+      expect(dated).toBe(plain.replace(`\n${STARTER_DATE}\n`, '\nOctober 22, 2026\n'));
+      expect(dated).not.toContain(STARTER_DATE);
+    }
+    expect(newDocument({ template: 'note', uid: 'doc-letterdate0001', date: 'x' })).toBe(newDocument({ template: 'note', uid: 'doc-letterdate0001' }));
+    expect(() => newDocument({ template: 'letter', date: 'a\nb' })).toThrow(/one non-empty line/);
+    // the CLI and the editor's New document from template… pass today's date
+    expect(readFileSync('src/cli.ts', 'utf8')).toMatch(/date: letterDate\(new Date\(\)\)/);
+    expect(readFileSync('src/browser/paged/actions.ts', 'utf8')).toMatch(/date: letterDate\(new Date\(\)\)/);
   });
 
   it('[N.3] refusals: unknown template or theme, malformed uid, a value the header cannot hold', () => {

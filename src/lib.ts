@@ -24,7 +24,7 @@ import { inspect as inspectInput, type InspectOptions, type InspectReport } from
 import { templateList } from './doc/templates.js';
 import { engineSource } from './engine.js';
 
-export { extract, readDocument, newDocument, storedText, cdnBundleUrl, BUNDLE_FILE, FORMATS, DEFAULT_TEMPLATE, TEMPLATE_IDS, type AssembleOptions, type NewDocumentOptions, type Extracted, type DocumentInfo, type Kind } from './assemble.js';
+export { extract, readDocument, newDocument, letterDate, storedText, cdnBundleUrl, BUNDLE_FILE, FORMATS, DEFAULT_TEMPLATE, TEMPLATE_IDS, type AssembleOptions, type NewDocumentOptions, type Extracted, type DocumentInfo, type Kind } from './assemble.js';
 export type { InspectOptions, InspectReport } from './inspect.js';
 export { readLegacy, type LegacyFile, type UpgradeResult, type UpgradeOptions } from './legacy.js';
 export { readSettings, resolveSettings, DEFAULTS as SETTING_DEFAULTS } from './doc/settings.js';

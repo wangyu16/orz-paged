@@ -37,7 +37,7 @@ import {
   EXIT_OK, EXIT_USAGE, type AssembleCall, type Io, type KnownState, type Next, type Risk,
 } from 'orz-markdown/carrier/node';
 import { compareSemver } from 'orz-markdown/carrier/shell';
-import { storedText } from './assemble.js';
+import { letterDate, storedText } from './assemble.js';
 import { presentationOf } from './presentation.js';
 import { assemble, extract, inspect, newDocument, readDocument, readLegacy, upgrade, DEFAULT_TEMPLATE, DEFAULT_THEME, ORZ_MARKDOWN_VERSION, TEMPLATES, THEME_INFO, VERSION, type InspectReport } from './lib.js';
 
@@ -369,6 +369,7 @@ function cmdNew(p: Parsed, o: Io): void {
       ...(p.values['--template'] !== undefined ? { template: p.values['--template'] } : {}),
       ...(p.values['--title'] !== undefined ? { title: p.values['--title'] } : {}),
       ...(p.values['--theme'] !== undefined ? { theme: p.values['--theme'] } : {}),
+      date: letterDate(new Date()), // a letter starts dated today (D-97)
     });
   } catch (e) {
     const m = (e as Error).message;

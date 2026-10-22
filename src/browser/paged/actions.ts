@@ -18,7 +18,7 @@
  * and the page zoom a reader control (./kind.ts, `readerControls.choices`).
  */
 import type { CarrierAction, CarrierActionItem } from 'orz-markdown/carrier/app';
-import { newDocument } from '../../assemble.js';
+import { letterDate, newDocument } from '../../assemble.js';
 import { templateList } from '../../doc/templates.js';
 import type { PagedReadView } from './read-view.js';
 
@@ -68,7 +68,7 @@ export const NEW_FROM_TEMPLATE_ACTION: CarrierAction = {
     return templateList().map((t): CarrierActionItem => {
       const separator = group !== '' && t.group !== group;
       group = t.group;
-      return { id: t.id, label: t.label, ...(separator ? { separator: true } : {}), run: (app) => app.newDocument({ text: newDocument({ template: t.id }), name: `${t.id}.paged.html` }).then(() => undefined) };
+      return { id: t.id, label: t.label, ...(separator ? { separator: true } : {}), run: (app) => app.newDocument({ text: newDocument({ template: t.id, date: letterDate(new Date()) }), name: `${t.id}.paged.html` }).then(() => undefined) };
     });
   },
 };
