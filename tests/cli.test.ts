@@ -1217,6 +1217,39 @@ describe.concurrent('the CLI', () => {
     expect(json(fin)).toMatchObject({ replaced: 'token' });
   }, 240_000);
 
+  it('[T.18] a 0.x file next to an edited text (D-64): the advice of inspect (on either file) and of upgrade\'s refusal names upgrade --text, then assemble … --replaces <sha256>; followed verbatim (the sha256 upgrade printed in place of <sha256>) it works with no cache, and a plain assemble would not', async () => {
+    /** The `orz-paged …` commands a message names, as argument lists. */
+    const commandsIn = (s: string): string[][] => [...s.matchAll(/`orz-paged ([^`]+)`/g)].map((m) => m[1]!.split(' '));
+    for (const via of ['inspect old.paged.html', 'inspect old.paged.md', 'upgrade refusal'] as const) {
+      const l = folder();
+      write(join(l, 'old.paged.html'), read(LEGACY_FILES['sample']!));
+      write(join(l, 'old.paged.md'), '{{nyml\nkind: meta\ntitle: Old\n}}\n\n# my 0.x text, edited\n');
+      let advice: string;
+      if (via === 'upgrade refusal') {
+        const r = await cli(['upgrade', 'old.paged.html', '--json'], l);
+        expect(r.code, via).toBe(1);
+        advice = String(json(r).error);
+      } else {
+        const r = await cli([...via.split(' '), '--json'], l);
+        advice = (json(r).advice as string[]).find((a) => /upgrade/.test(a)) ?? '';
+      }
+      const cmds = commandsIn(advice);
+      expect(cmds.map((c) => c[0]), `${via}: ${advice}`).toEqual(['upgrade', 'assemble']);
+      expect(cmds[0], via).toEqual(['upgrade', 'old.paged.html', '--text', 'old.browser.paged.md']);
+      expect(cmds[1], via).toEqual(['assemble', 'old.paged.md', '--replaces', '<sha256>']);
+      expect(advice, via).toMatch(/--replaces <sha256>` with the sha256 (that )?upgrade (printed|prints)/);
+      const up = await cli([...cmds[0]!, '--json'], l);
+      expect(up.code, `${via}: ${up.stdout}`).toBe(0);
+      write(join(l, 'old.paged.md'), `${text(join(l, 'old.browser.paged.md'))}\nmerged\n`);
+      // without the token (and no cache, no git) the upgraded file is not a known state of old.paged.md
+      expect(json(await cli(['assemble', 'old.paged.md', '--json'], l, noCache())), via).toMatchObject({ ok: false, reason: 'twin-differs' });
+      const fin = await cli([...cmds[1]!.map((w) => (w === '<sha256>' ? json(up).sha256 as string : w)), '--json'], l, noCache());
+      expect(fin.code, `${via}: ${fin.stdout}`).toBe(0);
+      expect(json(fin), via).toMatchObject({ replaced: 'token' });
+      expect(extract(text(join(l, 'old.paged.html')))!.text).toMatch(/merged\n$/);
+    }
+  }, 240_000);
+
   it('[T.19] an empty .paged.html is reported as empty (damaged); a line-ending change in x.paged.md is a change extract does not replace silently', async () => {
     const d = folder();
     write(join(d, 'e.paged.html'), '');
