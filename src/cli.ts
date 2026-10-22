@@ -717,4 +717,18 @@ export function main(argv: string[]): number {
   }
 }
 
+/**
+ * A reader that stops early (`orz-paged assemble x.paged.md -o - | head -c 10`)
+ * closes the pipe: the rest of the output has nowhere to go, which is what the
+ * reader asked for — exit quietly, never with a stack (D-77). Any other
+ * stdout error is still reported.
+ */
+function quietOnClosedPipe(stream: NodeJS.WriteStream, exit: (code: number) => void = (c) => process.exit(c)): void {
+  stream.on('error', (e: NodeJS.ErrnoException) => {
+    if (e.code === 'EPIPE') exit(typeof process.exitCode === 'number' ? process.exitCode : 0);
+    else throw e;
+  });
+}
+
+quietOnClosedPipe(process.stdout);
 process.exitCode = main(process.argv.slice(2));

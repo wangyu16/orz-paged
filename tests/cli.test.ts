@@ -103,6 +103,18 @@ describe.concurrent('the CLI', () => {
     noTemp(d);
   }, 240_000);
 
+  it('[T.1] -o - into a reader that stops early (`| head -c 10`) exits quietly: status 0, no stack on stderr (D-77)', async () => {
+    const d = folder();
+    write(join(d, 'x.paged.md'), read(`${GOLDEN}/golden.paged.md`));
+    for (const args of ['assemble x.paged.md -o -', 'new']) {
+      const r = await new Promise<{ out: string; err: string }>((res) => {
+        execFile('bash', ['-c', `"${process.execPath}" "${CLI}" ${args} | head -c 10; echo "status=\${PIPESTATUS[0]}" >&2`], { cwd: d, encoding: 'utf8', env: { ...process.env, XDG_CACHE_HOME: CACHE } }, (_e, out, err) => res({ out, err }));
+      });
+      expect(r.out.length, args).toBe(10);
+      expect(r.err, args).toBe('status=0\n');
+    }
+  }, 60_000);
+
   it('[T.2] new writes a lint-clean text twin from a template (carrier paged, a fresh uid, the given keys) and with --html its file; stdout without a file; refusals', async () => {
     const d = folder();
     const r = await cli(['new', 'exam.paged.md', '--template', 'exam-page', '--title', 'Midterm', '--theme', 'light-playful-1', '--html', '--json'], d);
