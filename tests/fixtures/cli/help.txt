@@ -2,9 +2,9 @@ orz-paged {{VERSION}} — Markdown that edits itself, laid out as print-ready pa
 A document is its text twin (x.paged.md); its self-editing file (x.paged.html) is assembled from it.
 
 Usage:
-  orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn]
-  orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn] [--resolve-includes | --no-includes] [--replaces sha256]
-  orz-paged <file.paged.md> [-o out.paged.html] [--cdn]          same as assemble
+  orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn | --inline]
+  orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn | --inline] [--resolve-includes | --no-includes] [--replaces sha256]
+  orz-paged <file.paged.md> [-o out.paged.html] [--cdn | --inline]   same as assemble
   orz-paged extract <file.paged.html> [-o out.paged.md] [--replaces sha256]
   orz-paged upgrade <old.paged.html> [-o out.paged.html] [--text out.paged.md | --no-text] [--cdn | --inline]
   orz-paged inspect <file> [--json]

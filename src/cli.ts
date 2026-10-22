@@ -4,8 +4,8 @@
  * twins (`x.paged.md`) and their self-editing, print-ready files
  * (`x.paged.html`, FC-18 text format 1, kind `paged`).
  *
- *   orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn]
- *   orz-paged assemble <file.paged.md> [-o out] [--cdn] [--resolve-includes | --no-includes] [--replaces sha256]   (also: orz-paged <file.paged.md>)
+ *   orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn | --inline]
+ *   orz-paged assemble <file.paged.md> [-o out] [--cdn | --inline] [--resolve-includes | --no-includes] [--replaces sha256]   (also: orz-paged <file.paged.md>)
  *   orz-paged extract <file.paged.html> [-o out] [--replaces sha256]
  *   orz-paged upgrade <old.paged.html> [-o out] [--text out.paged.md | --no-text] [--cdn | --inline]
  *   orz-paged inspect <file> [--json]
@@ -52,9 +52,9 @@ const USAGE = `orz-paged ${VERSION} — Markdown that edits itself, laid out as 
 A document is its text twin (x.paged.md); its self-editing file (x.paged.html) is assembled from it.
 
 Usage:
-  orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn]
-  orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn] [--resolve-includes | --no-includes] [--replaces sha256]
-  orz-paged <file.paged.md> [-o out.paged.html] [--cdn]          same as assemble
+  orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn | --inline]
+  orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn | --inline] [--resolve-includes | --no-includes] [--replaces sha256]
+  orz-paged <file.paged.md> [-o out.paged.html] [--cdn | --inline]   same as assemble
   orz-paged extract <file.paged.html> [-o out.paged.md] [--replaces sha256]
   orz-paged upgrade <old.paged.html> [-o out.paged.html] [--text out.paged.md | --no-text] [--cdn | --inline]
   orz-paged inspect <file> [--json]
@@ -105,7 +105,7 @@ x.browser.paged.md\` brings it out for a merge.
 Exit status: 0 done, 1 refused or failed, 2 usage error.`;
 
 const HELP: Record<string, string> = {
-  new: `orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn] [--force] [--json]
+  new: `orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn | --inline] [--force] [--json]
 
 Writes a new format-1 text twin from a template's starter text: its header (kind:
 document, carrier: paged, a fresh uid, the template's title and settings, the given
@@ -117,8 +117,8 @@ Templates (default ${DEFAULT_TEMPLATE}; \`orz-paged templates\` describes them):
 Themes (default ${DEFAULT_THEME}): ${THEME_INFO.map((t) => t.id).join(', ')}.
 (0.x: \`orz-paged --new <template>\` is now \`orz-paged new x.paged.md --template <template>\`;
 \`orz-paged --template <template>\` is now \`orz-paged new x.paged.md --template <template> --html\`.)`,
-  assemble: `orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn] [--resolve-includes | --no-includes] [--replaces <sha256>] [--force] [--json]
-orz-paged <file.paged.md> [-o out.paged.html] [--cdn] [--force] [--json]
+  assemble: `orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn | --inline] [--resolve-includes | --no-includes] [--replaces <sha256>] [--force] [--json]
+orz-paged <file.paged.md> [-o out.paged.html] [--cdn | --inline] [--force] [--json]
 
 Writes the self-editing file of a text twin: x.paged.md -> x.paged.html (FC-18 §3), the text
 stored exactly (line endings, BOM); -o writes it elsewhere (missing folders are created).
@@ -665,7 +665,8 @@ function cmdInspect(p: Parsed, o: Io): void {
 
 function cmdThemes(p: Parsed, o: Io): void {
   if (p.positional.length) throw new CliError('`orz-paged themes` takes no arguments', EXIT_USAGE);
-  if (o.json) { emit(o, { command: 'themes', themes: THEME_INFO.map((t) => ({ id: t.id, label: t.label, source: t.source, default: t.id === DEFAULT_THEME })) }); return; }
+  // `name` is the picker name, as in orz-mdhtml and orz-slides (D-106); `label`, its old key, is kept for one release
+  if (o.json) { emit(o, { command: 'themes', themes: THEME_INFO.map((t) => ({ id: t.id, name: t.label, label: t.label, source: t.source, default: t.id === DEFAULT_THEME })) }); return; }
   const w = Math.max(...THEME_INFO.map((t) => t.id.length));
   for (const t of THEME_INFO) o.say(`${t.id.padEnd(w)}  ${t.label}${t.source ? '' : ' (no decoration)'}${t.id === DEFAULT_THEME ? '  [default]' : ''}`);
 }

@@ -193,7 +193,7 @@ For a web app, the browser engine and editor component:
 ## The CLI
 
 ```
-orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn]
+orz-paged new [file.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn | --inline]
 orz-paged assemble <file.paged.md> [-o out.paged.html] [--cdn | --inline] [--resolve-includes | --no-includes] [--replaces sha256]   (also: orz-paged <file.paged.md>)
 orz-paged extract <file.paged.html> [-o out.paged.md] [--replaces sha256]
 orz-paged upgrade <old.paged.html> [-o out.paged.html] [--text out.paged.md | --no-text] [--cdn | --inline]

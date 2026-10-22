@@ -60,8 +60,8 @@ npm run clean
 The CLI (`orz-paged --help`; FC-10, inline by default, `--cdn` for the web):
 
 ```bash
-orz-paged new [x.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn]
-orz-paged assemble x.paged.md [-o out] [--cdn] [--resolve-includes | --no-includes] [--replaces sha256]   # also: orz-paged x.paged.md; a plain x.md → x.paged.html
+orz-paged new [x.paged.md] [--template id] [--title T] [--theme id] [--html] [--cdn | --inline]
+orz-paged assemble x.paged.md [-o out] [--cdn | --inline] [--resolve-includes | --no-includes] [--replaces sha256]   # also: orz-paged x.paged.md; a plain x.md → x.paged.html
 orz-paged extract x.paged.html [-o out] [--replaces sha256]   # the exact text twin; 0.x files → upgrade
 orz-paged upgrade old.paged.html [-o out] [--text t.paged.md | --no-text] [--cdn | --inline]
 orz-paged inspect <file> [--json]

@@ -340,7 +340,15 @@ describe.concurrent('the CLI', () => {
     expect((await cli(['--version'], d)).stdout).toBe(`orz-paged ${VERSION} (orz-markdown ${ORZ_MARKDOWN_VERSION}, text format 1)\n`);
     expect(json(await cli(['--version', '--json'], d))).toEqual({ name: 'orz-paged', version: VERSION, orzMarkdown: ORZ_MARKDOWN_VERSION, formats: [1] });
     const themes = json(await cli(['themes', '--json'], d)).themes as Array<{ id: string; default: boolean }>;
-    expect(themes).toEqual(THEME_INFO.map((t) => ({ id: t.id, label: t.label, source: t.source, default: t.id === DEFAULT_THEME })));
+    // D-106: `name` is the picker name (the family's key); `label` stays as its alias for one release
+    expect(themes).toEqual(THEME_INFO.map((t) => ({ id: t.id, name: t.label, label: t.label, source: t.source, default: t.id === DEFAULT_THEME })));
+    // D-107: every synopsis of a command that takes --cdn names --inline too
+    for (const c of ['new', 'assemble', 'upgrade']) {
+      const h = (await cli([c, '--help'], d)).stdout;
+      const synopses = h.split('\n\n')[0]!.split('\n');
+      for (const line of synopses) expect(line, `${c}: ${line}`).toContain('[--cdn | --inline]');
+    }
+    for (const line of help.stdout.split('\n').filter((l) => /^ {2}orz-paged .*--cdn/.test(l))) expect(line).toContain('[--cdn | --inline]');
     expect(themes.filter((t) => t.default).map((t) => t.id)).toEqual([DEFAULT_THEME]);
     expect((await cli(['themes'], d)).stdout).toMatch(new RegExp(`^${DEFAULT_THEME} .*\\[default\\]$`, 'm'));
     const templates = json(await cli(['templates', '--json'], d)).templates as Array<{ id: string; default: boolean }>;
