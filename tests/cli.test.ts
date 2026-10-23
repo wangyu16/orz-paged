@@ -1057,6 +1057,44 @@ describe.concurrent('the CLI', () => {
     expect(json(await cli(['assemble', 'new.paged.md', '--json'], d))).toMatchObject({ delivery: 'inline' });
   }, 240_000);
 
+  it('[T.4] upgrade of a 0.x file in place keeps the original as <file>~ (then ~1: a backup is never replaced), says so and lists it in --json backups; -o and a 1.x file keep none (D-92, as orz-slides)', async () => {
+    const d = folder();
+    const old = read(LEGACY_FILES['sample']!);
+    write(join(d, 'old.paged.html'), old);
+    const human = await cli(['upgrade', 'old.paged.html', '--no-text'], d);
+    expect(human.code, human.stderr).toBe(0);
+    expect(human.stdout).toContain(`Kept the 0.x file as ${join(d, 'old.paged.html~')}`);
+    expect(human.stderr).not.toMatch(/old\.paged\.html~/);
+    expect(text(join(d, 'old.paged.html~'))).toBe(old);
+    // a 1.x file now: upgraded again, no backup
+    expect(json(await cli(['upgrade', 'old.paged.html', '--no-text', '--json'], d))).toMatchObject({ ok: true, from: 'format-1', backups: [] });
+    // a second 0.x file of the same name: the first backup is kept, the new one is ~1
+    const at = old.lastIndexOf('</body>');
+    const other = `${old.slice(0, at)}<!-- another -->\n${old.slice(at)}`;
+    write(join(d, 'old.paged.html'), other);
+    const j = json(await cli(['upgrade', 'old.paged.html', '--json'], d));
+    expect(j).toMatchObject({ ok: true, from: 'legacy', backups: [join(d, 'old.paged.html~1')] });
+    expect(text(join(d, 'old.paged.html~'))).toBe(old);
+    expect(text(join(d, 'old.paged.html~1'))).toBe(other);
+    // -o leaves the 0.x file as it is: no backup
+    const e = folder();
+    write(join(e, 'old.paged.html'), old);
+    expect(json(await cli(['upgrade', 'old.paged.html', '-o', 'new.paged.html', '--json'], e))).toMatchObject({ ok: true, backups: [] });
+    expect(existsSync(join(e, 'old.paged.html~'))).toBe(false);
+    expect(text(join(e, 'old.paged.html'))).toBe(old);
+  });
+
+  it('[T.24] a text with no header title, no heading and no title element is titled "Untitled", never after its file name (D-79)', async () => {
+    const d = folder();
+    write(join(d, 's.paged.md'), 'text only\n');
+    expect(json(await cli(['assemble', 's.paged.md', '--json'], d))).toMatchObject({ ok: true, title: 'Untitled' });
+    expect(text(join(d, 's.paged.html'))).toContain('<title>Untitled</title>');
+    expect(JSON.parse((await cli(['inspect', 's.paged.html', '--json'], d)).stdout)).toMatchObject({ title: 'Untitled' });
+    // a plain x.md (no header) too
+    write(join(d, 'plain.md'), 'text only\n');
+    expect(json(await cli(['assemble', 'plain.md', '--json'], d))).toMatchObject({ ok: true, title: 'Untitled' });
+  });
+
   it('[T.16] backups are never destroyed: <file>~, then <file>~1, ~2…; a symbolic link at a backup name is never followed', async () => {
     const d = folder();
     write(join(d, 'a.paged.md'), '# A\n');

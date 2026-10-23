@@ -7,6 +7,13 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ### Fixed
 
+- `upgrade` of a 0.x file in place keeps the original as `old.paged.html~`
+  (or `~1`, `~2`… — a backup is never replaced), as orz-slides does; it
+  says "Kept the 0.x file as old.paged.html~" and `--json` lists it in
+  `backups` (STATUS D-92, D-115).
+- A text with no header `title`, no level-1 heading and no title element is
+  titled `Untitled` by the CLI and in the browser (never after the file
+  name); now documented and pinned by a test (D-79; no change of behaviour).
 - **Copy as Markdown across pages** (D-110): a selection that crosses a page
   break copies as one document — a code fence broken over pages is one fence
   with its language (it came out as backtick-wrapped pieces), a split table

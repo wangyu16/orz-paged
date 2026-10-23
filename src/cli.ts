@@ -203,7 +203,8 @@ Refuses (unless --force) a file whose shell is newer than this tool (a downgrade
 file cut off inside its text (#orz-src not closed: the text may be incomplete), -o onto
 another document, and an existing text twin that differs (unless it is a known state,
 as for extract): for a 0.x file next to its own text, \`--text x.browser.paged.md\` and merge.
---force keeps each replaced file as <file>~.`,
+--force keeps each replaced file as <file>~. A 0.x file upgraded in place is kept as
+<file>~ (or <file>~1, ~2, ...).`,
   inspect: `orz-paged inspect <file> [--json]
 
 Diagnoses a text twin, an assembled file, a 0.x file or any HTML: kind, text format,
@@ -579,7 +580,9 @@ function cmdUpgrade(p: Parsed, o: Io): void {
   }) }) : { risk: null, earlier: null };
   if (!force) for (const risk of [outRisk, textCheck.risk]) if (risk !== null) throw new CliError(risk.message, risk.reason, risk.next);
   const backups: string[] = [];
+  // replaced in place: a newer shell, a cut file, or a 0.x file (its text was converted) is kept as ~ (D-92, as orz-slides)
   if (out === input && (newerShell !== null || cut)) backups.push(backup(input, o));
+  else if (out === input && legacy !== null) backups.push(backup(input, { warn: () => undefined }));
   const ob = NODE.guard(out, outRisk, force, o);
   if (ob) backups.push(ob);
   if (textOut) { const tb = NODE.guard(textOut, textCheck.risk, force, o); if (tb) backups.push(tb); }
@@ -596,6 +599,7 @@ function cmdUpgrade(p: Parsed, o: Io): void {
   const moved = Object.keys(r.moved);
   if (moved.length > 0) o.say(`Moved into the header: ${moved.join(', ')}`);
   for (const n of r.notes) if (!r.warnings.includes(n)) o.say(`  note: ${n}`);
+  if (out === input && legacy !== null && backups[0]) o.say(`Kept the 0.x file as ${backups[0]}`);
   o.say(`  sha256 ${sha256(held)} (pass it as --replaces to update this file later without --force)`);
   emit(o, { command: 'upgrade', input, output: out, text: textOut, from: r.from, previous: r.from === 'legacy' ? legacy?.version ?? null : ex?.shell ?? null, shell: VERSION, delivery: d, uid: info.meta.uid ?? null, title: info.title, moved: r.moved, notes: r.notes, backups, sha256: sha256(held) });
 }

@@ -122,6 +122,10 @@ dynamic_choices: |
 }}
 ```
 
+With no `title` in the header, the title is the first level-1 heading, else
+the first title element's; with neither it is `Untitled` — by the CLI and in
+the browser alike, never after the file name.
+
 Examples (each text twin with its file): [`examples/exam.paged.md`](https://github.com/wangyu16/orz-paged/blob/main/examples/exam.paged.md)
 → [`exam.paged.html`](https://github.com/wangyu16/orz-paged/blob/main/examples/exam.paged.html) (an exam with an answer-key
 version, inline), [`examples/notebook.paged.md`](https://github.com/wangyu16/orz-paged/blob/main/examples/notebook.paged.md) →
@@ -207,7 +211,7 @@ orz-paged templates
 | `new` | writes a new text twin from a template's starter text: its header with `carrier: paged`, a fresh `uid`, the template's settings and the given `--title` / `--theme`, then its skeleton body (default template `note`). `--title` also replaces the template's placeholder title where the starter repeats it (its title block or first heading, a running header such as report-page's `header_center`). With `--json`, `theme` is the header's (null when absent) and `themeEffective` the theme the pages use. `--html` also assembles it; without a file name the text goes to stdout. A paged text twin's name ends in `.paged.md`. |
 | `assemble` | writes `x.paged.html` (or the `-o` path; missing folders are created) from `x.paged.md` (exact text in, the same bytes every time). A plain Markdown text `x.md` assembles to `x.paged.html` too. Keeps the delivery and the includes the existing file holds (`--cdn` / `--inline` choose the delivery); `--resolve-includes` reads file includes from the text's folder. An include left unresolved shows an "Included file not available" note in the file and is reported once with why (a warning, and `unresolved` in `--json`); a recorded include whose file has changed since is a warning too (`stale` in `--json`). |
 | `extract` | writes the exact text twin of an assembled file (`x.paged.html` → `x.paged.md`) and reports its includes. Replaces an existing, different `x.paged.md` only when it is a known state (below). A 0.x file is refused with the advice to run `upgrade`; a cut-off file gives a warning. |
-| `upgrade` | turns a 0.x file (or a file of an older 1.x shell) into a file of this version, in place by default, and writes its text twin (`x.paged.md`) unless `--no-text`. Keeps the file's delivery unless `--cdn` / `--inline`. Repairs a damaged engine; refuses (unless `--force`) to downgrade a newer shell or to upgrade a file cut off inside its text. |
+| `upgrade` | turns a 0.x file (or a file of an older 1.x shell) into a file of this version, in place by default, and writes its text twin (`x.paged.md`) unless `--no-text`. Keeps the file's delivery unless `--cdn` / `--inline`. Repairs a damaged engine; refuses (unless `--force`) to downgrade a newer shell or to upgrade a file cut off inside its text. A 0.x file upgraded in place is kept as `old.paged.html~`. |
 | `inspect` | diagnoses a text or a file of any version: kind, text format, shell version and how it compares to this tool, delivery, uid, title, theme, template, the paged settings, header keys, lint (an unknown theme; a value an enumerated key such as `page_number_style` or `page_size` does not take: `invalid-value`), the file's structure (cut off? engine intact?), the SHA-256 of the text it holds, whether the sibling twin (`x.paged.md` ↔ `x.paged.html`) holds the same text (and that text's SHA-256) and which is newer, and advice in plain sentences naming the files. |
 | `themes` | lists the print theme ids a header may name (the default marked). |
 | `templates` | lists the templates by group (the default marked). |
@@ -431,7 +435,7 @@ format 1; 1.0 does not open them as they are. Upgrade each once:
 
 ```bash
 npx orz-paged@1 inspect old.paged.html        # what it is and what to do
-npx orz-paged@1 upgrade old.paged.html        # → old.paged.html (format 1) and old.paged.md (its text twin)
+npx orz-paged@1 upgrade old.paged.html        # → old.paged.html (format 1, the 0.x file kept as old.paged.html~) and old.paged.md (its text twin)
 npx orz-paged@1 upgrade old.paged.html --text old.browser.paged.md   # when old.paged.md exists: then merge
 ```
 

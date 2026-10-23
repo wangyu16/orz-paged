@@ -269,7 +269,7 @@ chrome('real Chrome (playwright-core, channel chrome)', () => {
     await ctx.close();
   }, 120_000);
 
-  it('[A.9] browser parity with the real bundle: OrzCarrier.assemble in Chrome writes the Node bytes for every paged corpus file, template and hazard text (inline with the bundle given and defaulted, cdn, with and without includes)', async () => {
+  it('[A.9] [T.24] browser parity with the real bundle: OrzCarrier.assemble in Chrome writes the Node bytes for every paged corpus file, template and hazard text (inline with the bundle given and defaulted, cdn, with and without includes); a text with no title is "Untitled" there too', async () => {
     const page = await bundlePage();
     const sets: Array<[string, AssembleOptions]> = [['inline', {}], ['cdn', { delivery: 'cdn' }], ['inline+includes', { includes: SOME_INCLUDES }], ['cdn+includes', { delivery: 'cdn', includes: SOME_INCLUDES }]];
     const cases = TEXTS.flatMap(([id, text, own]) => sets.map(([name, o]) => ({ id: `${id} ${name}`, text, opts: own ? { ...o, includes: own } : o })));
@@ -285,6 +285,11 @@ chrome('real Chrome (playwright-core, channel chrome)', () => {
       const node = assemble(c.text, (c.opts.delivery ?? 'inline') === 'inline' ? { ...c.opts, engineSource: b.iife } : c.opts);
       expect(fromChrome[i], c.id).toBe(sha(node));
     });
+    // T.24 (D-79): no header title, no heading, no title element → "Untitled" in the browser too, the same bytes as Node
+    const untitled = await page.evaluate(async (t) => { const C = (globalThis as unknown as { OrzCarrier: Carrier }).OrzCarrier; return { title: (C.readDocument(t) as { title: string }).title, html: await C.assemble(t, { delivery: 'cdn' }) }; }, 'text only\n');
+    expect(untitled.title).toBe('Untitled');
+    expect(untitled.html).toContain('<title>Untitled</title>');
+    expect(untitled.html === assemble('text only\n', { delivery: 'cdn' })).toBe(true);
     await page.context().close();
   }, 240_000);
 
