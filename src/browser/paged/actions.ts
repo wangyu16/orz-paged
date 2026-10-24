@@ -18,7 +18,8 @@
  * and the page zoom a reader control (./kind.ts, `readerControls.choices`).
  */
 import type { CarrierAction, CarrierActionItem } from 'orz-markdown/carrier/app';
-import { letterDate, newDocument } from '../../assemble.js';
+import { newDocument } from '../../assemble.js';
+import { letterDate } from '../../doc/letter-date.js';
 import { templateList } from '../../doc/templates.js';
 import type { PagedReadView } from './read-view.js';
 

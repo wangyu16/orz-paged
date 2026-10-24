@@ -37,7 +37,8 @@ import {
   EXIT_OK, EXIT_USAGE, type AssembleCall, type Io, type KnownState, type Next, type Risk,
 } from 'orz-markdown/carrier/node';
 import { compareSemver } from 'orz-markdown/carrier/shell';
-import { letterDate, storedText } from './assemble.js';
+import { storedText } from './assemble.js';
+import { letterDate } from './doc/letter-date.js';
 import { presentationOf } from './presentation.js';
 import { assemble, extract, inspect, newDocument, readDocument, readLegacy, upgrade, DEFAULT_TEMPLATE, DEFAULT_THEME, ORZ_MARKDOWN_VERSION, TEMPLATES, THEME_INFO, VERSION, type InspectReport } from './lib.js';
 
