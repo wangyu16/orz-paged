@@ -172,7 +172,7 @@ reader's page zoom.
 ### Printing the document
 
 Cmd/Ctrl+P in the editor or its preview is the editor's `print` event
-(orz-markdown 2.3.0): without a listener the browser prints **your page**.
+(the kit's editor): without a listener the browser prints **your page**.
 To print the document's pages, listen and hand a print document to
 `printDocument` (the kit's helper, re-exported by this package and on the
 IIFE global): `renderPreview(text, { document: true, pages: true, nonce })`
