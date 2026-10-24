@@ -1,6 +1,6 @@
 {
   "name": "orz-paged-browser",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "The orz-paged browser engine and editor component (FC-19): globalThis.OrzCarrier (IIFE) or ES module exports — mountEditor, assemble, extract, readDocument, renderPreview — with Paged.js 0.4.3 print pages. Served via jsDelivr for .paged.html files; embeddable in web apps.",
   "main": "orz-paged.browser.js",
   "module": "esm/orz-paged.browser.mjs",

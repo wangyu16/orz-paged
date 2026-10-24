@@ -10,7 +10,8 @@ saves back in place and prints to PDF from the browser (no PDF binary, no
 Puppeteer). The file is always `assemble(text)`: the text inside it is the
 document; everything else is a shell that can be regenerated. Built on the
 carrier kit of [orz-markdown](https://www.npmjs.com/package/orz-markdown)
-(`^2.3.0`; orz text format 1) and [Paged.js](https://pagedjs.org/) 0.4.3.
+(`^2.5.0`; this release bundles 2.5.0; orz text format 1) and
+[Paged.js](https://pagedjs.org/) 0.4.3.
 
 The paginated sibling of [orz-mdhtml](https://www.npmjs.com/package/orz-mdhtml)
 (a continuous, themed web page) and orz-slides (a deck): the same text twin,
@@ -221,7 +222,7 @@ Paged.js and the print themes) is inside the file (about 1.7 MB), so it opens
 without fetching the engine. `--cdn` writes a small file that loads the engine
 from
 `https://cdn.jsdelivr.net/npm/orz-paged-browser@<version>/orz-paged.browser.js`
-(the file's own version, e.g. `orz-paged-browser@1.0.0`) — for pages you
+(the file's own version, e.g. `orz-paged-browser@1.1.0`) — for pages you
 publish on the web. Either way the webfonts, KaTeX's and highlight.js's
 styles, the content libraries (Mermaid, SMILES, Chart.js) and the editor
 (CodeMirror) load from CDNs: laying out styled pages and editing need a
@@ -367,11 +368,24 @@ upgrade(oldHtml);                                // { text, html, from, moved, n
 ```
 
 Exports: `assemble`, `extract`, `readDocument`, `newDocument`, `storedText`,
-`inspect`, `upgrade`, `readLegacy`, `readSettings`, `resolveSettings`,
-`SETTING_DEFAULTS`, `TEMPLATES`, `TEMPLATE_IDS`, `DEFAULT_TEMPLATE`, `THEMES`,
-`THEME_INFO`, `DEFAULT_THEME`, `isThemeId`, `sha256`, `VERSION`,
-`ORZ_MARKDOWN_VERSION`, `FORMATS`, `BUNDLE_FILE`, `cdnBundleUrl`,
-`engineSource`, `engineFiles` (types included). The Node library writes the
+`inspect`, `upgrade`, `readLegacy`, `includeTargets`, `linkTargets`,
+`readSettings`, `resolveSettings`, `SETTING_DEFAULTS`, `TEMPLATES`,
+`TEMPLATE_IDS`, `DEFAULT_TEMPLATE`, `THEMES`, `THEME_INFO`, `DEFAULT_THEME`,
+`isThemeId`, `sha256`, `VERSION`, `ORZ_MARKDOWN_VERSION`, `FORMATS`,
+`BUNDLE_FILE`, `cdnBundleUrl`, `engineSource`, `engineFiles` (types
+included). `includeTargets(text)` and `linkTargets(text)` (orz-markdown 2.5.0)
+list a text's include directives and its links (with line and `kind`: `twin`,
+`asset`, `other`) exactly as the renderer reads them — for a site builder's
+link check.
+
+**Link names of a published site** (orz-markdown 2.5.0, FC-18 §8.2). A host
+that publishes pages under other names than the family's passes a naming:
+`assemble(text, { twinLinks: { paged: '{stem}.html' } })` makes
+`[next](next.paged.md)` point at `next.html` (a kind left out keeps the
+family name: `x.md` → `x.md.html`). The naming is stored in the file
+(`#orz-shell` `"links"`; `extract(html).twinLinks`), and every save, copy,
+update, `upgrade` and `assemble` over that file keeps it; a file without one
+has exactly the bytes it had before. The Node library writes the
 same bytes as the browser engine's `OrzCarrier.assemble` for the same text and
 options; an inline assembly carries this release's engine (checked against its
 `release.json`), so callers pass no engine. Includes (`{{md part.md}}`,

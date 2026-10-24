@@ -405,6 +405,18 @@ function cmdNew(p: Parsed, o: Io): void {
   emit(o, { command: 'new', file: path, html: htmlPath, ...facts, ...(htmlPath ? { delivery: delivery(p), shell: VERSION } : {}), backups });
 }
 
+/**
+ * Whether `text` is the document text a 0.x file holds (D-120, D-90 as in
+ * orz-mdhtml): its source as `upgrade` reads it, or its raw island as the
+ * kit's reader gives it (they differ only in the 0.x escapes and the final
+ * line break). The title, metadata and settings such a file keeps outside
+ * the text are not in it.
+ */
+function holdsLegacySource(text: string, html: string, legacy: { text: string }): boolean {
+  const t = storedText(text);
+  return t === storedText(legacy.text) || t === NODE.documentTextOf(html);
+}
+
 function cmdAssemble(p: Parsed, o: Io): void {
   const file = one(p, 'a text file (file.paged.md)', 'assemble');
   const input = resolve(file);
@@ -433,9 +445,21 @@ function cmdAssemble(p: Parsed, o: Io): void {
   const exists = out !== null && existsSync(out);
   const existing = exists ? readMaybe(out!) : null;
   const names = { input: NODE.shown(input, file), out: out === null ? '-' : NODE.shown(out, outArg ?? outputOf(file) ?? undefined), twin: out !== null && out === outputOf(input) };
-  const check = exists ? NODE.assembledOutputCheck({ input, out: out!, text, names, token, call: callOf(p) }, existing) : { risk: null, earlier: null };
   const prior = existing !== null && looksHtml(existing) ? extract(existing) : null;
-  const priorLegacy = existing !== null && looksHtml(existing) && prior === null ? readLegacy(existing) : null;
+  const legacyFile = existing !== null && looksHtml(existing) ? readLegacy(existing) : null;
+  const priorLegacy = prior === null ? legacyFile : null;
+  // a 0.x file holding this very text (D-120): assemble would drop the title, metadata and settings it keeps outside
+  // the text; upgrade moves them into the text's header (the text below it is kept)
+  const legacySame = legacyFile !== null && token === null && holdsLegacySource(text, existing!, legacyFile);
+  const legacyRisk: Risk | null = !legacySame ? null : (() => {
+    const up: Next = { command: 'upgrade', args: names.twin ? [names.out] : [names.out, '--text', names.input] };
+    return {
+      message: `${names.out} is an orz-paged 0.x file (made before 1.0) holding this very text: assembling would drop the title, metadata and settings it keeps outside the text; not replaced. \`${commandLine(up)}\` adds them to ${names.input} as a header at the top (the text below it is kept) and re-assembles ${names.out} from it (or pass --force to assemble anyway: the old file is kept as ${names.out}~)`,
+      reason: 'legacy-file',
+      next: up,
+    };
+  })();
+  const check = legacyRisk !== null ? { risk: legacyRisk, earlier: null } : exists ? NODE.assembledOutputCheck({ input, out: out!, text, names, token, call: callOf(p) }, existing) : { risk: null, earlier: null };
   // the delivery: as asked (--cdn / --inline), else the existing file's (as upgrade and browser saves keep it), else inline
   const d = delivery(p, prior?.delivery === 'cdn' || priorLegacy?.delivery === 'cdn' ? 'cdn' : 'inline');
   // a file made by a newer orz-paged: re-assembling here would downgrade its shell (as upgrade refuses)
@@ -460,7 +484,9 @@ function cmdAssemble(p: Parsed, o: Io): void {
   const { includes, resolved, unresolved, stale } = plan;
 
   let html: string;
-  try { html = assemble(text, { delivery: d, ...(Object.keys(includes).length ? { includes } : {}) }); } catch (e) {
+  // the existing file's twin-link naming (#orz-shell "links", FC-18 §8.2; a host's page names): kept, as browser saves keep it
+  const twinLinks = prior !== null && prior.kind === 'paged' ? prior.twinLinks : undefined;
+  try { html = assemble(text, { delivery: d, ...(Object.keys(includes).length ? { includes } : {}), ...(twinLinks ? { twinLinks } : {}) }); } catch (e) {
     const message = (e as Error).message.replace(/^orz-paged: /, '');
     throw new CliError(`${file}: ${message}`, NODE.libReason(message));
   }
@@ -475,7 +501,7 @@ function cmdAssemble(p: Parsed, o: Io): void {
   NODE.rememberPair(input, out!, stored, text, o, { command: 'assemble', sha: hash });
   const n = Object.keys(includes).length;
   o.say(`Wrote ${out} (${d}${!p.flags.has('--cdn') && !p.flags.has('--inline') && prior !== null ? ' as before' : ''}, orz-paged ${VERSION}${n ? `, ${n} include${n === 1 ? '' : 's'}` : ''})`);
-  if (check.earlier !== null) o.say(`  (it held ${check.earlier === 'token' ? 'the text whose SHA-256 --replaces gave' : `an earlier text of ${basename(input)}: ${NODE.earlierSource[check.earlier]}`})`);
+  if (check.earlier !== null) o.say(`  (it held ${check.earlier === 'token' ? 'the text you named with --replaces' : `an earlier text of ${basename(input)}: ${NODE.earlierSource[check.earlier]}`})`);
   o.say(`  sha256 ${hash} (pass it as --replaces to update this file later without --force)`);
   emit(o, { command: 'assemble', input, output: out, kind: 'paged', format: info.format, shell: VERSION, delivery: d, uid: info.meta.uid ?? null, title: info.title, theme: info.theme ?? null, themeEffective: presentationOf(text).theme, template: info.header?.fields['template'] ?? null, includes: n, resolved, unresolved, stale, backup: backedUp, replaced: check.earlier, sha256: hash, bytes: Buffer.byteLength(html, 'utf8') });
 }
@@ -524,7 +550,7 @@ function cmdExtract(p: Parsed, o: Io): void {
   NODE.rememberPair(out, input, ex.text, ex.text, o, { command: 'extract', sha: hash });
   const info = readDocument(ex.text, { kind: ex.kind });
   o.say(`Wrote ${out} (${ex.kind}, text format ${ex.format}, from orz-${ex.kind === 'md' ? 'mdhtml' : ex.kind} ${ex.shell || 'unknown'})`);
-  if (check.earlier !== null) o.say(`  (${names.out} held ${check.earlier === 'token' ? 'the text whose SHA-256 --replaces gave' : `a known state: ${NODE.earlierSource[check.earlier]}`})`);
+  if (check.earlier !== null) o.say(`  (${names.out} held ${check.earlier === 'token' ? 'the text you named with --replaces' : `a known state: ${NODE.earlierSource[check.earlier]}`})`);
   o.say(`  sha256 ${hash} (pass it as --replaces to overwrite this text later without --force)`);
   emit(o, { command: 'extract', input, output: out, kind: ex.kind, format: ex.format, shell: ex.shell || null, delivery: ex.delivery || null, uid: info.meta.uid ?? null, title: info.title, includes: ex.includes ? Object.keys(ex.includes).length : 0, backup: backedUp, replaced: check.earlier, sha256: hash, bytes: Buffer.byteLength(ex.text, 'utf8') });
 }
@@ -572,7 +598,11 @@ function cmdUpgrade(p: Parsed, o: Io): void {
   // the upgraded text's uid — unless upgrade minted it for a 0.x file without one (then it says nothing about identity)
   const newUid = NODE.uidOf(r.text);
   const ownUids = legacy ? [NODE.uidOf(legacy.text), legacy.meta?.uid].map((u) => (typeof u === 'string' ? u.trim() : null)) : [newUid];
-  const textCheck = textOut ? NODE.textOutputCheck({ out: textOut, text: r.text, file: out, names: { out: textName, file: outName }, token: null, uid: newUid !== null && ownUids.includes(newUid) ? newUid : null, advice: () => ({
+  // a 0.x file next to its own source (the same text): the twin gets the header, its text is kept — nothing to
+  // merge, so it is replaced as upgrade's own state (D-90, D-120; as orz-mdhtml)
+  const twinNow = legacy && textOut !== null && existsSync(textOut) ? readMaybe(textOut) : null;
+  const twinIsSource = twinNow !== null && !looksHtml(twinNow) && holdsLegacySource(twinNow, html, legacy!);
+  const textCheck = twinIsSource ? { risk: null, earlier: null } : textOut ? NODE.textOutputCheck({ out: textOut, text: r.text, file: out, names: { out: textName, file: outName }, token: null, uid: newUid !== null && ownUids.includes(newUid) ? newUid : null, advice: () => ({
     message: legacy
       ? `Upgrade to another name instead: \`${commandLine({ command: 'upgrade', args: [file, ...(p.values['--out'] !== undefined ? ['-o', outName] : []), ...(p.flags.has('--cdn') ? ['--cdn'] : p.flags.has('--inline') ? ['--inline'] : []), '--text', otherText] })}\`, then compare ${otherText} with ${textName}, merge what you keep into ${textName} (keep the new header), and \`${commandLine({ command: 'assemble', args: [textName, ...(twinName(textName) === outName ? [] : ['-o', outName])] })} --replaces <sha256>\` with the sha256 that upgrade prints (the text ${outName} then holds); or --no-text, or --force (the old text is kept as ${textName}~)`
       : `Pass --text ${otherText} (then merge), --no-text, or --force to replace it (the old text is kept as ${textName}~)`,
@@ -595,7 +625,7 @@ function cmdUpgrade(p: Parsed, o: Io): void {
   for (const n of r.warnings) o.warn(n);
   const info = readDocument(r.text);
   o.say(`Upgraded ${input}${out !== input ? ` -> ${out}` : ''} (from ${r.from === 'legacy' ? `orz-paged ${legacy?.version ?? '0.x'}` : `orz-paged ${ex?.shell ?? '?'}`} to ${VERSION}, ${d})`);
-  if (textOut) o.say(`Wrote ${textOut} (the text twin)`);
+  if (textOut) o.say(`Wrote ${textOut} (the text twin${twinIsSource ? '; it held this file\'s source, which it keeps, now with a header at the top' : ''})`);
   const moved = Object.keys(r.moved);
   if (moved.length > 0) o.say(`Moved into the header: ${moved.join(', ')}`);
   for (const n of r.notes) if (!r.warnings.includes(n)) o.say(`  note: ${n}`);

@@ -8,10 +8,10 @@
  * from jsDelivr (`orz-paged-browser@<version>/orz-paged.browser.js`) — an
  * app that assembles inline files offline passes `engineSource` itself.
  */
-import { assemble, extract, formats, kind, mountEditor as mount, printDocument, readDocument, renderPreview, version, type Editor, type EditorOptions } from './carrier.js';
+import { assemble, extract, formats, includeTargets, kind, linkTargets, mountEditor as mount, printDocument, readDocument, renderPreview, version, type Editor, type EditorOptions } from './carrier.js';
 
-export { assemble, extract, formats, kind, printDocument, readDocument, renderPreview, version, editHeader } from './carrier.js';
-export type { Editor, EditorOptions, RenderPreviewOptions, DocumentInfo, Extracted, HeaderChange, EditorHooks, PreferenceStore } from './carrier.js';
+export { assemble, extract, formats, kind, printDocument, readDocument, renderPreview, version, editHeader, includeTargets, linkTargets } from './carrier.js';
+export type { Editor, EditorOptions, RenderPreviewOptions, DocumentInfo, Extracted, HeaderChange, EditorHooks, PreferenceStore, TwinNaming, LinkTarget } from './carrier.js';
 export { THEMES, DEFAULT_THEME } from '../themes.js';
 export { TEMPLATE_IDS, DEFAULT_TEMPLATE, newDocument } from '../assemble.js';
 
@@ -20,5 +20,5 @@ export function mountEditor(element: HTMLElement, options: EditorOptions): Edito
   return mount(element, options);
 }
 
-/** The FC-19 §2 surface as one object (the IIFE's `globalThis.OrzCarrier`, without booting a file). */
-export const OrzCarrier = Object.freeze({ kind, version, formats, assemble, extract, readDocument, mountEditor, renderPreview, printDocument });
+/** The FC-19 §2 surface as one object (the IIFE's `globalThis.OrzCarrier`, without booting a file), with the kit's `printDocument`, `includeTargets` and `linkTargets`. */
+export const OrzCarrier = Object.freeze({ kind, version, formats, assemble, extract, readDocument, mountEditor, renderPreview, printDocument, includeTargets, linkTargets });

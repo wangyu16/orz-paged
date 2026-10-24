@@ -3,13 +3,45 @@
 All notable changes to **orz-paged** are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] — 2026-10-24
 
 Requires `orz-markdown ^2.5.0` (was `^2.3.0`); released together with
-`orz-paged-browser` at the same version.
+`orz-paged-browser` 1.1.0. Files made by 1.0.0 keep working and update to
+1.1.0 in place (the quiet update); every file assembled without a twin-link
+naming keeps the 1.0 envelope.
+
+### Added
+
+- **Twin-link naming** (orz-markdown 2.5.0, FC-18 §8.2/§8.3): a host that
+  publishes documents under other names than the family's passes a naming —
+  per-kind file-name templates such as `{ paged: '{stem}.html' }` — and
+  every surface names links to text twins with it: `assemble(text, {
+  twinLinks })` (Node and browser; stored in `#orz-shell` as `"links"` only
+  when it is not the family naming, so files without it keep their bytes),
+  `extract(html).twinLinks`, `renderPreview(text, { twinLinks })`,
+  `mountEditor(el, { twinLinks })` (its Paged.js preview and its saves; an
+  editor on an assembled file uses the file's own naming), the read view of
+  a file that carries one, `upgrade` of a 1.x file and the CLI's `assemble`
+  over such a file (both keep it).
+- `includeTargets(text)` and `linkTargets(text)`, the kit's browser-safe
+  lists of a text's include targets and links (with line and `twin` /
+  `asset` / `other`), in the Node library, the ES module and
+  `OrzCarrier`.
 
 ### Fixed
 
+- **`assemble` over a 0.x file that holds the same text** refuses
+  (`legacy-file`) instead of replacing it and dropping the title, metadata
+  and settings the 0.x file keeps outside its text; it names `orz-paged
+  upgrade x.paged.html`, which now accepts a twin that holds the file's
+  source (nothing to merge) and gives it its header. `--force` assembles
+  anyway, keeping the old file as `x.paged.html~` (D-120).
+- The theme picker's dots are the kit's `themeSwatch` of each print theme's
+  source theme (paper and signature colour), different for every theme;
+  before, all but the beige themes showed the same white dot (D-95).
+- Messages `assemble`, `extract` and `upgrade` share with the kit's CLI core
+  use its 2.5.0 wording (D-91: "could not note that the two files match …
+  add --replaces <hash> to it"; reason codes unchanged).
 - `upgrade` of a 0.x file in place keeps the original as `old.paged.html~`
   (or `~1`, `~2`… — a backup is never replaced), as orz-slides does; it
   says "Kept the 0.x file as old.paged.html~" and `--json` lists it in
@@ -24,7 +56,7 @@ Requires `orz-markdown ^2.5.0` (was `^2.3.0`); released together with
   out. A selection on one page copies as before.
 - **`--version` and `ORZ_MARKDOWN_VERSION`** name the orz-markdown version
   the engine embeds (fixed at build time), not the one an installation
-  resolves under `^2.3.0` (D-69).
+  resolves under its range (D-69).
 - **A 0.x file next to an edited text**: the advice of `inspect` and of
   `upgrade`'s refusal ends with `orz-paged assemble x.paged.md --replaces
   <sha256>` (the sha256 upgrade printed); a plain `assemble` is refused
@@ -44,8 +76,8 @@ Requires `orz-markdown ^2.5.0` (was `^2.3.0`); released together with
   `**Table N.**` right before a table) over its centred tables; `theme:
   none` sets the chart and diagram colour tokens (`--chart-*`, `--mm-*`)
   that orz-markdown 2.4.0 introduces — the derived themes take orz-markdown's
-  own, so charts and Mermaid follow the print theme once the kit moves to
-  `^2.4.0` (D-109).
+  own (regenerated from 2.5.0), so charts and Mermaid follow the print
+  theme (D-109).
 
 ### Changed
 

@@ -213,6 +213,8 @@ export function createReadView(doc: Document): PagedReadView {
         const input = await renderPaged(text, {
           ...(ctx.includes ? { includes: ctx.includes } : {}),
           ...(ctx.fetchInclude ? { fetchInclude: ctx.fetchInclude } : {}),
+          // the file's twin-link naming (#orz-shell "links", FC-18 §8.2; orz-markdown 2.5.0): absent, the family names
+          ...(ctx.twinLinks ? { twinLinks: ctx.twinLinks } : {}),
         });
         if (mine !== generation || destroyed) return; // a newer render won (or the view is gone)
         const result = await pageRuntime(doc).paginate(input, pages!, {

@@ -353,7 +353,8 @@ const ink = (s: string): string => s.replace(/\s+/g, '');
  * the injected or a minted one) and the DocMeta and title the 0.x library
  * kept outside the source — and that text's assembly. Keys the source's own
  * blocks set are never overwritten. A format-1 file is re-assembled with this
- * shell.
+ * shell, keeping its includes and its twin-link naming (`#orz-shell`
+ * `"links"`).
  *
  * Never loses text: the upgraded text holds every non-whitespace character of
  * the legacy source (a `}}` in a settings value becomes `} }`, noted), else it
@@ -371,7 +372,9 @@ export function upgrade(html: string, options: UpgradeOptions = {}): UpgradeResu
       throw new Error(`orz-paged upgrade: the file's shell (orz-paged ${ex.shell}) is newer than this tool (${VERSION}); upgrading would downgrade it. Use \`npx orz-paged@latest upgrade\`, or pass --force (library: { downgrade: true }) to re-assemble it with this older shell anyway`);
     }
     const includes = assembleOptions.includes ?? ex.includes;
-    return { text: ex.text, html: assemble(ex.text, { ...assembleOptions, ...(includes ? { includes } : {}) }), from: 'format-1', moved: {}, notes: [], warnings: [] };
+    // the file's twin-link naming (#orz-shell "links", FC-18 §8.2) is kept, as every save keeps it
+    const twinLinks = assembleOptions.twinLinks ?? ex.twinLinks;
+    return { text: ex.text, html: assemble(ex.text, { ...assembleOptions, ...(includes ? { includes } : {}), ...(twinLinks ? { twinLinks } : {}) }), from: 'format-1', moved: {}, notes: [], warnings: [] };
   }
 
   const t = legacyText(legacy, injected);

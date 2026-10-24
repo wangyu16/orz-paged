@@ -27,7 +27,7 @@ npm install orz-paged-browser@1   # or: npm i orz-paged-browser@1
 | a bundler (Vite, esbuild, webpack) | `import { mountEditor } from 'orz-paged-browser'` | `esm/orz-paged.browser.mjs` (`exports` → `import`) |
 | a plain `<script>` | `<script src=".../orz-paged.browser.js">` → `globalThis.OrzCarrier` | `orz-paged.browser.js` (`exports` → `default`) |
 | `require()` | not supported: it throws, pointing to `import` or `<script>` | `require.cjs` (`exports` → `require`) |
-| the CDN | `https://cdn.jsdelivr.net/npm/orz-paged-browser@<version>/orz-paged.browser.js` (e.g. `@1.0.0`; pin an exact version) | the same IIFE |
+| the CDN | `https://cdn.jsdelivr.net/npm/orz-paged-browser@<version>/orz-paged.browser.js` (e.g. `@1.1.0`; pin an exact version) | the same IIFE |
 
 Types: `orz-paged-browser/index.d.ts` (`Editor`, `EditorOptions`,
 `EditorHooks`, …). The ES module sets no global and boots nothing; the IIFE
@@ -239,8 +239,10 @@ The same value works in a `<meta http-equiv="Content-Security-Policy">` tag.
 builds its own preview frame with the kit (`orz-markdown/carrier/editor`'s
 `PREVIEW_BRIDGE_HASH`, `previewScriptHashes`) must take the hash from the
 same orz-markdown version its frame runs: the bridge, and so its hash,
-differs between kit versions (2.3.0 and 2.4.0 differ; orz-paged 1.0 embeds
-2.3.0).
+differs between kit versions (orz-paged 1.1 embeds 2.5.0; 1.0 embedded
+2.3.0). When the policy blocks the preview, the editor says so about a
+second after the frame loads (orz-markdown 2.5.0): its `error` event names
+the `nonce` option of `mountEditor` and the frame's own script hashes.
 Tested in Chrome: the editor (CodeMirror 6) and the Paged.js preview with
 math, code highlighting, Mermaid, Chart.js and SMILES render with no
 violation but one — Mermaid's run-time `<style>` (below).
@@ -267,7 +269,7 @@ style-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.clo
 ## Without an editor
 
 ```ts
-import { assemble, extract, readDocument, renderPreview, printDocument, newDocument, TEMPLATE_IDS } from 'orz-paged-browser';
+import { assemble, extract, readDocument, renderPreview, printDocument, newDocument, TEMPLATE_IDS, includeTargets, linkTargets } from 'orz-paged-browser';
 
 readDocument(text)                        // header + derived facts (title, author, uid, theme, lint) — no rendering; index with it
 await renderPreview(text, { includes, fetchInclude })  // the content's HTML (<main class="orz-doc markdown-body">, the header's version applied), not paginated
@@ -279,8 +281,21 @@ newDocument({ template: 'exam-section', title })      // a new text from one of 
 await assemble(text, { delivery: 'cdn' })              // a small .paged.html that loads the engine from jsDelivr
 await assemble(text)                                   // an inline .paged.html (fetches this release's bundle once, or pass engineSource)
 await assemble(text, { includes })                     // with resolved includes in #orz-includes
-extract(html)                                          // { text, kind, format, shell, delivery, includes } | null
+extract(html)                                          // { text, kind, format, shell, delivery, includes, twinLinks } | null
+includeTargets(text)                                   // the include directives' targets, as the renderer finds them
+linkTargets(text)                                      // [{ href, line, kind: 'twin' | 'asset' | 'other', image, raw }]: every link and image
 ```
+
+**Link names of a published site** (orz-markdown 2.5.0, FC-18 §8.2). By
+default a link to a text twin points at the family's name (`next.paged.md`
+→ `next.paged.html`). An app that publishes pages under other names passes a
+naming — `{ paged: '{stem}.html' }`: `next.paged.md` → `next.html`; a kind
+left out keeps the family's name — as `twinLinks` to `assemble`,
+`renderPreview` and `mountEditor` (the preview names links so; with
+`hooks.resolveLink` your resolver gets the source href instead). `assemble`
+stores it in the file (`extract(html).twinLinks`), and the file keeps it in
+every save, copy and update. (`renderPreview(text, { twinLinks: false })`
+leaves links as written.)
 
 Pages need the engine's layout (Paged.js runs in the editor's preview frame
 and in an assembled file's read view), so `renderPreview` is not paginated:

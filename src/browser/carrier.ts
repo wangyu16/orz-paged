@@ -13,7 +13,7 @@
  * function the Node library runs, so Node and the browser write the same
  * bytes (FC-18 law 2).
  */
-import { extract as kitExtract, type DocumentInfo, type Extracted, type HeaderChange } from 'orz-markdown/carrier';
+import { extract as kitExtract, type DocumentInfo, type Extracted, type HeaderChange, type TwinNaming } from 'orz-markdown/carrier';
 import { attachAiMenu, attachSettings, captureEngineSource, followPresentation, type EngineSource, type StandaloneContext } from 'orz-markdown/carrier/app';
 import { createEditorShell, type EditorHooks, type EditorShell } from 'orz-markdown/carrier/editor';
 import type { PreferenceStore } from 'orz-markdown/carrier/shell';
@@ -37,7 +37,10 @@ const STALE_PREVIEW = '<!-- orz-paged: superseded -->';
 export const version: string = VERSION;
 export const formats: number[] = [...FORMATS];
 
-export type { DocumentInfo, Extracted, HeaderChange, EditorHooks, PreferenceStore };
+export type { DocumentInfo, Extracted, HeaderChange, EditorHooks, PreferenceStore, TwinNaming };
+export type { LinkTarget } from 'orz-markdown/carrier';
+/** The targets a text points at (orz-markdown 2.5.0, browser-safe): its include directives and its links — for an app's link check or include resolution. */
+export { includeTargets, linkTargets } from 'orz-markdown/carrier';
 
 /**
  * The engine an inline assembly writes when no `engineSource` is given. The
@@ -112,8 +115,13 @@ export interface RenderPreviewOptions {
   fetchInclude?(target: string): Promise<string | null>;
   /** Resolved includes (`extract(html).includes`): target as written → text. */
   includes?: Readonly<Record<string, string>>;
-  /** `false`: links as written; default `true` (links to text twins point at their `.html` form). */
-  twinLinks?: boolean;
+  /**
+   * `false`: links as written; default `true` (links to text twins point at
+   * their `.html` form, the family names: `x.paged.md` → `x.paged.html`). A
+   * `TwinNaming` (FC-18 §8.2, 2.5.0; e.g. `extract(html).twinLinks`) names
+   * them as the host publishes them (`{ paged: '{stem}.html' }`: `x.html`).
+   */
+  twinLinks?: boolean | TwinNaming;
   /**
    * `true`: a whole HTML document (the print theme, the page and element CSS,
    * KaTeX's and highlight.js' stylesheets, the webfonts) for a sandboxed
@@ -165,7 +173,7 @@ export async function renderPreview(text: string, options: RenderPreviewOptions 
   const input = await renderPaged(text, {
     ...(options.fetchInclude ? { fetchInclude: options.fetchInclude } : {}),
     ...(options.includes ? { includes: options.includes } : {}),
-    ...(options.twinLinks === false ? { twinLinks: false } : {}),
+    ...(options.twinLinks !== undefined ? { twinLinks: options.twinLinks } : {}),
   });
   if (options.document && options.pages) return printPagesDocument(text, input, options.nonce);
   const body = withChoices(input.bodyHtml, input.dynamicChoices);
@@ -218,6 +226,14 @@ export interface EditorOptions {
   includes?: Record<string, string>;
   /** FC-19 §3 `fileName`: the suggested name of this editor's saves when it has no `hooks.save`. Default `document.paged.html`. */
   fileName?: string;
+  /**
+   * FC-19 §3 `twinLinks` (orz-markdown 2.5.0): the host's twin-link naming
+   * (FC-18 §8.2, e.g. `{ paged: '{stem}.html' }`): the preview names links to
+   * text twins so (unless `hooks.resolveLink`, which gets the source href),
+   * and a save without `hooks.save` writes it into the file. An editor
+   * mounted on an assembled file uses the file's own naming.
+   */
+  twinLinks?: TwinNaming;
 }
 
 /** The Editor of FC-19 §4 (the kit's editor shell, which implements it). */
@@ -230,7 +246,8 @@ export type Editor = EditorShell;
  * pages are laid out), the header's webfonts in the preview (they follow
  * header edits), the paged settings (Version among them, shown while the
  * document defines choices) in its toolbar
- * (spec/carrier-app.md §3.2).
+ * (spec/carrier-app.md §3.2) and the twin-link naming (the file's, else
+ * `options.twinLinks`) in its preview and saves.
  *
  * With `hooks.save` the app owns persistence (FC-19 §8.5 app host). Without it
  * the standalone save runs: on an assembled file (`ctx`, given by the kit's
@@ -249,6 +266,8 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
   const fetchInclude = appHooks.fetchInclude ?? ctx?.fetchInclude;
   const hooks: EditorHooks = { ...appHooks, ...(ai ? { ai } : {}), ...(fetchInclude ? { fetchInclude } : {}) };
   const preferences = options.preferences ?? ctx?.preferences;
+  // the twin-link naming (FC-18 §8.2): the file's, else the app's
+  const twinLinks = ctx ? ctx.twinLinks : options.twinLinks;
 
   // eslint-disable-next-line prefer-const
   let shell: EditorShell;
@@ -259,7 +278,7 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
       const html = await renderPagedPreview(text, {
         ...(rc.includes ? { includes: rc.includes } : {}),
         ...(rc.fetchInclude ? { fetchInclude: rc.fetchInclude } : {}),
-        ...(rc.twinLinks === false ? { twinLinks: false } : {}),
+        ...(rc.twinLinks === false ? { twinLinks: false } : rc.twinLinks && typeof rc.twinLinks === 'object' ? { twinLinks: rc.twinLinks } : {}),
         ...(rc.cache ? { cache: rc.cache } : {}),
       });
       // a key arrived while the text rendered: no pagination of a text already gone (the frame keeps its pages and
@@ -275,6 +294,7 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
     ...(preferences ? { preferences } : {}),
     ...(options.nonce ? { nonce: options.nonce } : {}),
     ...(ctx?.adapter ? { adapter: ctx.adapter } : {}),
+    ...(twinLinks ? { twinLinks } : {}),
     hooks,
     ...(isApp ? {
       ...(options.includes ? { includes: options.includes } : {}),
@@ -289,7 +309,7 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
       standalone: ctx.standalone,
     } : {
       // no hooks.save and no file: an inline file of the text (with the app's includes), through the picker or a download
-      assemble: (t: string, o?: { includes?: Record<string, string> }) => assemble(t, { ...(o?.includes ? { includes: o.includes } : {}) }),
+      assemble: (t: string, o?: { includes?: Record<string, string>; twinLinks?: TwinNaming }) => assemble(t, { ...(o?.includes ? { includes: o.includes } : {}), ...(o?.twinLinks ? { twinLinks: o.twinLinks } : {}) }),
       ...(options.includes ? { includes: options.includes } : {}),
       ...(typeof options.fileName === 'string' && options.fileName !== '' ? { fileName: options.fileName } : {}),
     }),

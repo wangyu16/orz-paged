@@ -19,15 +19,16 @@
  */
 import { captureEngineSource, startCarrier } from 'orz-markdown/carrier/app';
 import { BUNDLE_FILE } from '../assemble.js';
-import { printDocument, useEngineSource } from './carrier.js';
+import { includeTargets, linkTargets, printDocument, useEngineSource } from './carrier.js';
 import { PAGED_KIND } from './paged/kind.js';
 
 // Only this carrier's bundle is the engine (orz-markdown A.12): a script loaded as `orz-paged.browser.js`,
 // the file's `#orz-engine` or the update sandbox's bundle — never an app script that bundles this IIFE.
 useEngineSource(captureEngineSource(undefined, { bundle: BUNDLE_FILE }));
 const { carrier, app } = startCarrier(PAGED_KIND);
-// the kit's print of a whole document, for apps (`OrzCarrier.printDocument(html, { nonce })`, FC-19 §8.5)
-try { (carrier as unknown as Record<string, unknown>).printDocument = printDocument; } catch { /* a frozen global */ }
+// the kit's print of a whole document, for apps (`OrzCarrier.printDocument(html, { nonce })`, FC-19 §8.5), and the
+// targets a text points at (the kit's browser-safe includeTargets / linkTargets, 2.5.0)
+try { Object.assign(carrier as unknown as Record<string, unknown>, { printDocument, includeTargets, linkTargets }); } catch { /* a frozen global */ }
 // an assembled file printed by an app's `printDocument` (a hidden sandboxed frame): it prints when the pages are final
 if (app && typeof window === 'object') {
   (window as unknown as { __orzPrintReady?: () => Promise<void> }).__orzPrintReady = () =>

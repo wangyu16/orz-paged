@@ -12,7 +12,7 @@ document is its **text twin** (`x.paged.md`, orz text format 1, FC-18, kind
 one page that shows the document as Paged.js print pages, edits and saves
 itself in the browser and prints to PDF (the browser's print; no PDF binary).
 Built on the orz-markdown carrier kit ([orz-markdown](../orz-markdown)
-`carrier/*`, **`^2.3.0`**): the standalone file's whole runtime is the kit's
+`carrier/*`, **`^2.5.0`**): the standalone file's whole runtime is the kit's
 `orz-markdown/carrier/app`; this repo supplies the paged kind behind its
 `StandaloneKind` seam, the paged runtime (Paged.js 0.4.3, pinned) and the
 print themes. orz-mdhtml 1.0 is the reference for everything that is not
@@ -25,7 +25,11 @@ Two npm packages live here, **versioned in lockstep**:
   `esm/orz-paged.browser.mjs`, `release.json`, hand-written `index.d.ts`,
   `require.cjs` (a `require()` shim that throws), `docs/embedding.md` (copied).
 
-> **Status:** **1.0.0** (released from branch `rebuild/1.0`, fast-forwarded
+> **Status:** **1.1.0** prepared (2026-10-24: on orz-markdown `^2.5.0` —
+> the twin-link naming `twinLinks` through assemble/extract/renderPreview/
+> mountEditor/the read view/the CLI, the kit's `includeTargets`/`linkTargets`,
+> `themeSwatch` dots, the 1.1.0 backlog repairs; conformance 50 checks with
+> `previous` = the published 1.0.0). **1.0.0** (released from branch `rebuild/1.0`, fast-forwarded
 > to `main`; plan in `../docs/REBUILD.md` §3b): the rebuild on the
 > orz-markdown 2.3.0 carrier kit — base, isomorphic assembler, engine and
 > bundle, the paged kind on `carrier/app`, the 9 derived print themes, CLI and
@@ -33,7 +37,7 @@ Two npm packages live here, **versioned in lockstep**:
 > GAP` workaround is left. Claims in `notes/CLAIMS.md` (bound by
 > `tests/claims.test.ts`).
 >
-> **orz-markdown is installed from the registry** (`^2.3.0`, a real
+> **orz-markdown is installed from the registry** (`^2.5.0`, a real
 > directory, no symlink). To try an unpublished orz-markdown, link
 > `node_modules/orz-markdown` to `../../orz-markdown`; the bundle resolves the
 > kit's dependencies from its real directory (one KaTeX: `build/bundle.ts`).
@@ -90,8 +94,9 @@ Tests live in `tests/` and are bound to the claims in `notes/CLAIMS.md`.
 engine into `dist/` and `browser/` first (the CLI tests spawn `dist/cli.js`).
 The `conformance` project (`tests/conformance.test.ts`, ~6 min of Chrome) runs
 orz-markdown's carrier harness against the real carrier after the others (the
-harness's default lanes); it must stay conformant (46 checks: 45 pass, `C.update.from-previous` not
-applicable — `firstRelease`; no `allowSkips`). Real-Chrome tests skip without
+harness's default lanes); it must stay conformant (50 checks, all pass: `previous` is the
+published orz-paged-browser 1.0.0 — devDependency `orz-paged-browser-previous` —, `twinLinks: true`;
+no `allowSkips`). Real-Chrome tests skip without
 an installed Chrome (playwright-core, channel `chrome`) — such a run verifies
 nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
 `/tmp/paged-themes/light-playful-1-aligned-p<n>.png` (P.9).
@@ -229,7 +234,7 @@ family root; never edit the copy here alone). This package's facts are in
 `release.config.json` (kit floor `kit.required`, bundles, manifest check,
 fast lane, the column matrix as an `extra` step).
 
-1. orz-markdown is installed from the registry (`^2.3.0`; never a link). For a later kit, `npx npm@11 install orz-markdown@^X.Y.Z` (the gate refuses a range below `kit.required`, a link, a non-registry lockfile entry, an older install, or a bundle that embeds another kit).
+1. orz-markdown is installed from the registry (`^2.5.0`; never a link). For a later kit, `npx npm@11 install orz-markdown@^X.Y.Z` (the gate refuses a range below `kit.required`, a link, a non-registry lockfile entry, an older install, or a bundle that embeds another kit).
 2. Bump **both** `package.json` and `browser/package.json` to the same
    version; date the CHANGELOG entry (`## [x.y.z] — YYYY-MM-DD`, no
    "unreleased"). `npm run build`, `npm run examples`, commit, push `main`.

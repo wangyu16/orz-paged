@@ -19,7 +19,7 @@
  */
 
 import { md } from 'orz-markdown';
-import { withoutHeader } from 'orz-markdown/carrier';
+import { withoutHeader, type TwinNaming } from 'orz-markdown/carrier';
 import { renderMarkdownPreviewWithIncludes } from 'orz-markdown/carrier/editor';
 
 import type {
@@ -207,8 +207,14 @@ export interface RenderDocumentOptions {
   includes?: Readonly<Record<string, string>>;
   /** A host's include resolution (URL, or a file include's path as written) → text or null. */
   fetchInclude?(target: string): Promise<string | null>;
-  /** `false`: links as written; default `true` (links to text twins point at their `.html` form). */
-  twinLinks?: boolean;
+  /**
+   * `false`: links as written; default `true` (links to text twins point at
+   * their `.html` form, the family names: `x.paged.md` → `x.paged.html`); a
+   * `TwinNaming` (FC-18 §8.2, orz-markdown 2.5.0: the file's `#orz-shell`
+   * `"links"`, a host's naming) names them so (`{ paged: '{stem}.html' }`:
+   * `x.paged.md` → `x.html`).
+   */
+  twinLinks?: boolean | TwinNaming;
   /** A cache for fetched includes (the editor shell's `ctx.cache`). */
   cache?: Map<string, unknown>;
 }
@@ -227,7 +233,7 @@ export async function renderDocumentAsync(source: string, options: RenderDocumen
   const html = await renderMarkdownPreviewWithIncludes(p.head + p.body, {
     ...(options.includes ? { includes: options.includes } : {}),
     ...(options.fetchInclude ? { fetchInclude: options.fetchInclude } : {}),
-    ...(options.twinLinks === false ? { twinLinks: false } : {}),
+    ...(options.twinLinks === false ? { twinLinks: false } : options.twinLinks && typeof options.twinLinks === 'object' ? { twinLinks: options.twinLinks } : {}),
     ...(options.cache ? { cache: options.cache } : {}),
   });
   return finishDocument(p, html);

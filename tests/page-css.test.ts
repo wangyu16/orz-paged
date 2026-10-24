@@ -245,6 +245,24 @@ describe('[P.13] print themes: charts, diagrams and table captions (D-109)', () 
       const source = readFileSync(`node_modules/orz-markdown/themes/${th.id}.css`, 'utf8');
       const derived = readFileSync(`assets/themes/${th.id}.css`, 'utf8');
       for (const t of TOKENS) if (new RegExp(`${t}:`).test(source)) expect(derived, `${th.id} ${t}`).toMatch(new RegExp(`${t}:`));
+      // 1.1.0 is on orz-markdown ^2.5.0 (release.config.json kit.required): every derived theme carries every token
+      for (const t of TOKENS) expect(derived, `${th.id} ${t} (kit ${JSON.parse(readFileSync('release.config.json', 'utf8')).kit.required})`).toMatch(new RegExp(`${t}:\\s*[^;]+;`));
     }
+  });
+});
+
+describe('[P.14] the theme picker\'s dots (D-95)', () => {
+  it('[P.14] each print theme\'s dot is the kit\'s themeSwatch of its source theme (paper and signature colour, orz-markdown 2.5.0) — different for every theme; `none` a plain dot of its own', async () => {
+    const { themeSwatch } = await import('orz-markdown/themes');
+    const { themeChoices } = await import('../src/browser/paged/themes.js');
+    const { THEME_INFO: INFO } = await import('../src/themes.js');
+    const choices = themeChoices();
+    expect(choices.map((c) => c.value)).toEqual(INFO.map((t) => t.id));
+    for (const c of choices) {
+      const src = INFO.find((t) => t.id === c.value)!.source;
+      if (src) expect(c.swatch, c.value).toBe(themeSwatch(src));
+      else expect(c.swatch, c.value).toMatch(/^linear-gradient\(135deg, #ffffff 50%/);
+    }
+    expect(new Set(choices.map((c) => c.swatch)).size).toBe(choices.length);
   });
 });

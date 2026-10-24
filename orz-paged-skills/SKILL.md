@@ -549,8 +549,12 @@ structure), `sha256` (the `--replaces` token), `twin` (the sibling
 **follow `advice`** — it names the command to run, with your file names:
 
 - `legacy` (an orz-paged 0.x file) → `upgrade`; next to an existing
-  `x.paged.md`: `upgrade x.paged.html --text x.browser.paged.md`, then merge
-  (keep the new header) — `extract` does not read 0.x files;
+  `x.paged.md` that holds other work: `upgrade x.paged.html --text
+  x.browser.paged.md`, then merge (keep the new header) — `extract` does not
+  read 0.x files. Never `assemble` over a 0.x file to convert it: that would
+  drop what it keeps outside its text, so `assemble` refuses (`legacy-file`,
+  also when the text beside it is its own source — then plain `upgrade
+  x.paged.html` gives that text its header);
 - `twin.holds: "different"` → extract and merge before assembling (unless
   `twin.earlier` is set: then assemble replaces it);
 - `checks.island: "unclosed"` → the file was cut off: `extract x.paged.html -o
@@ -621,7 +625,13 @@ The same editor is a component: `npm i orz-paged-browser@1`, then
 `mountEditor(element, { text, hooks: { save, ai, fetchInclude, … }, nonce })`
 (ES module, or `globalThis.OrzCarrier` from the IIFE); its preview lays out
 Paged.js pages in a sandboxed frame. Store the text; call `assemble(text)`
-only when a file is needed. Hooks and the CSP recipe: `docs/embedding.md`,
+only when a file is needed. A host that publishes pages under other names
+than the family's passes a naming, e.g. `{ paged: '{stem}.html' }` —
+`week2.paged.md` → `week2.html` — as `twinLinks` to `assemble`,
+`renderPreview` and `mountEditor`; the file keeps it, and so does `orz-paged
+assemble` over that file. Never edit the links in the text to match a host.
+`includeTargets(text)` / `linkTargets(text)` list a text's includes and
+links (orz-markdown 2.5.0). Hooks and the CSP recipe: `docs/embedding.md`,
 shipped in both packages. Platforms that show assembled files in an iframe use
 the host protocols (orz-markdown `spec/host-protocols.md`).
 
@@ -652,7 +662,8 @@ text twin.
 - `--force` keeps what it replaces as `<file>~` (or `~1`, `~2`…); still,
   compare before you force. The pair records live in
   `$XDG_CACHE_HOME/orz-paged/` (else `~/.cache/orz-paged/`).
-- Package: `orz-paged` 1.x depends on `orz-markdown ^2.3.0` and pins Paged.js
+- Package: `orz-paged` 1.x depends on `orz-markdown ^2.5.0` (1.1.0 bundles
+  2.5.0) and pins Paged.js
   0.4.3; files record the shell version that wrote them.
 - Security: a `.paged.html` runs the code inside it — treat files like
   programs and open only trusted ones.

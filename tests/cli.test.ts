@@ -1095,6 +1095,66 @@ describe.concurrent('the CLI', () => {
     expect(json(await cli(['assemble', 'plain.md', '--json'], d))).toMatchObject({ ok: true, title: 'Untitled' });
   });
 
+  it('[T.25] assemble keeps the twin-link naming of the file it replaces (#orz-shell "links", orz-markdown 2.5.0), as browser saves keep it; upgrade of a 1.x file keeps it too; a file without one gets none', async () => {
+    const d = folder();
+    const naming = { paged: '{stem}.html' };
+    const t0 = '# Links\n\nSee [next](next.paged.md).\n';
+    write(join(d, 'x.paged.md'), t0);
+    write(join(d, 'x.paged.html'), assemble(t0, { delivery: 'cdn', twinLinks: naming }));
+    const edited = `${t0}\nMore.\n`;
+    write(join(d, 'x.paged.md'), edited);
+    // the file was written by a host, not this CLI: name the text it holds
+    const r = await cli(['assemble', 'x.paged.md', '--replaces', sha256(t0), '--json'], d);
+    expect(r.code, r.stdout).toBe(0);
+    const html = text(join(d, 'x.paged.html'));
+    expect(extract(html)!.twinLinks).toEqual(naming);
+    expect(html === assemble(edited, { delivery: 'cdn', twinLinks: naming })).toBe(true);
+    expect(json(await cli(['upgrade', 'x.paged.html', '--no-text', '--json'], d))).toMatchObject({ ok: true, from: 'format-1' });
+    expect(extract(text(join(d, 'x.paged.html')))!.twinLinks).toEqual(naming);
+    const e = folder();
+    write(join(e, 'y.paged.md'), t0);
+    expect((await cli(['assemble', 'y.paged.md'], e)).code).toBe(0);
+    expect(extract(text(join(e, 'y.paged.html')))!.twinLinks).toBeUndefined();
+  });
+
+  it('[T.26] assemble over a 0.x file that holds the same text (its source as upgrade reads it, or its raw text) refuses: it would drop the title, metadata and settings the 0.x file keeps outside the text; next is upgrade, which gives the text its header; --force assembles anyway, keeping the 0.x file as ~ (D-120)', async () => {
+    const html = read(LEGACY_FILES['lib-metadata']!);
+    const sources = { upgrade: readLegacy(html)!.text, raw: extract(html)!.text };
+    for (const [how, source] of Object.entries(sources)) {
+      const d = folder();
+      write(join(d, 'notes.paged.html'), html);
+      write(join(d, 'notes.paged.md'), source);
+      const r = await cli(['assemble', 'notes.paged.md', '--json'], d);
+      expect(r.code, `${how}: ${r.stdout}`).toBe(1);
+      expect(json(r), how).toMatchObject({ ok: false, reason: 'legacy-file', next: { command: 'upgrade', args: ['notes.paged.html'] } });
+      expect(text(join(d, 'notes.paged.html'))).toBe(html);
+      const human = await cli(['assemble', 'notes.paged.md'], d);
+      expect(human.stderr, how).toContain('holding this very text');
+      expect(human.stderr, how).toContain('`orz-paged upgrade notes.paged.html`');
+      // -o elsewhere over such a file names --text
+      const o = folder();
+      write(join(o, 'pub.paged.html'), html);
+      write(join(o, 'notes.paged.md'), source);
+      expect(json(await cli(['assemble', 'notes.paged.md', '-o', 'pub.paged.html', '--json'], o)), how).toMatchObject({ reason: 'legacy-file', next: { command: 'upgrade', args: ['pub.paged.html', '--text', 'notes.paged.md'] } });
+      // the advice works: upgrade gives the text its header (the twin held the file's source)
+      const e = folder();
+      write(join(e, 'notes.paged.html'), html);
+      write(join(e, 'notes.paged.md'), source);
+      const up = await cli(['upgrade', 'notes.paged.html'], e);
+      expect(up.code, `${how}: ${up.stderr}`).toBe(0);
+      expect(up.stdout).toContain('it held this file\'s source');
+      const twin = text(join(e, 'notes.paged.md'));
+      // the metadata the 0.x file kept outside its text is in the header now (assemble alone dropped it)
+      expect(Object.keys(readHeader(twin)?.fields ?? {}), how).toEqual(expect.arrayContaining(['carrier', 'uid', 'title', 'author']));
+      expect(extract(text(join(e, 'notes.paged.html')))!.text).toBe(storedText(twin));
+      expect((await cli(['assemble', 'notes.paged.md'], e)).code).toBe(0);
+      // --force: assembled, the 0.x file kept
+      const f = await cli(['assemble', 'notes.paged.md', '--force', '--json'], d);
+      expect(json(f), how).toMatchObject({ ok: true, backup: join(d, 'notes.paged.html~') });
+      expect(text(join(d, 'notes.paged.html~'))).toBe(html);
+    }
+  });
+
   it('[T.16] backups are never destroyed: <file>~, then <file>~1, ~2…; a symbolic link at a backup name is never followed', async () => {
     const d = folder();
     write(join(d, 'a.paged.md'), '# A\n');

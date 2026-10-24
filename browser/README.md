@@ -5,9 +5,9 @@ The browser engine and editor component of
 pages ("Markdown that edits itself", for paper): the very bundle every
 `.paged.html` file carries, and the same editor for web apps (orz family
 contract FC-19). Built on the carrier kit of
-[orz-markdown](https://www.npmjs.com/package/orz-markdown) 2.3.0 and
+[orz-markdown](https://www.npmjs.com/package/orz-markdown) 2.5.0 and
 [Paged.js](https://pagedjs.org/) 0.4.3 (both bundled: this release embeds
-orz-markdown 2.3.0).
+orz-markdown 2.5.0).
 
 ```sh
 npm i orz-paged-browser@1
@@ -15,8 +15,8 @@ npm i orz-paged-browser@1
 
 | File | What |
 |---|---|
-| `orz-paged.browser.js` | the IIFE. Sets `globalThis.OrzCarrier` = `{ kind: 'paged', version, formats, assemble, extract, readDocument, mountEditor, renderPreview, printDocument, standalone }`. Inside an assembled `.paged.html` it also starts that file (orz-markdown `carrier/app`): the read view — the document laid out as Paged.js pages in the page, print-ready —, Edit (the editor with a Paged.js preview), Print, Save, Download a copy, New document, New document from template…, Save as new copy, the header settings (theme, page size, template, page numbers, version), the page zoom, host protocols and the quiet update; `OrzCarrier.standalone` is then the file's handle, `null` elsewhere. Anywhere else it only sets the global. |
-| `esm/orz-paged.browser.mjs` | ES module exports: `kind`, `version`, `formats`, `assemble`, `extract`, `readDocument`, `renderPreview`, `mountEditor`, `printDocument(html, { nonce })` — print a paged document from an app (the editor's `print` event; it lays the pages out in a hidden frame and opens the print dialog), `OrzCarrier` (the same object without `standalone`), `THEMES`, `DEFAULT_THEME`, `TEMPLATE_IDS`, `DEFAULT_TEMPLATE`, `newDocument`, and `editHeader(text, changes)` — change header keys in a text the way the pencil's settings do (one line per key, the rest of the text untouched; `null` removes a key). Sets no global and boots nothing. |
+| `orz-paged.browser.js` | the IIFE. Sets `globalThis.OrzCarrier` = `{ kind: 'paged', version, formats, assemble, extract, readDocument, mountEditor, renderPreview, printDocument, includeTargets, linkTargets, standalone }` (`includeTargets(text)` / `linkTargets(text)`: the kit's lists of a text's includes and links). `assemble`, `renderPreview` and `mountEditor` take `twinLinks` (orz-markdown 2.5.0): a host's link names, e.g. `{ paged: '{stem}.html' }`, stored in the file and kept by every save. Inside an assembled `.paged.html` it also starts that file (orz-markdown `carrier/app`): the read view — the document laid out as Paged.js pages in the page, print-ready —, Edit (the editor with a Paged.js preview), Print, Save, Download a copy, New document, New document from template…, Save as new copy, the header settings (theme, page size, template, page numbers, version), the page zoom, host protocols and the quiet update; `OrzCarrier.standalone` is then the file's handle, `null` elsewhere. Anywhere else it only sets the global. |
+| `esm/orz-paged.browser.mjs` | ES module exports: `kind`, `version`, `formats`, `assemble`, `extract`, `readDocument`, `renderPreview`, `mountEditor`, `includeTargets`, `linkTargets`, `printDocument(html, { nonce })` — print a paged document from an app (the editor's `print` event; it lays the pages out in a hidden frame and opens the print dialog), `OrzCarrier` (the same object without `standalone`), `THEMES`, `DEFAULT_THEME`, `TEMPLATE_IDS`, `DEFAULT_TEMPLATE`, `newDocument`, and `editHeader(text, changes)` — change header keys in a text the way the pencil's settings do (one line per key, the rest of the text untouched; `null` removes a key). Sets no global and boots nothing. |
 | `release.json` | the release manifest the quiet update reads: `kind`, `version`, `formats`, `notes`, and `bundle.path` / `bundle.integrity` (the SHA-384 of `orz-paged.browser.js`'s exact bytes). |
 | `index.d.ts` | types (`Editor`, `EditorOptions`, `EditorHooks`, `AiProposal`, …). |
 
@@ -26,7 +26,7 @@ const editor = mountEditor(element, { text, nonce, hooks: { async save(text) { /
 ```
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/orz-paged-browser@1.0.0/orz-paged.browser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/orz-paged-browser@1.1.0/orz-paged.browser.js"></script>
 <script>const editor = OrzCarrier.mountEditor(element, { text, hooks: { save } });</script>
 ```
 

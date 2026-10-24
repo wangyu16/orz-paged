@@ -12,7 +12,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { escapeScriptText } from 'orz-markdown/carrier/read';
 import { isScriptSafe, parseManifest, sandboxDocument } from 'orz-markdown/carrier/shell';
-import { assemble, extract, readDocument, type AssembleOptions } from '../src/assemble.js';
+import { assemble, extract, includeTargets, linkTargets, readDocument, type AssembleOptions } from '../src/assemble.js';
 import { VERSION } from '../src/version.js';
 import { engineFiles, engineSource } from '../src/engine.js';
 import { BUNDLE_FILE, ESM_FILE, asciiOnly, buildBrowser, checkBundleRule, scriptSafe, writeBrowser } from '../build/bundle.js';
@@ -115,7 +115,7 @@ describe('the bundle and its package (Node)', () => {
     expect(readFileSync('browser/docs/embedding.md', 'utf8')).toBe(readFileSync('docs/embedding.md', 'utf8'));
     // every runtime export of the ESM build is declared in index.d.ts
     const exported = /export\s*\{([^}]*)\}\s*;?\s*$/.exec(b.esm)![1].split(',').map((s) => s.trim().split(/\s+as\s+/).pop()!).filter(Boolean).sort();
-    expect(exported).toEqual(['DEFAULT_TEMPLATE', 'DEFAULT_THEME', 'OrzCarrier', 'TEMPLATE_IDS', 'THEMES', 'assemble', 'editHeader', 'extract', 'formats', 'kind', 'mountEditor', 'newDocument', 'printDocument', 'readDocument', 'renderPreview', 'version']);
+    expect(exported).toEqual(['DEFAULT_TEMPLATE', 'DEFAULT_THEME', 'OrzCarrier', 'TEMPLATE_IDS', 'THEMES', 'assemble', 'editHeader', 'extract', 'formats', 'includeTargets', 'kind', 'linkTargets', 'mountEditor', 'newDocument', 'printDocument', 'readDocument', 'renderPreview', 'version']);
     const dts = readFileSync('browser/index.d.ts', 'utf8');
     for (const name of exported) expect(dts, name).toMatch(new RegExp(`export declare (const|function) ${name}\\b`));
     expect(dts).toMatch(/interface OrzCarrierApi \{[^}]*kind: 'paged';[^}]*readonly standalone\?: StandaloneFile \| null;/);
@@ -200,16 +200,19 @@ chrome('real Chrome (playwright-core, channel chrome)', () => {
       return {
         keys: Object.keys(C).sort(),
         kind: C.kind, version: C.version, formats: C.formats,
-        types: ['assemble', 'extract', 'readDocument', 'mountEditor', 'renderPreview'].map((k) => typeof (C as unknown as Record<string, unknown>)[k]),
+        types: ['assemble', 'extract', 'readDocument', 'mountEditor', 'renderPreview', 'includeTargets', 'linkTargets'].map((k) => typeof (C as unknown as Record<string, unknown>)[k]),
+        targets: [(C as unknown as { includeTargets(t: string): string[] }).includeTargets(text), (C as unknown as { linkTargets(t: string): unknown[] }).linkTargets(text)],
         promise: p instanceof Promise, html: await p,
         extracted: C.extract(html), info: C.readDocument(text), standalone: C.standalone,
         storage: Object.keys(localStorage), chrome: !!document.getElementById('orz-chrome'),
         runtime: typeof (window as unknown as { __orzPaged?: unknown }).__orzPaged, styles: document.querySelectorAll('style').length,
       };
     }, { text, html });
-    expect(r.keys).toEqual(['assemble', 'extract', 'formats', 'kind', 'mountEditor', 'printDocument', 'readDocument', 'renderPreview', 'standalone', 'version']); // printDocument: the kit's print helper (round 3)
+    expect(r.keys).toEqual(['assemble', 'extract', 'formats', 'includeTargets', 'kind', 'linkTargets', 'mountEditor', 'printDocument', 'readDocument', 'renderPreview', 'standalone', 'version']); // printDocument: the kit's print helper (round 3); includeTargets/linkTargets: the kit's (2.5.0)
     expect(r).toMatchObject({ kind: 'paged', version: VERSION, formats: [1], promise: true, standalone: null, storage: [], chrome: false, runtime: 'undefined', styles: 0 });
-    expect(r.types).toEqual(['function', 'function', 'function', 'function', 'function']);
+    expect(r.types).toEqual(['function', 'function', 'function', 'function', 'function', 'function', 'function']);
+    // the kit's targets of a text (orz-markdown 2.5.0), the same in the bundle as in Node
+    expect(r.targets).toEqual(JSON.parse(JSON.stringify([includeTargets(text), linkTargets(text)])));
     expect(r.html === html).toBe(true);
     expect(r.extracted).toEqual(extract(html));
     expect(r.info).toEqual(JSON.parse(JSON.stringify(readDocument(text, { kind: 'paged' }))));
@@ -311,6 +314,8 @@ chrome('real Chrome (playwright-core, channel chrome)', () => {
         plain: await C.renderPreview(text),
         rec: await C.renderPreview(text, { includes: { 'parts/a.md': 'FILE-INCLUDED\n', 'https://example.test/b.md': 'URL-INCLUDED\n' } }),
         app: await C.renderPreview(text, { fetchInclude: async (u: string) => (u === 'https://example.test/b.md' ? 'APP-INCLUDED\n' : null), twinLinks: false }),
+        // a host's twin-link naming (orz-markdown 2.5.0, FC-18 §8.2): md twins named so, a kind left out (paged) keeps the family name
+        named: await C.renderPreview(`${text}\nAnd [a paged one](other.paged.md#p2).\n`, { twinLinks: { md: '{stem}.html' } }),
         doc: await C.renderPreview(text, { document: true }),
       };
     }, text);
@@ -323,6 +328,9 @@ chrome('real Chrome (playwright-core, channel chrome)', () => {
     expect(r.rec).toContain('URL-INCLUDED');
     expect(r.app).toContain('APP-INCLUDED');
     expect(r.app).toContain('href="next.md"');
+    expect(r.named).toContain('href="next.html"');
+    expect(r.named).not.toContain('next.md');
+    expect(r.named).toContain('href="other.paged.html#p2"');
     expect(r.doc.startsWith('<!doctype html>')).toBe(true);
     expect(r.doc).toContain('<title>Pre view &lt;b&gt; &amp; "q"</title>');
     expect(r.doc).toContain('size: A5'); // the page CSS

@@ -1,5 +1,5 @@
 /**
- * Web-app readiness (claims X.1–X.3): the example app (examples/webapp/)
+ * Web-app readiness (claims X.1–X.5): the example app (examples/webapp/)
  * mounts two paged editors (each with its Paged.js preview frame) with every
  * FC-19 hook under a nonce CSP and works end to end in real Chrome; the ESM
  * variant; the app author's guide.
@@ -12,9 +12,14 @@ import { bundle, launch, routeCdn, serve, type Browser, type Page } from './brow
 
 const b = await bundle();
 const browser: Browser | null = await launch();
+/** X.5: a text with twin links, and its file under a host's naming (orz-markdown 2.5.0). */
+const NAMING = { paged: '{stem}.html' };
+const LINKS_TEXT = '# Links\n\nSee [the next part](next.paged.md), [a deck](talk.slides.md#s2) and [the site](https://example.test/).\n';
 const site = await serve(process.cwd(), {
   '/browser/orz-paged.browser.js': { body: b.iife },
   '/browser/esm/orz-paged.browser.mjs': { body: b.esm },
+  '/x5/index.html': { body: '<!doctype html><html><head><meta charset="utf-8"><title>app</title></head><body><div id="ed" style="width:1100px;height:640px"></div><script src="/browser/orz-paged.browser.js"></script></body></html>' },
+  '/x5/links.html': { body: assemble(LINKS_TEXT, { engineSource: b.iife, twinLinks: NAMING }) },
 });
 afterAll(async () => { await browser?.close(); await site.close(); });
 const chrome = browser ? describe : describe.skip;
@@ -190,6 +195,37 @@ chrome('the example web app (real Chrome)', () => {
     expect(consoleLines.filter((l) => /Content Security Policy|Refused to/i.test(l))).toEqual([]);
     expect(errors).toEqual([]);
     await ctx.close();
+  }, 120_000);
+
+  it('[X.5] the twin-link naming (orz-markdown 2.5.0, FC-18 §8.2) reaches every editor preview: an app\'s editor with `twinLinks` names twin links so in its Paged.js preview (a kind left out keeps the family name; other links as written); the editor of a file with "links" (Edit) names them as the file does, and so does its read view', async () => {
+    const hrefsIn = async (page: Page): Promise<string[]> => {
+      for (let i = 0; i < 100; i++) {
+        for (const f of page.frames()) {
+          if (f === page.mainFrame()) continue;
+          const h = await f.evaluate(() => Array.from(document.querySelectorAll('#orz-doc .pagedjs_page a[href]')).map((a) => a.getAttribute('href') ?? '')).catch(() => [] as string[]);
+          if (h.length > 0) return h;
+        }
+        await page.waitForTimeout(200);
+      }
+      return [];
+    };
+    const want = ['next.html', 'talk.slides.html#s2', 'https://example.test/'];
+    // an app's editor
+    const app = await open('/x5/index.html', []);
+    await app.page.waitForFunction(() => !!(globalThis as { OrzCarrier?: unknown }).OrzCarrier);
+    await app.page.evaluate(`(async () => { window.__ed = globalThis.OrzCarrier.mountEditor(document.getElementById('ed'), { text: ${JSON.stringify(LINKS_TEXT)}, mode: 'preview', hooks: { save: async () => undefined }, twinLinks: ${JSON.stringify(NAMING)} }); await window.__ed.ready; })()`);
+    expect(await hrefsIn(app.page)).toEqual(want);
+    expect(app.errors).toEqual([]);
+    await app.page.context().close();
+    // a file published under the naming (links.html): its read view and the Edit button's editor
+    const file = await open('/x5/links.html', []);
+    await file.page.waitForFunction(() => !!document.querySelector('#orz-pages .pagedjs_page a[href]'), undefined, { timeout: 30_000 });
+    expect(await file.page.evaluate(() => Array.from(document.querySelectorAll('#orz-pages .pagedjs_page a[href]')).map((a) => a.getAttribute('href')))).toEqual(want);
+    await file.page.evaluate(`(globalThis.OrzCarrier.standalone).edit().ready`);
+    await file.page.evaluate(`(globalThis.OrzCarrier.standalone).editor().setMode('preview')`);
+    expect(await hrefsIn(file.page)).toEqual(want);
+    expect(file.errors).toEqual([]);
+    await file.page.context().close();
   }, 120_000);
 
   it('[X.2] the ESM build mounts the same editor (its Paged.js preview), sets no global, and assembles the Node bytes (inline by default, the engine fetched from jsDelivr)', async () => {

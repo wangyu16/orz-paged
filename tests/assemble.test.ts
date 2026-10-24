@@ -1,14 +1,16 @@
 /**
  * The isomorphic assembler (src/assemble.ts) against the FC-18 laws on the
  * shared golden corpus (paged), this repository's 12 templates and hazard
- * texts (claims A.1–A.11).
+ * texts (claims A.1–A.12).
  */
 import { describe, it, expect, vi, afterAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as kit from 'orz-markdown/carrier';
 import { escapeAttr } from 'orz-markdown/carrier/read';
 import { bundleUrl } from 'orz-markdown/carrier/shell';
-import { assemble, extract, readDocument, shellParts, storedText, cdnBundleUrl, BUNDLE_FILE, type AssembleOptions } from '../src/assemble.js';
+import { assemble, extract, includeTargets, linkTargets, readDocument, shellParts, storedText, cdnBundleUrl, BUNDLE_FILE, type AssembleOptions } from '../src/assemble.js';
+import { upgrade } from '../src/legacy.js';
+import * as lib from '../src/lib.js';
 import { VERSION } from '../src/version.js';
 import { FALLBACK_LINE, FALLBACK_LINE_CDN, presentationOf } from '../src/presentation.js';
 import { corpus, HAZARDS, ENGINE, TEMPLATE_TEXTS, launchChrome } from './helpers.js';
@@ -203,6 +205,31 @@ describe('the envelope and the shell parts', () => {
     expect(readDocument('{{nyml\nkind: article-title\ntitle: Element\n}}\n\n# Heading Wins\n').title).toBe('Heading Wins');
     expect(readDocument('{{nyml\nkind: document\ntitle: Header Wins\n}}\n\n# Heading\n').title).toBe('Header Wins');
     expect(assemble('{{nyml\nkind: exam-title\ntitle: Quiz <1> & 2\n}}\n', { delivery: 'cdn' })).toContain('<title>Quiz &lt;1&gt; &amp; 2</title>');
+  });
+
+  it('[A.12] the twin-link naming (orz-markdown 2.5.0, FC-18 §8.2): assemble stores a non-family naming in #orz-shell "links" and extract gives it back; the family naming (or none) writes the bytes of assemble(text); an invalid one throws; upgrade of a 1.x file keeps it; includeTargets and linkTargets are the kit\'s (Node library and assembler)', () => {
+    const naming = { paged: '{stem}.html' };
+    const text = '# Links\n\nSee [next](next.paged.md).\n\n{{md part.md}}\n';
+    for (const [name, o] of OPTION_SETS) {
+      const plain = assemble(text, o);
+      const named = assemble(text, { ...o, twinLinks: naming });
+      expect(extract(named)!.twinLinks, name).toEqual(naming);
+      expect(extract(named)!.text, name).toBe(text);
+      expect(named, name).toContain('"links":{"paged":"{stem}.html"}');
+      expect(extract(plain)!.twinLinks, name).toBeUndefined();
+      expect(assemble(text, { ...o, twinLinks: {} }) === plain, name).toBe(true);
+      expect(assemble(text, { ...o, twinLinks: { paged: '{stem}.paged.html' } }) === plain, name).toBe(true);
+      expect(assemble(extract(named)!.text, { ...o, twinLinks: extract(named)!.twinLinks }) === named, name).toBe(true);
+      expect(upgrade(named, o).html === named, name).toBe(true);
+      expect(upgrade(plain, o).html === plain, name).toBe(true);
+    }
+    expect(() => assemble(text, { delivery: 'cdn', twinLinks: { paged: 'no-stem.html' } })).toThrow();
+    expect(includeTargets).toBe(kit.includeTargets);
+    expect(linkTargets).toBe(kit.linkTargets);
+    expect(lib.includeTargets).toBe(kit.includeTargets);
+    expect(lib.linkTargets).toBe(kit.linkTargets);
+    expect(includeTargets(text)).toEqual(['part.md']);
+    expect(linkTargets(text).map((l) => [l.href, l.kind])).toEqual([['next.paged.md', 'twin']]);
   });
 });
 
