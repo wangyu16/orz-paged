@@ -5,6 +5,9 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ## [Unreleased]
 
+Requires `orz-markdown ^2.5.0` (was `^2.3.0`); released together with
+`orz-paged-browser` at the same version.
+
 ### Fixed
 
 - `upgrade` of a 0.x file in place keeps the original as `old.paged.html~`

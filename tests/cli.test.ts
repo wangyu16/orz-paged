@@ -920,7 +920,7 @@ describe.concurrent('the CLI', () => {
     write(join(d, 'old.paged.md'), '{{nyml\nkind: meta\ntitle: Old\n}}\n\n# my 0.x text, edited\n');
     await fail(['assemble', 'old.paged.md'], 'legacy-file', { command: 'upgrade', args: ['old.paged.html', '--text', 'old.browser.paged.md'] });
     const lr = json(await cli(['assemble', 'old.paged.md', '--json'], d));
-    expect(String(lr.error)).toMatch(/legacy orz-paged 0\.x file.*orz-paged upgrade old\.paged\.html --text old\.browser\.paged\.md.*merge/);
+    expect(String(lr.error)).toMatch(/older orz-paged 0\.x file.*orz-paged upgrade old\.paged\.html --text old\.browser\.paged\.md.*merge/);
     expect(String(lr.error)).not.toMatch(/orz-paged extract/);
     await fail(['upgrade', 'old.paged.html'], 'twin-differs', { command: 'upgrade', args: ['old.paged.html', '--text', 'old.browser.paged.md'] });
     expect(text(join(d, 'old.paged.html'))).toBe(legacy);
@@ -1155,12 +1155,12 @@ describe.concurrent('the CLI', () => {
     const a = await cli(['assemble', 'doc.paged.md', '--json'], d, ro);
     expect(a.code, a.stdout).toBe(0);
     const h = json(a).sha256 as string;
-    expect(json(a).warnings).toEqual([`pair not recorded (cache not writable: ${join(d, 'not-a-folder', 'orz-paged')}); the next assemble needs --replaces ${h}`]);
+    expect(json(a).warnings).toEqual([`could not note that the two files match (cache folder not writable: ${join(d, 'not-a-folder', 'orz-paged')}), so the next assemble cannot tell it may replace the file: add --replaces ${h} to it`]);
     write(join(d, 'doc.paged.md'), '# Doc\n\nedited\n');
     expect(json(await cli(['assemble', 'doc.paged.md', '--json'], d, ro))).toMatchObject({ ok: false, reason: 'twin-differs' });
     expect(json(await cli(['assemble', 'doc.paged.md', '--replaces', h, '--json'], d, ro))).toMatchObject({ ok: true, replaced: 'token' });
     const x = await cli(['extract', 'doc.paged.html', '-o', 'copy.paged.md', '--json'], d, ro);
-    expect((json(x).warnings as string[]).join('\n')).toMatch(new RegExp(`pair not recorded .*the next extract needs --replaces ${json(x).sha256 as string}`));
+    expect((json(x).warnings as string[]).join('\n')).toMatch(new RegExp(`could not note that the two files match .*the next extract cannot tell it may replace the file: add --replaces ${json(x).sha256 as string} to it`));
     // the human output prints the sha256 (extract, upgrade; assemble: T.1)
     expect((await cli(['extract', 'doc.paged.html', '-o', 'copy2.paged.md'], d)).stdout).toMatch(new RegExp(`^  sha256 ${sha256('# Doc\n\nedited\n')} `, 'm'));
     expect((await cli(['upgrade', 'doc.paged.html', '--no-text'], d)).stdout).toMatch(new RegExp(`^  sha256 ${sha256('# Doc\n\nedited\n')} `, 'm'));
@@ -1272,7 +1272,7 @@ describe.concurrent('the CLI', () => {
     expect(json(await cli(['extract', 'old.paged.html', '--json'], l))).toMatchObject({ reason: 'legacy-file', next: { command: 'upgrade', args: ['old.paged.html', '--text', 'old.browser.paged.md'] } });
     const refused = await cli(['assemble', 'old.paged.md', '--json'], l);
     expect(json(refused)).toMatchObject({ reason: 'legacy-file', next: { command: 'upgrade', args: ['old.paged.html', '--text', 'old.browser.paged.md'] } });
-    expect(String(json(refused).error)).toMatch(/then `orz-paged assemble old\.paged\.md --replaces` followed by that sha256/);
+    expect(String(json(refused).error)).toMatch(/then `orz-paged assemble old\.paged\.md --replaces <sha256>` with that value/);
     expect(String(json(refused).error)).not.toMatch(/--force/);
     // a --replaces mismatch over a 0.x file: next is the upgrade too (C20)
     expect(json(await cli(['assemble', 'old.paged.md', '--replaces', '0'.repeat(64), '--json'], l))).toMatchObject({ reason: 'replaces-mismatch', next: { command: 'upgrade', args: ['old.paged.html', '--text', 'old.browser.paged.md'] } });

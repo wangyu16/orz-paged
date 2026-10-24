@@ -459,9 +459,10 @@ edit it there and assemble again.
 
 ## Versions
 
-> **Release status.** 1.0.0 is the first release of the rebuild (text
-> format 1); it depends on `orz-markdown ^2.3.0`. The 0.x line (up to 0.7.3)
-> is described in [Migrating from 0.x](#migrating-from-0x).
+> **Release status.** 1.1.0 is current; it depends on `orz-markdown ^2.5.0`
+> (twin-link naming for hosts, theme-coloured charts and diagrams).
+> 1.0.0 is the first release of the rebuild (text format 1). The 0.x line
+> (up to 0.7.3) is described in [Migrating from 0.x](#migrating-from-0x).
 
 Two packages, released together with the same version: `orz-paged` (the CLI
 and the Node library) and `orz-paged-browser` (the browser engine and editor
