@@ -45,14 +45,37 @@ async function openEditor(text: string, o: { hold?: (ctx: BrowserContext) => Pro
     else await page.waitForTimeout(200);
   }
   if (!frame) throw new Error('no preview pages');
+  // A theme or page size change rebuilds the preview frame (the kit follows the presentation; since orz-markdown 2.5.0
+  // the new frame loads under the shown one, which is removed once it has drawn — D-100): the editor's preview is then
+  // the newest attached frame, so `frame` is looked up again, never kept across such a change.
+  let generation = 0; // counts frame swaps (a new frame lays the text out whole: its own stats start at 0)
+  const current = (): Frame => {
+    const fs = page.frames().filter((x) => x !== page.mainFrame() && !x.isDetached());
+    const f = fs[fs.length - 1];
+    if (f && f !== frame) { frame = f; generation++; }
+    return frame!;
+  };
   const settle = async (): Promise<void> => {
     await page.waitForTimeout(300);
-    await frame!.waitForFunction(() => !document.getElementById('orz-doc')!.hasAttribute('data-orz-updating') && !(window as unknown as { __orzPaged: { busy(): boolean } }).__orzPaged.busy() && !document.querySelector('[data-orz-interim]'), null, { timeout: 90_000, polling: 100 });
-    await page.waitForTimeout(200);
+    for (let tries = 0; ; tries++) {
+      try {
+        const waited = current();
+        await waited.waitForFunction(() => !!document.getElementById('orz-doc')?.querySelector('.pagedjs_page') && !document.getElementById('orz-doc')!.hasAttribute('data-orz-updating') && !(window as unknown as { __orzPaged?: { busy(): boolean } }).__orzPaged?.busy() && !document.querySelector('[data-orz-interim]'), null, { timeout: 90_000, polling: 100 });
+        await page.waitForTimeout(200);
+        // settled in the newest frame (a swap may have begun meanwhile: then settle in that one)
+        if (current() === waited || tries >= 5) return;
+      } catch (e) {
+        if (tries >= 5 || !/detached/i.test(String((e as Error).message))) throw e;
+      }
+    }
   };
   if (!o.hold) await settle();
-  const stats = (): Promise<Stats> => frame!.evaluate(() => (window as unknown as { __orzPaged: { stats(): Stats } }).__orzPaged.stats());
-  return { ctx, page, frame, settle, stats };
+  const stats = async (): Promise<Stats> => {
+    const g = generation;
+    const st = await current().evaluate(() => (window as unknown as { __orzPaged: { stats(): Stats } }).__orzPaged.stats());
+    return { ...st, incremental: st.incremental, last: { ...st.last, frameSwaps: g } };
+  };
+  return { ctx, page, get frame() { return current(); }, settle, stats };
 }
 
 /** Replace the editor's text (one edit). */
@@ -83,9 +106,12 @@ function firstDiff(a: string[], b: string[]): string {
 /** Edit `t0` into each of `edits` in turn (each laid out), then compare with a fresh editor on the last text. */
 async function compare(t0: string, edits: string[]): Promise<{ diff: string; incremental: number; problems: string[] }> {
   const ed = await openEditor(t0);
-  const before = (await ed.stats()).incremental;
+  const s0 = await ed.stats();
   for (const t of edits) { await setText(ed.page, t); await ed.page.waitForTimeout(1200); await ed.settle(); }
-  const after = (await ed.stats()).incremental;
+  const s1 = await ed.stats();
+  // a rebuilt preview frame (a theme or page size change) counts its own re-layouts from 0
+  const after = s1.incremental;
+  const before = s1.last['frameSwaps'] === s0.last['frameSwaps'] ? s0.incremental : 0;
   const got = await signature(ed.frame);
   const problems = (await integrity(ed.page, edits[edits.length - 1]!, { frame: ed.frame })).problems;
   await ed.ctx.close();
