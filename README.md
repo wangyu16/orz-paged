@@ -10,7 +10,7 @@ saves back in place and prints to PDF from the browser (no PDF binary, no
 Puppeteer). The file is always `assemble(text)`: the text inside it is the
 document; everything else is a shell that can be regenerated. Built on the
 carrier kit of [orz-markdown](https://www.npmjs.com/package/orz-markdown)
-(`^2.5.0`; this release bundles 2.5.0; orz text format 1) and
+(`^2.7.0`; this release bundles 2.7.0; orz text format 1) and
 [Paged.js](https://pagedjs.org/) 0.4.3.
 
 The paginated sibling of [orz-mdhtml](https://www.npmjs.com/package/orz-mdhtml)
@@ -222,7 +222,7 @@ Paged.js and the print themes) is inside the file (about 1.7 MB), so it opens
 without fetching the engine. `--cdn` writes a small file that loads the engine
 from
 `https://cdn.jsdelivr.net/npm/orz-paged-browser@<version>/orz-paged.browser.js`
-(the file's own version, e.g. `orz-paged-browser@1.1.0`) — for pages you
+(the file's own version, e.g. `orz-paged-browser@1.2.0`) — for pages you
 publish on the web. Either way the webfonts, KaTeX's and highlight.js's
 styles, the content libraries (Mermaid, SMILES, Chart.js) and the editor
 (CodeMirror) load from CDNs: laying out styled pages and editing need a
@@ -373,12 +373,12 @@ Exports: `assemble`, `extract`, `readDocument`, `newDocument`, `storedText`,
 `TEMPLATE_IDS`, `DEFAULT_TEMPLATE`, `THEMES`, `THEME_INFO`, `DEFAULT_THEME`,
 `isThemeId`, `sha256`, `VERSION`, `ORZ_MARKDOWN_VERSION`, `FORMATS`,
 `BUNDLE_FILE`, `cdnBundleUrl`, `engineSource`, `engineFiles` (types
-included). `includeTargets(text)` and `linkTargets(text)` (orz-markdown 2.5.0)
+included). `includeTargets(text)` and `linkTargets(text)` (since orz-markdown 2.5)
 list a text's include directives and its links (with line and `kind`: `twin`,
 `asset`, `other`) exactly as the renderer reads them — for a site builder's
 link check.
 
-**Link names of a published site** (orz-markdown 2.5.0, FC-18 §8.2). A host
+**Link names of a published site** (since orz-markdown 2.5, FC-18 §8.2). A host
 that publishes pages under other names than the family's passes a naming:
 `assemble(text, { twinLinks: { paged: '{stem}.html' } })` makes
 `[next](next.paged.md)` point at `next.html` (a kind left out keeps the
@@ -473,8 +473,9 @@ edit it there and assemble again.
 
 ## Versions
 
-> **Release status.** 1.1.0 is current; it depends on `orz-markdown ^2.5.0`
-> (twin-link naming for hosts, theme-coloured charts and diagrams).
+> **Release status.** 1.2.0 is current; it depends on `orz-markdown ^2.7.0`
+> (the editor's reader fixes). 1.1.0 added twin-link naming for hosts and
+> theme-coloured charts and diagrams.
 > 1.0.0 is the first release of the rebuild (text format 1). The 0.x line
 > (up to 0.7.3) is described in [Migrating from 0.x](#migrating-from-0x).
 
