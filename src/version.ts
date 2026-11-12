@@ -7,4 +7,4 @@ export const VERSION = "1.2.0";
  * its browser engine embeds and every file it writes renders with — not the
  * kit an installation happens to resolve.
  */
-export const ORZ_MARKDOWN_VERSION = "2.7.0";
+export const ORZ_MARKDOWN_VERSION = "2.7.1";

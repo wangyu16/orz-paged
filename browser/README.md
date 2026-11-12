@@ -5,9 +5,9 @@ The browser engine and editor component of
 pages ("Markdown that edits itself", for paper): the very bundle every
 `.paged.html` file carries, and the same editor for web apps (orz family
 contract FC-19). Built on the carrier kit of
-[orz-markdown](https://www.npmjs.com/package/orz-markdown) 2.7.0 and
+[orz-markdown](https://www.npmjs.com/package/orz-markdown) 2.7.1 and
 [Paged.js](https://pagedjs.org/) 0.4.3 (both bundled: this release embeds
-orz-markdown 2.7.0).
+orz-markdown 2.7.1).
 
 ```sh
 npm i orz-paged-browser@1

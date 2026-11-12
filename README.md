@@ -10,7 +10,7 @@ saves back in place and prints to PDF from the browser (no PDF binary, no
 Puppeteer). The file is always `assemble(text)`: the text inside it is the
 document; everything else is a shell that can be regenerated. Built on the
 carrier kit of [orz-markdown](https://www.npmjs.com/package/orz-markdown)
-(`^2.7.0`; this release bundles 2.7.0; orz text format 1) and
+(`^2.7.1`; this release bundles 2.7.1; orz text format 1) and
 [Paged.js](https://pagedjs.org/) 0.4.3.
 
 The paginated sibling of [orz-mdhtml](https://www.npmjs.com/package/orz-mdhtml)
@@ -473,7 +473,7 @@ edit it there and assemble again.
 
 ## Versions
 
-> **Release status.** 1.2.0 is current; it depends on `orz-markdown ^2.7.0`
+> **Release status.** 1.2.0 is current; it depends on `orz-markdown ^2.7.1`
 > (the editor's reader fixes). 1.1.0 added twin-link naming for hosts and
 > theme-coloured charts and diagrams.
 > 1.0.0 is the first release of the rebuild (text format 1). The 0.x line

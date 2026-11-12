@@ -5,7 +5,7 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ## [1.2.0] — 2026-11-12
 
-Requires `orz-markdown ^2.7.0` (was `^2.5.0`): the editor shell's reader
+Requires `orz-markdown ^2.7.1` (was `^2.5.0`): the editor shell's reader
 fixes from the owner's Alembic rounds (family STATUS D-129…D-135), with no
 change to the file format.
 
@@ -17,6 +17,9 @@ change to the file format.
 - Below 640 px the toolbar keeps one row, with the other tools under More.
 - ⌘\ keeps cycling the views; for hosts: `reveal(…)`, `refreshSaveStatus()`
   and the `saveStatus` hook (FC-19 2.7.0, additive).
+- Select all, then typing or inserting text (dictation, text replacement),
+  replaces the whole text, header included, even while the settings are
+  folded (orz-markdown 2.7.1, family STATUS D-142).
 
 ## [1.1.0] — 2026-10-24
 

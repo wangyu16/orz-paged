@@ -239,7 +239,7 @@ The same value works in a `<meta http-equiv="Content-Security-Policy">` tag.
 builds its own preview frame with the kit (`orz-markdown/carrier/editor`'s
 `PREVIEW_BRIDGE_HASH`, `previewScriptHashes`) must take the hash from the
 same orz-markdown version its frame runs: the bridge, and so its hash,
-differs between kit versions (orz-paged 1.2 embeds 2.7.0; 1.1 embedded 2.5.0; 1.0
+differs between kit versions (orz-paged 1.2 embeds 2.7.1; 1.1 embedded 2.5.0; 1.0
 embedded 2.3.0). When the policy blocks the preview, the editor says so about a
 second after the frame loads (since orz-markdown 2.5): its `error` event names
 the `nonce` option of `mountEditor` and the frame's own script hashes.
