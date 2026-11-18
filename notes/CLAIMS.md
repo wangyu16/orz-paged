@@ -80,6 +80,7 @@ Binding specs: orz-markdown `spec/FC-18-text-format-1.md` (text format 1,
 | A.10 | `extract` is the kit's own function; `readDocument` is the kit's with this carrier's default kind (`opts.kind`, else the file name's, else the header `carrier`, else `paged`). | conformance |
 | A.11 | The title (FC-18 §8.1, paged): the header `title`, else the first top-level level-1 heading, else the `title` (else `text`) of strictly the first `*-title` element, else `Untitled` — for every corpus document as the manifest derives it. | corpus |
 | A.12 | (1.1.0, orz-markdown 2.5.0) The twin-link naming (FC-18 §8.2): `assemble(text, { twinLinks })` stores a naming other than the family's in `#orz-shell` `"links"` (the kit's `assembleEnvelope`) and `extract` gives it back; the family naming (`{}`, its own templates) or none writes the bytes of `assemble(text)`; an invalid naming throws; `assemble(extract(F).text, { twinLinks: extract(F).twinLinks }) === F`; `upgrade` of a 1.x file keeps it. `includeTargets` and `linkTargets` (the Node library and the assembler module; the browser package: W.4) are the kit's browser-safe functions. | conformance |
+| A.13 | (orz-markdown 2.9.0, FC-18 §8.2) A reader copy: `assemble(text, { readerCopy })` stores `true` as `#orz-shell` `"readerCopy":{}` and `{ notice }` with its notice, `extract` gives it back, `false`/`null` write the bytes of `assemble(text)`, an invalid notice throws, and `upgrade` keeps it. | scenario |
 
 ## N — newDocument and templates (FC-18 §3, §7.3, §10)
 

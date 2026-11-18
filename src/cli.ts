@@ -487,7 +487,9 @@ function cmdAssemble(p: Parsed, o: Io): void {
   let html: string;
   // the existing file's twin-link naming (#orz-shell "links", FC-18 §8.2; a host's page names): kept, as browser saves keep it
   const twinLinks = prior !== null && prior.kind === 'paged' ? prior.twinLinks : undefined;
-  try { html = assemble(text, { delivery: d, ...(Object.keys(includes).length ? { includes } : {}), ...(twinLinks ? { twinLinks } : {}) }); } catch (e) {
+  // (orz-markdown 2.9.0) a reader copy stays one (#orz-shell "readerCopy"), as its naming does
+  const readerCopy = prior !== null && prior.kind === 'paged' ? prior.readerCopy : undefined;
+  try { html = assemble(text, { delivery: d, ...(Object.keys(includes).length ? { includes } : {}), ...(twinLinks ? { twinLinks } : {}), ...(readerCopy ? { readerCopy } : {}) }); } catch (e) {
     const message = (e as Error).message.replace(/^orz-paged: /, '');
     throw new CliError(`${file}: ${message}`, NODE.libReason(message));
   }

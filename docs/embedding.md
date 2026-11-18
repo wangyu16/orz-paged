@@ -297,6 +297,15 @@ stores it in the file (`extract(html).twinLinks`), and the file keeps it in
 every save, copy and update. (`renderPreview(text, { twinLinks: false })`
 leaves links as written.)
 
+**Pages published for readers** (since orz-markdown 2.9, FC-18 §8.2). A
+website that publishes files for readers passes `readerCopy: true` (or `{
+notice: '…' }`, its own plain words) to `assemble`: opened from that site,
+the file's editor says at once that edits can't be saved to the website,
+and its Save reads "Download a copy" and downloads (a downloaded copy is an
+ordinary file). An app that saves its own way can word the editor itself:
+`editor.setWords({ save, saved, notice })` — the Save button's label, the
+toast after a save (`''`: none) and a notice above the panes.
+
 Pages need the engine's layout (Paged.js runs in the editor's preview frame
 and in an assembled file's read view), so `renderPreview` is not paginated:
 a continuous, styled view for thumbnails and lists (except `pages: true`, a

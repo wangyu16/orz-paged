@@ -32,6 +32,7 @@ import {
   type Kind,
   type ShellParts,
   type TwinNaming,
+  type ReaderCopy,
 } from 'orz-markdown/carrier';
 import { bundleUrl, isScriptSafe } from 'orz-markdown/carrier/shell';
 import { pagedValueLint } from './doc/lint.js';
@@ -105,6 +106,16 @@ export interface AssembleOptions {
    * of the file keeps it. An invalid naming throws.
    */
   twinLinks?: TwinNaming;
+  /**
+   * (orz-markdown 2.9.0, FC-18 §8.2) A reader copy: `true` (the kit's words)
+   * or `{ notice }` (the host's words, plain text, 1–300 characters) — the
+   * file is published for readers (a website's page). Stored in `#orz-shell`
+   * as `"readerCopy"`; opened from that website the file's editor says edits
+   * can't be saved there and its Save reads "Download a copy". Absent or
+   * `false`: the bytes of a file without it. An invalid value throws. The
+   * file's own saves and downloads never keep it; `upgrade` does.
+   */
+  readerCopy?: ReaderCopy | boolean | null;
 }
 
 export { PAGES_ID } from './presentation.js';
@@ -162,6 +173,7 @@ export function shellParts(options: AssembleOptions = {}, presentation: Presenta
     bodyHtml: `${readViewMarkup(presentation, delivery)}\n<div id="${CHROME_MOUNT_ID}"></div>\n${engine}`,
     ...(includes ? { includes } : {}),
     ...(options.twinLinks ? { twinLinks: options.twinLinks } : {}),
+    ...(options.readerCopy ? { readerCopy: options.readerCopy } : {}),
   };
 }
 
