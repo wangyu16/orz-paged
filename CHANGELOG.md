@@ -5,6 +5,8 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-11-20
+
 - **Running elements after a re-layout** (family D-152): a document with CSS
   running elements (`position: running()` shown by `element()` in a margin
   box) laid out again — an edit, Done, a Version or other setting — had a
@@ -24,8 +26,6 @@ All notable changes to **orz-paged** are recorded here. Versions follow
   edit, as a ruled-grid document is (seeding Paged.js' handler state from
   the kept pages would lean on its internals; such documents are short).
   Claim E.10.
-
-## [1.3.0] — 2026-11-20
 
 Requires `orz-markdown ^2.9.0` (was `^2.7.1`): reader copies for published
 pages and the editor's host words, with no change to files made without
