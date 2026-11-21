@@ -27,7 +27,7 @@ npm install orz-paged-browser@1   # or: npm i orz-paged-browser@1
 | a bundler (Vite, esbuild, webpack) | `import { mountEditor } from 'orz-paged-browser'` | `esm/orz-paged.browser.mjs` (`exports` → `import`) |
 | a plain `<script>` | `<script src=".../orz-paged.browser.js">` → `globalThis.OrzCarrier` | `orz-paged.browser.js` (`exports` → `default`) |
 | `require()` | not supported: it throws, pointing to `import` or `<script>` | `require.cjs` (`exports` → `require`) |
-| the CDN | `https://cdn.jsdelivr.net/npm/orz-paged-browser@<version>/orz-paged.browser.js` (e.g. `@1.2.0`; pin an exact version) | the same IIFE |
+| the CDN | `https://cdn.jsdelivr.net/npm/orz-paged-browser@<version>/orz-paged.browser.js` (e.g. `@1.3.0`; pin an exact version) | the same IIFE |
 
 Types: `orz-paged-browser/index.d.ts` (`Editor`, `EditorOptions`,
 `EditorHooks`, …). The ES module sets no global and boots nothing; the IIFE
@@ -239,7 +239,7 @@ The same value works in a `<meta http-equiv="Content-Security-Policy">` tag.
 builds its own preview frame with the kit (`orz-markdown/carrier/editor`'s
 `PREVIEW_BRIDGE_HASH`, `previewScriptHashes`) must take the hash from the
 same orz-markdown version its frame runs: the bridge, and so its hash,
-differs between kit versions (orz-paged 1.2 embeds 2.7.1; 1.1 embedded 2.5.0; 1.0
+differs between kit versions (orz-paged 1.3 embeds 2.9.0; 1.2 embedded 2.7.1; 1.1 embedded 2.5.0; 1.0
 embedded 2.3.0). When the policy blocks the preview, the editor says so about a
 second after the frame loads (since orz-markdown 2.5): its `error` event names
 the `nonce` option of `mountEditor` and the frame's own script hashes.
