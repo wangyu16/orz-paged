@@ -5,6 +5,18 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ## [Unreleased]
 
+Needs orz-markdown **2.10.0** (on release: `^2.10.0` and the lockfile;
+prepared against the kit's branch `course-nav` by symlink).
+
+- **Site navigation** (FC-18 §8.2, owner decision 2026-11-21): `assemble(text,
+  { siteNav: { title, home, previous?, next? } })` stores a page's place in a
+  set of pages in `#orz-shell` `"siteNav"`; `extract` reads it; `upgrade` and
+  the CLI's assemble over an existing file keep it. The file draws a slim bar
+  above the read view (the title linking home, Previous / Next), outside the
+  text; saves and the quiet update keep it, and a copy downloaded from the
+  website keeps it with links back to the website. The bar is never printed (the print view shows only the pages, RULES §9). Without it files
+  are byte for byte as before. Conformance: `siteNav: true` (`C.nav.*`).
+
 ## [1.3.0] — 2026-11-20
 
 - **Running elements after a re-layout** (family D-152): a document with CSS

@@ -376,7 +376,9 @@ export function upgrade(html: string, options: UpgradeOptions = {}): UpgradeResu
     const twinLinks = assembleOptions.twinLinks ?? ex.twinLinks;
     // (orz-markdown 2.9.0) a reader copy (#orz-shell "readerCopy") stays one: an upgrade is a new shell, not a reader's save
     const readerCopy = assembleOptions.readerCopy !== undefined ? assembleOptions.readerCopy : ex.readerCopy;
-    return { text: ex.text, html: assemble(ex.text, { ...assembleOptions, ...(includes ? { includes } : {}), ...(twinLinks ? { twinLinks } : {}), ...(readerCopy ? { readerCopy } : {}) }), from: 'format-1', moved: {}, notes: [], warnings: [] };
+    // (orz-markdown 2.10.0) and its site navigation (#orz-shell "siteNav"), as every save keeps it
+    const siteNav = assembleOptions.siteNav !== undefined ? assembleOptions.siteNav : ex.siteNav;
+    return { text: ex.text, html: assemble(ex.text, { ...assembleOptions, ...(includes ? { includes } : {}), ...(twinLinks ? { twinLinks } : {}), ...(readerCopy ? { readerCopy } : {}), ...(siteNav ? { siteNav } : {}) }), from: 'format-1', moved: {}, notes: [], warnings: [] };
   }
 
   const t = legacyText(legacy, injected);

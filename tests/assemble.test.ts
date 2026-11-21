@@ -207,6 +207,24 @@ describe('the envelope and the shell parts', () => {
     expect(assemble('{{nyml\nkind: exam-title\ntitle: Quiz <1> & 2\n}}\n', { delivery: 'cdn' })).toContain('<title>Quiz &lt;1&gt; &amp; 2</title>');
   });
 
+  it('[A.14] (orz-markdown 2.10.0, FC-18 §8.2) site navigation: assemble(text, { siteNav }) stores it in #orz-shell "siteNav" (escaped), extract gives it back, false or null write the bytes of assemble(text), an invalid one (a javascript: href) throws, and upgrade keeps it', () => {
+    const TEXT_SN = '# Week one\n\nRead this.\n';
+    const NAV = { title: 'Gases & <Solutions>', home: '../index.html', previous: { href: 'intro.md.html', label: '1 · Introduction' }, next: { href: '../unit2/gases.slides.html#s2', label: '2 · Gases' } };
+    for (const [name, o] of OPTION_SETS) {
+      const plain = assemble(TEXT_SN, o);
+      const nav = assemble(TEXT_SN, { ...o, siteNav: NAV });
+      expect(extract(nav)!.siteNav, name).toEqual(NAV);
+      expect(extract(nav)!.text, name).toBe(TEXT_SN);
+      expect(nav, name).toContain('"siteNav":{"title":"Gases & \\u003cSolutions>","home":"../index.html"');
+      expect(extract(plain)!.siteNav, name).toBeUndefined();
+      expect(assemble(TEXT_SN, { ...o, siteNav: false }) === plain, name).toBe(true);
+      expect(assemble(TEXT_SN, { ...o, siteNav: null }) === plain, name).toBe(true);
+      expect(assemble(extract(nav)!.text, { ...o, siteNav: extract(nav)!.siteNav }) === nav, name).toBe(true);
+      expect(upgrade(nav, o).html === nav, name).toBe(true);
+      expect(() => assemble(TEXT_SN, { ...o, siteNav: { title: 't', home: 'javascript:alert(1)' } })).toThrow();
+    }
+  });
+
   it('[A.13] (orz-markdown 2.9.0, FC-18 §8.2) a reader copy: assemble(text, { readerCopy }) stores true as #orz-shell "readerCopy":{} and { notice } with the notice, extract gives it back, false or null write the bytes of assemble(text), an invalid notice throws, and upgrade of a 1.x file keeps it', () => {
     const TEXT_RC = '# Week one\n\nRead this.\n';
     const NOTICE = 'Your own copy: download it to keep your changes.';

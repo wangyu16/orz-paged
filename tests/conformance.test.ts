@@ -103,6 +103,7 @@ async function makeTarget(): Promise<CarrierTarget> {
     next: { bundle: join(nextDir, BUNDLE_FILE), release: join(nextDir, 'release.json') },
     previous: { bundle: join(PREVIOUS, BUNDLE_FILE), release: join(PREVIOUS, 'release.json') },
     twinLinks: true,
+    siteNav: true,
   };
   return target;
 }
@@ -147,7 +148,7 @@ describe('the conformance target', () => {
     expect(t.twinLinks).toBe(true);
     const text = await t.create();
     expect(await t.assemble(text)).toBe(assemble(text, { engineSource: own.iife }));
-    expect(CHECK_IDS.length).toBe(50);
+    expect(CHECK_IDS.length).toBe(54); // orz-markdown 2.10.0: + C.nav.assemble, C.nav.read-view, C.save.keeps-nav, C.update.keeps-nav
   });
 });
 

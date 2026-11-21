@@ -306,6 +306,15 @@ ordinary file). An app that saves its own way can word the editor itself:
 `editor.setWords({ save, saved, notice })` — the Save button's label, the
 toast after a save (`''`: none) and a notice above the panes.
 
+**Pages of a set** (since orz-markdown 2.10, FC-18 §8.2). A website that
+publishes a set of pages passes each page its place in it: `assemble(text, {
+siteNav: { title, home, previous: { href, label }, next: { href, label } }
+})` (plain-text title and labels; relative or `http(s)` hrefs). The file
+draws a slim bar above the document — the title linking `home`, Previous /
+Next — outside the text and never printed; its saves and quiet update keep
+it, and a copy downloaded from the website keeps it with its links resolved
+against the page's address.
+
 Pages need the engine's layout (Paged.js runs in the editor's preview frame
 and in an assembled file's read view), so `renderPreview` is not paginated:
 a continuous, styled view for thumbnails and lists (except `pages: true`, a

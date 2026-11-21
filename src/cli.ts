@@ -489,7 +489,9 @@ function cmdAssemble(p: Parsed, o: Io): void {
   const twinLinks = prior !== null && prior.kind === 'paged' ? prior.twinLinks : undefined;
   // (orz-markdown 2.9.0) a reader copy stays one (#orz-shell "readerCopy"), as its naming does
   const readerCopy = prior !== null && prior.kind === 'paged' ? prior.readerCopy : undefined;
-  try { html = assemble(text, { delivery: d, ...(Object.keys(includes).length ? { includes } : {}), ...(twinLinks ? { twinLinks } : {}), ...(readerCopy ? { readerCopy } : {}) }); } catch (e) {
+  // (orz-markdown 2.10.0) and its site navigation (#orz-shell "siteNav"), as the browser saves keep it
+  const siteNav = prior !== null && prior.kind === 'paged' ? prior.siteNav : undefined;
+  try { html = assemble(text, { delivery: d, ...(Object.keys(includes).length ? { includes } : {}), ...(twinLinks ? { twinLinks } : {}), ...(readerCopy ? { readerCopy } : {}), ...(siteNav ? { siteNav } : {}) }); } catch (e) {
     const message = (e as Error).message.replace(/^orz-paged: /, '');
     throw new CliError(`${file}: ${message}`, NODE.libReason(message));
   }

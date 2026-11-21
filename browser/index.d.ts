@@ -28,6 +28,8 @@ export interface AssembleOptions {
   twinLinks?: TwinNaming;
   /** (orz-markdown 2.9.0) A reader copy: `true` or `{ notice }` (plain text, 1–300 characters) — the file is published for readers (a website's page); opened there, its editor says edits can't be saved to the website and Save reads "Download a copy". Stored in `#orz-shell` as `"readerCopy"`. */
   readerCopy?: boolean | { notice?: string };
+  /** (orz-markdown 2.10.0) Site navigation: the file's place in a set of pages — drawn as a slim bar above the read view (title → home, Previous / Next), outside the text, never printed. Plain-text title and labels; relative or absolute http(s) hrefs. Stored in `#orz-shell` as `"siteNav"`; every save and update keeps it. An invalid value rejects. */
+  siteNav?: SiteNav;
 }
 
 export interface Extracted {
@@ -41,6 +43,16 @@ export interface Extracted {
   twinLinks?: TwinNaming;
   /** (orz-markdown 2.9.0) The file's reader-copy setting (`#orz-shell` `"readerCopy"`), when it has one. */
   readerCopy?: { notice?: string };
+  /** (orz-markdown 2.10.0) The file's site navigation (`#orz-shell` `"siteNav"`), when it has one. */
+  siteNav?: SiteNav;
+}
+
+/** (orz-markdown 2.10.0) A page's place in a set of pages. */
+export interface SiteNav {
+  title: string;
+  home: string;
+  previous?: { href: string; label: string };
+  next?: { href: string; label: string };
 }
 
 /** One link of a text ({@link linkTargets}). */

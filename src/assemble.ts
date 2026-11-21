@@ -33,6 +33,7 @@ import {
   type ShellParts,
   type TwinNaming,
   type ReaderCopy,
+  type SiteNav,
 } from 'orz-markdown/carrier';
 import { bundleUrl, isScriptSafe } from 'orz-markdown/carrier/shell';
 import { pagedValueLint } from './doc/lint.js';
@@ -116,6 +117,17 @@ export interface AssembleOptions {
    * file's own saves and downloads never keep it; `upgrade` does.
    */
   readerCopy?: ReaderCopy | boolean | null;
+  /**
+   * (orz-markdown 2.10.0, FC-18 §8.2) Site navigation: the file is one page of
+   * a set of pages, and this is its place in it — `{ title, home, previous?:
+   * { href, label }, next?: { href, label } }` (plain-text title and labels;
+   * relative or absolute http(s) hrefs). Stored in `#orz-shell` as
+   * `"siteNav"`; the file draws a slim bar above the read view (title → home,
+   * Previous / Next), outside the text and never printed. Every save, the
+   * quiet update and `upgrade` keep it. Absent, `false` or `null`: the bytes
+   * of a file without it. An invalid value throws.
+   */
+  siteNav?: SiteNav | false | null;
 }
 
 export { PAGES_ID } from './presentation.js';
@@ -174,6 +186,7 @@ export function shellParts(options: AssembleOptions = {}, presentation: Presenta
     ...(includes ? { includes } : {}),
     ...(options.twinLinks ? { twinLinks: options.twinLinks } : {}),
     ...(options.readerCopy ? { readerCopy: options.readerCopy } : {}),
+    ...(options.siteNav ? { siteNav: options.siteNav } : {}),
   };
 }
 
