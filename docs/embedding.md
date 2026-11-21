@@ -305,6 +305,17 @@ and its Save reads "Download a copy" and downloads (a downloaded copy is an
 ordinary file). An app that saves its own way can word the editor itself:
 `editor.setWords({ save, saved, notice })` — the Save button's label, the
 toast after a save (`''`: none) and a notice above the panes.
+Since orz-markdown 2.10 `setWords({ status: { clean, dirty } })` words the
+save status too: a clean text's words come with a neutral dot, never the
+green "Saved" (a reader copy reads "Not saved: download to keep").
+
+**Saving on your own rhythm** (since orz-markdown 2.7). `hooks.saveStatus({
+dirty, saving })` returns the save status's words (or `{ text, tone }`,
+tone `saved` / `pending` / `unsaved` / `error`); call
+`editor.refreshSaveStatus()` when your own state changes. `foldHeader: false`
+shows the document header as text instead of one folded "Document
+settings" line, and `editor.reveal(target, { select })` brings a range, a
+heading or `#id` into view. All are typed in `index.d.ts`.
 
 **Pages of a set** (since orz-markdown 2.10, FC-18 §8.2). A website that
 publishes a set of pages passes each page its place in it: `assemble(text, {

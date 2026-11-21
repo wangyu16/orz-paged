@@ -228,6 +228,34 @@ chrome('the example web app (real Chrome)', () => {
     await file.page.context().close();
   }, 120_000);
 
+  it('[W.9] (D-143, FC-19 §3) mountEditor passes foldHeader to the kit: by default the header is one folded "Document settings" line in the source view, with foldHeader: false it is text', async () => {
+    const { page, errors } = await open('/examples/webapp/index.html', []);
+    await page.waitForFunction(() => !!(globalThis as unknown as { OrzCarrier?: unknown }).OrzCarrier);
+    const folds = await page.evaluate(async () => {
+      type Ed = { ready: Promise<{ engine: string }>; root: ShadowRoot; destroy(): void };
+      const api = (globalThis as unknown as { OrzCarrier: { mountEditor(el: HTMLElement, o: unknown): Ed } }).OrzCarrier;
+      const text = '{{nyml\nkind: document\ntitle: Folded\n}}\n\n# Notes\n';
+      const out: Array<{ engine: string; folds: number }> = [];
+      for (const extra of [{}, { foldHeader: false }]) {
+        const host = document.createElement('div');
+        host.style.cssText = 'position:relative;width:900px;height:500px';
+        document.body.append(host);
+        const ed = api.mountEditor(host, { text, hooks: { save: async () => undefined }, ...extra });
+        const { engine } = await ed.ready;
+        await new Promise((r) => setTimeout(r, 300));
+        out.push({ engine, folds: ed.root.querySelectorAll('.orz-header-fold').length });
+        ed.destroy();
+        host.remove();
+      }
+      return out;
+    });
+    expect(folds.map((f) => f.engine)).toEqual(['codemirror6', 'codemirror6']);
+    expect(folds[0]!.folds).toBeGreaterThan(0);
+    expect(folds[1]!.folds).toBe(0);
+    expect(errors).toEqual([]);
+    await page.context().close();
+  });
+
   it('[X.2] the ESM build mounts the same editor (its Paged.js preview), sets no global, and assembles the Node bytes (inline by default, the engine fetched from jsDelivr)', async () => {
     const { page, errors } = await open('/examples/webapp/esm.html', []);
     await page.waitForFunction(() => !!(globalThis as unknown as { demo?: unknown }).demo);

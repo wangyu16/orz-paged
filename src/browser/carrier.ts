@@ -234,6 +234,8 @@ export interface EditorOptions {
    * mounted on an assembled file uses the file's own naming.
    */
   twinLinks?: TwinNaming;
+  /** FC-19 §3 `foldHeader` (orz-markdown 2.7.0): the document header shown as one folded "Document settings" line in the source view; default true, `false` shows it as text. */
+  foldHeader?: boolean;
 }
 
 /** The Editor of FC-19 §4 (the kit's editor shell, which implements it). */
@@ -293,6 +295,8 @@ export function mountEditor(element: HTMLElement, options: EditorOptions, standa
     ...(options.chrome ? { chrome: options.chrome } : {}),
     ...(preferences ? { preferences } : {}),
     ...(options.nonce ? { nonce: options.nonce } : {}),
+    // FC-19 §3 foldHeader (orz-markdown 2.7.0): only `false` changes the shell's default (folded)
+    ...(options.foldHeader === false ? { foldHeader: false } : {}),
     ...(ctx?.adapter ? { adapter: ctx.adapter } : {}),
     ...(twinLinks ? { twinLinks } : {}),
     hooks,

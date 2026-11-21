@@ -16,6 +16,15 @@ prepared against the kit's branch `course-nav` by symlink).
   text; saves and the quiet update keep it, and a copy downloaded from the
   website keeps it with links back to the website. The bar is never printed (the print view shows only the pages, RULES §9). Without it files
   are byte for byte as before. Conformance: `siteNav: true` (`C.nav.*`).
+- **Typings: the editor API of orz-markdown 2.4–2.10** (STATUS D-143):
+  `browser/index.d.ts` now declares `hooks.saveStatus` (`SaveStatus`,
+  `SaveTone`, `SaveStatusState`), `foldHeader`, `reveal` (`RevealTarget`),
+  `refreshSaveStatus`, `applyEdits`, `flash`, `select`, `getSelection`,
+  `setFocusRange`, the `change` event's `label`, `setWords(EditorWords)` with
+  2.10.0's `status` (`EditorStatusWords`), which the code already had; a
+  type test checks them against the kit's own types (claim W.9).
+- `mountEditor` passes `foldHeader: false` to the kit (it was dropped, so the
+  header always folded).
 
 ## [1.3.0] — 2026-11-20
 

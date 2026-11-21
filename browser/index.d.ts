@@ -87,6 +87,38 @@ export interface DocumentInfo {
 export interface TextRange { from: number; to: number }
 export interface AiOperation { id: string; title: string; selection: boolean }
 
+/** (orz-markdown 2.7.0, FC-19 §3) How the save status's dot reads: `saved` green, `pending` neutral (a routine wait), `unsaved` amber, `error` red. */
+export type SaveTone = 'saved' | 'pending' | 'unsaved' | 'error';
+/** (orz-markdown 2.7.0) The save status a host supplies (`hooks.saveStatus`): its words and the dot's tone (default: `pending` while dirty, else `saved`). */
+export interface SaveStatus { text: string; tone?: SaveTone }
+/** (orz-markdown 2.7.0) What `hooks.saveStatus` is asked about. */
+export interface SaveStatusState {
+  /** The text differs from the last saved one (`isDirty()`). */
+  readonly dirty: boolean;
+  /** A save the editor started (Save, Cmd/Ctrl+S, `save()`) is running. */
+  readonly saving: boolean;
+}
+/** (orz-markdown 2.7.0) A place for `reveal`: exact offsets, a heading's words or `#id`, or `{ heading }`. */
+export type RevealTarget = { from: number; to?: number } | string | { heading: string };
+/** (orz-markdown 2.10.0) The save status's own words (`EditorWords.status`). */
+export interface EditorStatusWords {
+  /** Replaces "Saved", with a neutral dot (never the green one); empty or null: the default. */
+  clean?: string | null;
+  /** Replaces "Unsaved changes" (amber); empty or null: the default. */
+  dirty?: string | null;
+}
+/** (orz-markdown 2.9.0, FC-19 §3/§4) Your words for the editor (plain text; `null`: back to the default; a key left out or `undefined`: kept). */
+export interface EditorWords {
+  /** The Save button's label, accessible name and title (default "Save", or "Save now" with `hooks.saveStatus`). */
+  save?: string | null;
+  /** The toast after a save that went through your `hooks.save` or the host (default "Saved."; `''`: none). */
+  saved?: string | null;
+  /** A notice above the panes (role `status`, with Dismiss); empty or null: none. */
+  notice?: string | null;
+  /** (orz-markdown 2.10.0) The save status's words when the editor says them itself (no `hooks.saveStatus`); `null`: both defaults. */
+  status?: EditorStatusWords | null;
+}
+
 export interface EditorHooks {
   /** App host: persist the text (absent: the standalone save). */
   save?(text: string): Promise<void>;
@@ -97,6 +129,8 @@ export interface EditorHooks {
   uploadAsset?(file: File): Promise<string>;
   resolveLink?(href: string): string;
   mintUid?(): Promise<string>;
+  /** (orz-markdown 2.7.0, FC-19 §3) The words of the toolbar's save status, for a host that saves on its own rhythm: asked at mount, when the dirty or saving state changes and on `refreshSaveStatus()`. A string (dot neutral while dirty, green when clean) or `{ text, tone }`; null, undefined or a throw: the defaults. With it, Save reads "Save now". */
+  saveStatus?(state: SaveStatusState): SaveStatus | string | null | undefined;
 }
 
 export interface PreferenceStore {
@@ -122,6 +156,8 @@ export interface EditorOptions {
   fileName?: string;
   /** FC-19 §3 `twinLinks` (2.5.0): your twin-link naming — the preview names links to text twins so (not with `hooks.resolveLink`), and a save without `hooks.save` stores it in the file. */
   twinLinks?: TwinNaming;
+  /** FC-19 §3 `foldHeader` (orz-markdown 2.7.0): the document header shown as one folded "Document settings" line in the source view (a click or the caret opens it; the text is unchanged); default true. */
+  foldHeader?: boolean;
 }
 
 export type SaveVia = 'hook' | 'host' | 'file' | 'download';
@@ -143,7 +179,8 @@ export type AiProposalOutcome = { ok: true; op: string; proposal: AiProposal } |
 export type UploadOutcome = { ok: true; inserted: string[] } | { ok: false; inserted: string[]; error: string };
 
 export interface EditorEvents {
-  change: { text: string };
+  /** (orz-markdown 2.4.0) `label`: the undo step's name of an `applyEdits` edit, when the change is one. */
+  change: { text: string; label?: string };
   dirty: { dirty: boolean };
   selection: { from: number; to: number };
   save: { text: string; via: SaveVia };
@@ -156,6 +193,16 @@ export interface Editor {
   getText(): string;
   setText(text: string, options?: { resetHistory?: boolean }): void;
   setHeader(changes: Record<string, HeaderChange>): void;
+  /** (orz-markdown 2.4.0) Apply several replacements (exact offsets, not overlapping) as ONE undoable edit. */
+  applyEdits(edits: ReadonlyArray<{ from: number; to: number; insert: string }>, options?: { label?: string }): boolean;
+  /** (orz-markdown 2.4.0) Select a range of the text (exact offsets; scrolls unless `scroll: false`). */
+  select(from: number, to: number, options?: { scroll?: boolean }): void;
+  /** (orz-markdown 2.4.0) The selection in exact offsets, or null. */
+  getSelection(): { from: number; to: number } | null;
+  /** (orz-markdown 2.4.0) Dim (or fold) the text outside a range; `null` shows everything again. */
+  setFocusRange(from: number | null, to?: number, options?: { mode?: 'dim' | 'fold' }): void;
+  /** (orz-markdown 2.4.0) Light the lines the ranges touch for a moment (what a tool just changed). */
+  flash(ranges: ReadonlyArray<{ from: number; to: number }>, options?: { ms?: number }): void;
   undo(): boolean;
   redo(): boolean;
   isDirty(): boolean;
@@ -185,8 +232,12 @@ export interface Editor {
   refreshPreview(options?: { includes?: Record<string, string> | null }): Promise<void>;
   /** Resolves when the text engine is final: `codemirror6`, or `textarea` with the load error (the editor is usable before). */
   readonly ready: Promise<{ engine: string; error?: unknown }>;
-  /** (orz-markdown 2.9.0) Your words: the Save button's label (`save`), the toast after a save (`saved`; `''`: none) and a notice above the panes (`notice`); `null`: back to the default, a key left out: kept. */
-  setWords(words: { save?: string | null; saved?: string | null; notice?: string | null }): void;
+  /** (orz-markdown 2.7.0, FC-19 §4) Bring a place into view in the source and the preview and put the caret there (`select`: select it); its exact range, or null when not found. */
+  reveal(target: RevealTarget, options?: { select?: boolean }): TextRange | null;
+  /** (orz-markdown 2.7.0) Ask `hooks.saveStatus` again (your own save state changed). */
+  refreshSaveStatus(): void;
+  /** (orz-markdown 2.9.0) Your words: the Save button's label (`save`), the toast after a save (`saved`; `''`: none), a notice above the panes (`notice`) and (2.10.0) the save status's own words (`status`); `null`: back to the default, a key left out: kept. */
+  setWords(words: EditorWords): void;
 }
 
 export interface RenderPreviewOptions {
