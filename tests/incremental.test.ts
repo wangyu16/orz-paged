@@ -252,3 +252,52 @@ chrome('the preview\'s incremental re-layout equals a whole layout (real Chrome)
     await ed.ctx.close();
   }, 300_000);
 });
+
+/** A document whose page furniture is carried from page to page by Paged.js' handlers: running elements, named strings. */
+const stateful = (kind: 'running' | 'string'): string => {
+  const css = kind === 'running'
+    ? `  @page {\n    @top-center { content: element(hdr); }\n    @bottom-center { content: element(ftr); }\n  }\n  .hdr { position: running(hdr); }\n  .ftr { position: running(ftr); }\n`
+    : `  @page { @top-left { content: string(chapter); } }\n  h2 { string-set: chapter content(text); }\n`;
+  const lead = kind === 'running' ? `<div class="hdr">RUNNING HEADER</div>\n<div class="ftr">RUNNING FOOTER</div>\n\n` : '';
+  return `{{nyml\nkind: document\ntitle: Page state\nuid: doc-incrstate0000001\npage_size: A5\ncustom_css: |\n${css}}}\n\n${lead}${sections(4, 2)}\n`;
+};
+/** Per preview page: the margin boxes' text — an element's, or a string's (`::after`) — (a page with no content says BLANK). */
+const margins = (frame: Frame): Promise<string[]> => frame.evaluate(() => Array.from(document.querySelectorAll('#orz-doc > .pagedjs_pages > .pagedjs_page')).map((p) => {
+  const t = (sel: string): string => {
+    const box = p.querySelector(`${sel} > .pagedjs_margin-content`);
+    const after = box ? getComputedStyle(box, '::after').content : 'none';
+    const str = /^".*"$/.test(after) ? after.slice(1, -1) : '';
+    return `${box?.textContent || ''}${str}`.replace(/\s+/g, ' ').trim();
+  };
+  return `${t('.pagedjs_margin-top-left')}|${t('.pagedjs_margin-top-center')}|${t('.pagedjs_margin-bottom-center')}|${(p.querySelector('.pagedjs_page_content')?.textContent || '').trim() ? '' : 'BLANK'}`;
+}));
+
+chrome('page state carried by Paged.js\' handlers in the preview (real Chrome; D-152, D-153)', () => {
+  for (const kind of ['running', 'string'] as const) {
+    it(`[E.10] ${kind === 'running' ? 'running elements (`position: running()` / `element()`)' : 'named strings (`string-set` / `string()`)'}: an edit on page 1 (a whole re-layout into the off-screen buffer) and one near the end (laid out whole: no incremental re-layout) keep the page furniture on every page, no blank page, and equal a fresh layout`, async () => {
+      const t0 = stateful(kind);
+      const ed = await openEditor(t0);
+      const s0 = await ed.stats();
+      const first = await margins(ed.frame);
+      const want = kind === 'running' ? (m: string) => m.startsWith('|RUNNING HEADER|RUNNING FOOTER|') && !m.endsWith('BLANK') : (m: string) => /^\[S\d\] Section \d\|\|\|$/.test(m);
+      expect(first.length).toBeGreaterThan(2);
+      expect(first.filter((m) => !want(m))).toEqual([]);
+      let text = t0;
+      for (const [at, add] of [['**[P0]** ', 'edited on the first page '], ['**[P31]** ', `${prose(710, 40)} `]] as const) {
+        text = text.replace(at, `${at}${add}`);
+        await setText(ed.page, text);
+        await ed.page.waitForTimeout(1200);
+        await ed.settle();
+        const got = await margins(ed.frame);
+        expect(got.filter((m) => !want(m)), at).toEqual([]);
+        const sig = await signature(ed.frame);
+        const fresh = await openEditor(text);
+        expect(got, at).toEqual(await margins(fresh.frame));
+        expect(firstDiff(sig, await signature(fresh.frame)), at).toBe('same');
+        await fresh.ctx.close();
+      }
+      expect((await ed.stats()).incremental).toBe(s0.incremental);
+      await ed.ctx.close();
+    }, 300_000);
+  }
+});

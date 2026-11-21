@@ -458,6 +458,17 @@ interface ShownLayout {
 }
 let shown: ShownLayout | null = null;
 
+/**
+ * The page content's CSS carries state from page to page through Paged.js' handlers — running elements
+ * (`position: running()`, shown by `element()`) or named strings (`string-set`, shown by `string()`): an
+ * incremental re-layout is a fresh Paged.js pass that never lays out the kept pages, so that state is unset on the
+ * pages it lays out (D-153: the running header and footer gone from the edited page on). Such a document is laid
+ * out whole (as a ruled grid is); seeding the handlers' state from the kept pages would depend on Paged.js'
+ * internals (RunningHeaders' `runningSelectors[name].first`, StringSets' `pageLastString`) for no gain on the
+ * documents that use them, which are short (letters, letterheads).
+ */
+const carriesPageState = (input: PagedInput): boolean => input.sheets.some((x) => /position\s*:\s*running\s*\(|string-set\s*:/i.test(x.css));
+
 /** Paginations started (a prefix for the `data-ref`s of each). */
 let paginations = 0;
 /** Paginations abandoned mid-way, and stages styled and laid out for measuring (`stats()`). */
@@ -542,7 +553,13 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
   const out = document.createElement('div');
   out.className = 'orz-paged-buffer';
   out.setAttribute('aria-hidden', 'true');
-  out.style.cssText = 'position:absolute;left:-99999px;top:0;';
+  // laid out IN the viewport, never shown (D-152): Paged.js' overflow check compares each node's box with the page's
+  // area, and a running element (`position: running()`, set `display: none` by Paged.js) has the empty box at the
+  // viewport's 0,0 — right of an area at left -99999px, so a layout off-screen broke the page before every running
+  // element (page 1 blank, the body laid out twice). Fixed at 0,0: never scrolls or widens the page; opacity (which
+  // no descendant can undo, unlike visibility), inert and no pointer events: never seen, clicked or focused
+  out.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;visibility:hidden;opacity:0;pointer-events:none;';
+  out.inert = true;
   let previewer: Previewer | null = null;
   let others: Previewer[] = [];
   let late: Promise<unknown> | null = null;
@@ -627,7 +644,7 @@ async function paginateNow(input: PagedInput, target: HTMLElement, o: PaginateOp
     // the incremental plan: the last shown page that starts before the first changed block
     let from = 0;
     let startAt: PageStart | null = null;
-    if (o.incremental && !o.final && !direct && shown && !shown.provisional && !shown.grid && shown.target === target && shown.key === layoutKey && shown.token && pagesIn(target).length === shown.starts.length) {
+    if (o.incremental && !o.final && !direct && !carriesPageState(input) && shown && !shown.provisional && !shown.grid && shown.target === target && shown.key === layoutKey && shown.token && pagesIn(target).length === shown.starts.length) {
       let k = 0;
       while (k < blocks.length && k < shown.blocks.length && blocks[k] === shown.blocks[k]) k++;
       // an edit inside code (the first changed block holds a `pre`): a whole layout. Restarted before the fence, its

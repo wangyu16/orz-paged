@@ -3,6 +3,28 @@
 All notable changes to **orz-paged** are recorded here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+- **Running elements after a re-layout** (family D-152): a document with CSS
+  running elements (`position: running()` shown by `element()` in a margin
+  box) laid out again — an edit, Done, a Version or other setting — had a
+  blank page 1 and its body twice (3 pages → 6). The off-screen buffer sat
+  at `left: -99999px`; Paged.js hides a running element (`display: none`)
+  and its overflow check found that empty box (at the viewport's 0,0) right
+  of the page's area, so it broke the page before each one. The buffer is
+  now laid out in the viewport, fixed at 0,0 and never shown (opacity 0,
+  `visibility: hidden`, `inert`, no pointer events, below the page). The
+  first layout was not affected (it lays out in view). Claim R.19.
+- **Running elements and named strings in the editor preview** (family
+  D-153): an incremental re-layout (from the edited page on) is a fresh
+  Paged.js pass that never lays out the kept pages, so Paged.js' running
+  element and `string-set` state was unset and the header, footer or
+  string vanished from the edited page on. A document whose CSS declares
+  `position: running()` or `string-set` is now laid out whole after each
+  edit, as a ruled-grid document is (seeding Paged.js' handler state from
+  the kept pages would lean on its internals; such documents are short).
+  Claim E.10.
+
 ## [1.3.0] — 2026-11-20
 
 Requires `orz-markdown ^2.9.0` (was `^2.7.1`): reader copies for published

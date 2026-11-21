@@ -107,6 +107,32 @@ chrome('re-layouts and print (real Chrome)', () => {
     await ctx.close();
   }, 120_000);
 
+  it('[R.19] a re-layout into the off-screen buffer equals the first layout with running elements (D-152: a running element, `display: none` at the viewport\'s 0,0, lay right of an area at left -99999px, so each was a page break — page 1 blank, the body laid out twice): the same pages, the header and footer on each, none blank', async () => {
+    const text = `{{nyml\nkind: document\ntitle: Running\nuid: doc-relayoutrunning01\npage_size: Letter\ncustom_css: |\n  @page {\n    @top-center { content: element(hdr); }\n    @bottom-center { content: element(ftr); }\n  }\n  .hdr { position: running(hdr); }\n  .ftr { position: running(ftr); }\n}}\n\n<div class="hdr">RUNNING HEADER</div>\n<div class="ftr">RUNNING FOOTER</div>\n\nFirst paragraph.\n\n${Array.from({ length: 24 }, (_, i) => `Paragraph ${i + 1}. ${prose(i, 40)}`).join('\n\n')}\n\nLAST PARAGRAPH.\n`;
+    const ctx = await browser!.newContext({ viewport: { width: 1100, height: 900 } });
+    await routeCdn(ctx);
+    const page = await ctx.newPage();
+    files.write('running.paged.html', await assembleReal(text));
+    await page.goto(`${site.url}/running.paged.html`);
+    await bootDone(page);
+    await pagesIdle(page);
+    const pages = (): Promise<string[]> => page.evaluate(() => Array.from(document.querySelectorAll('#orz-pages .pagedjs_page')).map((p) => {
+      const t = (sel: string): string => (p.querySelector(sel)?.textContent || '').replace(/\s+/g, ' ').trim();
+      return `${t('.pagedjs_margin-top-center')}|${t('.pagedjs_margin-bottom-center')}|${t('.pagedjs_page_content').slice(0, 40) || 'BLANK'}`;
+    }));
+    const first = await pages();
+    expect(first.length).toBeGreaterThan(1);
+    expect(first.filter((p) => !p.startsWith('RUNNING HEADER|RUNNING FOOTER|') || p.endsWith('BLANK'))).toEqual([]);
+    for (const t of [text, text.replace('First paragraph.', 'First paragraph, edited.')]) {
+      await page.evaluate(`${APP}.view.render(${JSON.stringify(t)})`);
+      await pagesIdle(page);
+      const again = await pages();
+      expect(again.length).toBe(first.length);
+      expect(again.filter((p) => !p.startsWith('RUNNING HEADER|RUNNING FOOTER|') || p.endsWith('BLANK'))).toEqual([]);
+    }
+    await ctx.close();
+  }, 120_000);
+
   it('[R.11] Cmd/Ctrl+P in the read view while the layout is provisional: "Preparing pages…", then ONE print of the final layout once the late fonts arrived', async () => {
     const { ctx, release } = await heldFonts();
     const page = await ctx.newPage();

@@ -188,7 +188,8 @@ nothing "real". Screenshots: `/tmp/paged-themes/<id>.png` (P.5),
   (`PREVIEW_DEBOUNCE_MS` 800 ms, `maxWaitMs: Infinity`; the frame
   acknowledges a render at once — E.4); it re-lays out incrementally from
   the first page the edit changed, swapping pages in as they are laid out
-  (round 3, E.6; `paginate(…, { incremental, progressive })`); each edit is
+  (round 3, E.6; `paginate(…, { incremental, progressive })`; whole when the
+  CSS declares running elements or `string-set`, E.10 / D-153); each edit is
   posted to the frame (`orz-paged-edit`) and abandons a pagination of an
   older text at its next page (E.5); a first layout goes straight into view
   (R.14); Paged.js' queue ticks on a timer when a frame gets no animation
