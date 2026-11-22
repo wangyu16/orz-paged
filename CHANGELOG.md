@@ -5,8 +5,9 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ## [Unreleased]
 
-Needs orz-markdown **2.10.0** (on release: `^2.10.0` and the lockfile;
-prepared against the kit's branch `course-nav` by symlink).
+## [1.4.0] — 2026-11-22
+
+On orz-markdown `^2.10.0`.
 
 - **Site navigation** (FC-18 §8.2, owner decision 2026-11-21): `assemble(text,
   { siteNav: { title, home, previous?, next? } })` stores a page's place in a

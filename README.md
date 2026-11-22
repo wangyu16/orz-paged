@@ -10,7 +10,7 @@ saves back in place and prints to PDF from the browser (no PDF binary, no
 Puppeteer). The file is always `assemble(text)`: the text inside it is the
 document; everything else is a shell that can be regenerated. Built on the
 carrier kit of [orz-markdown](https://www.npmjs.com/package/orz-markdown)
-(`^2.9.0`; this release bundles 2.9.0; orz text format 1) and
+(`^2.10.0`; this release bundles 2.10.0; orz text format 1) and
 [Paged.js](https://pagedjs.org/) 0.4.3.
 
 The paginated sibling of [orz-mdhtml](https://www.npmjs.com/package/orz-mdhtml)
@@ -222,7 +222,7 @@ Paged.js and the print themes) is inside the file (about 1.7 MB), so it opens
 without fetching the engine. `--cdn` writes a small file that loads the engine
 from
 `https://cdn.jsdelivr.net/npm/orz-paged-browser@<version>/orz-paged.browser.js`
-(the file's own version, e.g. `orz-paged-browser@1.3.0`) — for pages you
+(the file's own version, e.g. `orz-paged-browser@1.4.0`) — for pages you
 publish on the web. Either way the webfonts, KaTeX's and highlight.js's
 styles, the content libraries (Mermaid, SMILES, Chart.js) and the editor
 (CodeMirror) load from CDNs: laying out styled pages and editing need a
@@ -473,9 +473,9 @@ edit it there and assemble again.
 
 ## Versions
 
-> **Release status.** 1.3.0 is current; it depends on `orz-markdown ^2.9.0`
-> (reader copies for a website's pages, `readerCopy`, and the editor's host
-> words, `setWords`). 1.2.0 brought the editor's reader fixes. 1.1.0 added twin-link naming for hosts and
+> **Release status.** 1.4.0 is current; it depends on `orz-markdown ^2.10.0`
+> (the course navigation bar, `siteNav`). 1.3.0 added reader copies for a website's pages, `readerCopy`, and the editor's host
+> words, `setWords`. 1.2.0 brought the editor's reader fixes. 1.1.0 added twin-link naming for hosts and
 > theme-coloured charts and diagrams.
 > 1.0.0 is the first release of the rebuild (text format 1). The 0.x line
 > (up to 0.7.3) is described in [Migrating from 0.x](#migrating-from-0x).

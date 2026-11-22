@@ -12,7 +12,7 @@ document is its **text twin** (`x.paged.md`, orz text format 1, FC-18, kind
 one page that shows the document as Paged.js print pages, edits and saves
 itself in the browser and prints to PDF (the browser's print; no PDF binary).
 Built on the orz-markdown carrier kit ([orz-markdown](../orz-markdown)
-`carrier/*`, **`^2.9.0`**): the standalone file's whole runtime is the kit's
+`carrier/*`, **`^2.10.0`**): the standalone file's whole runtime is the kit's
 `orz-markdown/carrier/app`; this repo supplies the paged kind behind its
 `StandaloneKind` seam, the paged runtime (Paged.js 0.4.3, pinned) and the
 print themes. orz-mdhtml 1.0 is the reference for everything that is not
@@ -25,7 +25,7 @@ Two npm packages live here, **versioned in lockstep**:
   `esm/orz-paged.browser.mjs`, `release.json`, hand-written `index.d.ts`,
   `require.cjs` (a `require()` shim that throws), `docs/embedding.md` (copied).
 
-> **Status:** **1.3.0** (2026-11-20: on orz-markdown `^2.9.0` — reader copies, `assemble` passes `readerCopy`, FC-18 §8.2, and the editor's host words `setWords`, FC-19). **1.2.0** (2026-11-12: on orz-markdown `^2.7.1` — the editor shell's reader fixes D-129…D-135). **1.1.0** (2026-10-24: on orz-markdown `^2.5.0` —
+> **Status:** **1.4.0** (2026-11-22: on orz-markdown `^2.10.0` — the course navigation bar (`assemble(text, { siteNav })`, FC-18 §8.2) and the reader copy's own save-status words (D-154)). **1.3.0** (2026-11-20: on orz-markdown `^2.9.0` — reader copies, `assemble` passes `readerCopy`, FC-18 §8.2, and the editor's host words `setWords`, FC-19). **1.2.0** (2026-11-12: on orz-markdown `^2.7.1` — the editor shell's reader fixes D-129…D-135). **1.1.0** (2026-10-24: on orz-markdown `^2.5.0` —
 > the twin-link naming `twinLinks` through assemble/extract/renderPreview/
 > mountEditor/the read view/the CLI, the kit's `includeTargets`/`linkTargets`,
 > `themeSwatch` dots, the 1.1.0 backlog repairs; conformance 50 checks with
@@ -37,7 +37,7 @@ Two npm packages live here, **versioned in lockstep**:
 > GAP` workaround is left. Claims in `notes/CLAIMS.md` (bound by
 > `tests/claims.test.ts`).
 >
-> **orz-markdown is installed from the registry** (`^2.9.0`, a real
+> **orz-markdown is installed from the registry** (`^2.10.0`, a real
 > directory, no symlink). To try an unpublished orz-markdown, link
 > `node_modules/orz-markdown` to `../../orz-markdown`; the bundle resolves the
 > kit's dependencies from its real directory (one KaTeX: `build/bundle.ts`).
@@ -235,7 +235,7 @@ family root; never edit the copy here alone). This package's facts are in
 `release.config.json` (kit floor `kit.required`, bundles, manifest check,
 fast lane, the column matrix as an `extra` step).
 
-1. orz-markdown is installed from the registry (`^2.9.0`; never a link). For a later kit, `npx npm@11 install orz-markdown@^X.Y.Z` (the gate refuses a range below `kit.required`, a link, a non-registry lockfile entry, an older install, or a bundle that embeds another kit).
+1. orz-markdown is installed from the registry (`^2.10.0`; never a link). For a later kit, `npx npm@11 install orz-markdown@^X.Y.Z` (the gate refuses a range below `kit.required`, a link, a non-registry lockfile entry, an older install, or a bundle that embeds another kit).
 2. Bump **both** `package.json` and `browser/package.json` to the same
    version; date the CHANGELOG entry (`## [x.y.z] — YYYY-MM-DD`, no
    "unreleased"). `npm run build`, `npm run examples`, commit, push `main`.
