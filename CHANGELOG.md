@@ -7,7 +7,7 @@ All notable changes to **orz-paged** are recorded here. Versions follow
 
 ## [1.4.0] — 2026-11-22
 
-On orz-markdown `^2.10.0`.
+Requires `orz-markdown ^2.10.0` (was `^2.9.0`): the course navigation bar and the reader copy's save-status words.
 
 - **Site navigation** (FC-18 §8.2, owner decision 2026-11-21): `assemble(text,
   { siteNav: { title, home, previous?, next? } })` stores a page's place in a
